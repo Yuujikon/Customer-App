@@ -1,0 +1,39 @@
+name: gdc_customer_app
+description: GDC Sari-Sari Store — Browse & Pre-Order
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Firebase
+  firebase_core:      ^2.27.1
+  firebase_auth:      ^4.17.9
+  cloud_firestore:    ^4.15.9
+  firebase_messaging: ^14.7.20
+
+  # UI & state
+  provider:           ^6.1.2
+  google_fonts:       ^6.2.1
+  intl:               ^0.19.0
+
+  # Notifications
+  flutter_local_notifications: ^17.1.2
+
+  # Utilities
+  uuid:  ^4.3.3
+  connectivity_plus: ^6.0.3  # internet check
+  firebase_storage: ^11.7.7
+  image_picker: 1.1.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
