@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../config/theme.dart';
 
 class QtyControl extends StatefulWidget {
   final int qty;
@@ -37,9 +38,9 @@ class _QtyControlState extends State<QtyControl> {
       child: Opacity(
         opacity: disabled ? 0.3 : 1.0,
         child: Container(width: 28, height: 28,
-            decoration: BoxDecoration(color: Colors.grey.shade200, shape: BoxShape.circle),
+            decoration: BoxDecoration(color: const Color(0xFFF0F0F0), shape: BoxShape.circle, border: Border.all(color: Colors.black.withOpacity(0.05))),
             alignment: Alignment.center,
-            child: Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.black54))),
+            child: Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: GdcColors.textPrimary))),
       ),
     );
   }
@@ -47,18 +48,20 @@ class _QtyControlState extends State<QtyControl> {
   @override
   Widget build(BuildContext context) => Row(mainAxisSize: MainAxisSize.min, children: [
     _btn('-5', -5, () => _adjust(-5)), const SizedBox(width: 4),
-    _btn('−', -1, () => _adjust(-1)), const SizedBox(width: 4),
-    SizedBox(width: 34, height: 34,
+    _btn('−', -1, () => _adjust(-1)), const SizedBox(width: 6),
+    SizedBox(width: 38, height: 34,
         child: TextField(controller: _ctrl, textAlign: TextAlign.center,
             keyboardType: TextInputType.number,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             onSubmitted: (_) => _commit(), onEditingComplete: _commit,
             decoration: InputDecoration(contentPadding: EdgeInsets.zero,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(50),
-                    borderSide: BorderSide(color: Colors.grey.shade300)),
-                filled: true, fillColor: Colors.grey.shade100),
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
-    const SizedBox(width: 4), 
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: GdcColors.terracotta.withOpacity(0.1))),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: GdcColors.terracotta.withOpacity(0.1))),
+                filled: true, fillColor: Colors.white),
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: GdcColors.terracotta))),
+    const SizedBox(width: 6), 
     _btn('+', 1, () => _adjust(1)),
     const SizedBox(width: 4), 
     _btn('+5', 5, () => _adjust(5)),

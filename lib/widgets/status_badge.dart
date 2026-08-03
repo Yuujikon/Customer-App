@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/order.dart';
+import '../config/theme.dart';
 
 class StatusBadge extends StatelessWidget {
   final OrderStatus status;
@@ -10,17 +11,25 @@ class StatusBadge extends StatelessWidget {
     final (label, bg, fg) = switch (status) {
       OrderStatus.pending   => ('Pending',   const Color(0xFFFFF3CD), const Color(0xFF856404)),
       OrderStatus.staging   => ('Packing',   const Color(0xFFCCE5FF), const Color(0xFF004085)),
-      OrderStatus.ready     => ('Ready',     const Color(0xFFD4EDDA), const Color(0xFF155724)),
-      OrderStatus.collected => ('Collected', const Color(0xFFD4EDDA), const Color(0xFF155724)),
-      OrderStatus.cancelled => ('Cancelled', const Color(0xFFF8D7DA), const Color(0xFF721C24)),
-      OrderStatus.refunded  => ('Refunded',  const Color(0xFFE2E3E5), const Color(0xFF383D41)),
-      OrderStatus.refund_requested => ('Refund Requested', const Color(0xFFFFF3E0), const Color(0xFFE65100)),
-      OrderStatus.refund_rejected  => ('Refund Rejected',  const Color(0xFFF8D7DA), const Color(0xFF721C24)),
+      OrderStatus.ready     => ('Ready',     const Color(0xFFE8F5E9), GdcColors.success),
+      OrderStatus.collected => ('Collected', const Color(0xFFE8F5E9), GdcColors.success),
+      OrderStatus.cancelled => ('Cancelled', const Color(0xFFFDECEA), GdcColors.error),
+      OrderStatus.refunded  => ('Refunded',  const Color(0xFFF5F5F5), GdcColors.textMuted),
+      OrderStatus.refund_requested => ('Refund Requested', const Color(0xFFFFF3E0), GdcColors.warning),
+      OrderStatus.refund_rejected  => ('Refund Rejected',  const Color(0xFFFDECEA), GdcColors.error),
     };
+    
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(50)),
-      child: Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: fg)),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg, 
+        borderRadius: BorderRadius.circular(50),
+        border: Border.all(color: fg.withOpacity(0.2)),
+      ),
+      child: Text(
+        label.toUpperCase(), 
+        style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: fg, letterSpacing: 0.5),
+      ),
     );
   }
 }

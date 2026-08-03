@@ -12,15 +12,17 @@ class AppAuthProvider extends ChangeNotifier {
   String?   _gender;
   String    _bio = '';
   DateTime? _birthday;
-  String?   _base64Photo; // Local store for base64 photo
+  String?   _base64Photo; 
+  int       _loyaltyPoints = 0;
 
   User? get currentUser  => _auth.currentUser;
   String get displayName => currentUser?.displayName ?? 'Customer';
   String get email       => currentUser?.email ?? '';
-  String? get photoUrl   => _base64Photo; // Return base64 instead of URL
+  String? get photoUrl   => _base64Photo; 
   String? get gender     => _gender;
   String get bio         => _bio;
   DateTime? get birthday => _birthday;
+  int get loyaltyPoints  => _loyaltyPoints;
 
   void initialize() {
     if (currentUser != null) {
@@ -49,7 +51,8 @@ class AppAuthProvider extends ChangeNotifier {
         _gender = d['gender'];
         _bio = d['bio'] ?? '';
         _birthday = (d['birthday'] as Timestamp?)?.toDate();
-        _base64Photo = d['photoBase64']; // Read from Firestore
+        _base64Photo = d['photoBase64']; 
+        _loyaltyPoints = d['loyaltyPoints'] ?? 0;
         notifyListeners();
       }
     });

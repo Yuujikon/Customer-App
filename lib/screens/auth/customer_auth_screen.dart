@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../config/theme.dart';
 
 class CustomerAuthScreen extends StatefulWidget {
   final bool isRegister;
@@ -25,33 +26,56 @@ class _CustomerAuthScreenState extends State<CustomerAuthScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-          title: Text(widget.isRegister ? 'Create Account' : 'Sign In')),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          title: Text(widget.isRegister ? 'Create Account' : 'Welcome Back', style: const TextStyle(fontWeight: FontWeight.w900))),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
-        child: Column(children: [
-          const SizedBox(height: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+          const SizedBox(height: 20),
+          Text(widget.isRegister 
+            ? 'Join GDC Sari-Sari Store and start pre-ordering your essentials.' 
+            : 'Sign in to access your orders and fresh grocery basket.',
+            style: const TextStyle(color: GdcColors.textSecondary, fontSize: 14, height: 1.5, fontWeight: FontWeight.w500)),
+          const SizedBox(height: 40),
+          
           if (widget.isRegister)
             TextField(controller: _name,
-                decoration: const InputDecoration(labelText: 'Full Name')),
-          if (widget.isRegister) const SizedBox(height: 12),
+                decoration: const InputDecoration(labelText: 'Full Name', prefixIcon: Icon(Icons.person_rounded))),
+          if (widget.isRegister) const SizedBox(height: 16),
+          
           TextField(controller: _email,
-              decoration: const InputDecoration(labelText: 'Email'),
+              decoration: const InputDecoration(labelText: 'Email Address', prefixIcon: Icon(Icons.email_rounded)),
               keyboardType: TextInputType.emailAddress),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
+          
           TextField(controller: _password,
               decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.lock_rounded),
                   labelText: widget.isRegister
                       ? 'Password (min 6 chars)' : 'Password'),
               obscureText: true),
+          
           if (_error.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text(_error, style: TextStyle(
-                color: Theme.of(context).colorScheme.error, fontSize: 13)),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: GdcColors.error.withOpacity(0.05), borderRadius: BorderRadius.circular(12)),
+              child: Text(_error, style: const TextStyle(color: GdcColors.error, fontSize: 13, fontWeight: FontWeight.bold)),
+            ),
           ],
-          const SizedBox(height: 24),
+          
+          const SizedBox(height: 40),
           ElevatedButton(
             onPressed: _loading ? null : () async {
+              if (_email.text.isEmpty || _password.text.isEmpty || (widget.isRegister && _name.text.isEmpty)) {
+                setState(() => _error = 'Please fill in all fields');
+                return;
+              }
               setState(() { _loading = true; _error = ''; });
               try {
                 if (widget.isRegister) {
@@ -61,22 +85,26 @@ class _CustomerAuthScreenState extends State<CustomerAuthScreen> {
                   await context.read<AppAuthProvider>().signIn(
                       _email.text.trim(), _password.text);
                 }
-                // _Root in main.dart listens to authStateChanges and navigates automatically
                 if (mounted) Navigator.pop(context);
               } on FirebaseAuthException catch (e) {
                 setState(() {
-                  _error = e.message ?? 'Something went wrong';
+                  _error = e.message ?? 'Authentication failed';
+                  _loading = false;
+                });
+              } catch (e) {
+                setState(() {
+                  _error = e.toString();
                   _loading = false;
                 });
               }
             },
             child: _loading
-                ? const SizedBox(height: 20, width: 20,
+                ? const SizedBox(height: 24, width: 24,
                 child: CircularProgressIndicator(
-                    strokeWidth: 2, color: Colors.white))
-                : Text(widget.isRegister ? 'Create Account' : 'Sign In'),
+                    strokeWidth: 3, color: Colors.white))
+                : Text(widget.isRegister ? 'REGISTER NOW' : 'SIGN IN'),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           TextButton(
             onPressed: () {
               Navigator.pushReplacement(context, MaterialPageRoute(
@@ -85,7 +113,7 @@ class _CustomerAuthScreenState extends State<CustomerAuthScreen> {
             },
             child: Text(widget.isRegister
                 ? 'Already have an account? Sign In'
-                : "Don't have an account? Register"),
+                : "Don't have an account? Register here", style: const TextStyle(fontWeight: FontWeight.w700, color: GdcColors.terracotta)),
           ),
         ]),
       ),

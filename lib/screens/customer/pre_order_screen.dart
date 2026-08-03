@@ -98,7 +98,9 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
       );
     }
 
+    final op            = context.read<OrderProvider>();
     final inventory      = context.read<InventoryProvider>();
+    final settings       = inventory.settings;
     final effectivelyClosed = inventory.settings.effectivelyClosed;
     final products       = inventory.products;
     final hasPerishables  = cart.any((ci) =>
@@ -107,10 +109,37 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
         products.any((p) => p.id == ci.productId && p.isPerishable));
 
     final total = cart.fold(0.0, (s, i) => s + i.price * i.qty);
-    final slots = StoreHours.availableSlots(
-      hasPerishables: hasPerishables,
-      onlyPerishables: onlyPerishables,
-    );
+    
+    // Calculate dynamic maxHours for slot picker and notice
+    int minWindow = settings.standardWindowHours;
+    for (final item in cart) {
+      final p = products.firstWhere((prod) => prod.id == item.productId);
+      int itemWindow;
+      if (p.pickupWindowHours != null) {
+        itemWindow = p.pickupWindowHours!;
+      } else if (p.isPerishable) {
+        itemWindow = settings.perishableWindowHours;
+      } else {
+        itemWindow = settings.standardWindowHours;
+      }
+      if (itemWindow < minWindow) minWindow = itemWindow;
+    }
+    
+    if (hasPerishables && cart.any((i) => !i.isPerishable)) {
+       if (settings.mixedWindowHours < minWindow) minWindow = settings.mixedWindowHours;
+    }
+
+    final slots = StoreHours.availableSlots(maxHours: minWindow);
+
+    // Dynamic warning text
+    String pickupNotice = '';
+    if (onlyPerishables) {
+      pickupNotice = 'Strict pickup: Your order contains only perishables. Please collect within $minWindow hours.';
+    } else if (hasPerishables) {
+      pickupNotice = 'Quality notice: Your order has perishable items. Pick up within $minWindow hours to ensure freshness.';
+    } else {
+      pickupNotice = 'Pick up within $minWindow hours. Uncollected orders will be cancelled.';
+    }
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
@@ -155,26 +184,21 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
           ),
 
           // Perishable warning
-          if (hasPerishables) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                  color: const Color(0xFFFFF3E0),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFFFCC80).withOpacity(0.5))),
-              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Icon(Icons.info_outline_rounded,
-                    size: 20, color: Color(0xFFF57C00)),
-                const SizedBox(width: 12),
-                Expanded(child: Text(
-                    onlyPerishables 
-                      ? 'Strict pickup: Your order contains only perishables. Please collect within 2 hours.'
-                      : 'Quality notice: Your order has perishable items. Pick up within 24 hours to ensure freshness.',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF7B4A00), height: 1.4))),
-              ]),
-            ),
-          ],
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+                color: hasPerishables ? const Color(0xFFFFF3E0) : GdcColors.cream,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: hasPerishables ? const Color(0xFFFFCC80).withOpacity(0.5) : GdcColors.terracotta.withOpacity(0.1))),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Icon(Icons.info_outline_rounded,
+                  size: 20, color: hasPerishables ? const Color(0xFFF57C00) : GdcColors.terracotta),
+              const SizedBox(width: 12),
+              Expanded(child: Text(
+                  pickupNotice,
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: hasPerishables ? const Color(0xFF7B4A00) : GdcColors.textSecondary, height: 1.4))),
+            ]),
+          ),
 
           const SizedBox(height: 24),
 

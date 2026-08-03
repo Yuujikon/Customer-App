@@ -12,35 +12,45 @@ class StoreHours {
   }
 
   static List<Map<String, dynamic>> availableSlots({
-    bool hasPerishables = false, 
-    bool onlyPerishables = false,
+    int maxHours = 72,
   }) {
     final now = DateTime.now();
     List<Map<String, dynamic>> allSlots = [];
 
-    // How many days to show based on item types
-    int daysToShow = 1; 
-    if (!onlyPerishables) {
-      if (hasPerishables) daysToShow = 2; 
-      else daysToShow = 4; 
-    }
+    // Calculate the absolute deadline for pickup
+    final windowEnd = now.add(Duration(hours: maxHours));
 
-    for (int i = 0; i < daysToShow; i++) {
+    // We check up to 4 days just to be safe with date transitions
+    for (int i = 0; i < 4; i++) {
       final date = now.add(Duration(days: i));
       final isToday = i == 0;
       final dayName = isToday ? 'Today' : (i == 1 ? 'Tomorrow' : DateFormat('EEEE').format(date));
       final dateStr = DateFormat('MMM d');
 
-      for (int h = openHour; h <= closeHour; h++) {
-        final timeLabel = h == 12 ? '12:00 PM' : (h > 12 ? '${h - 12}:00 PM' : '$h:00 AM');
-        final endLabel = (h + 1) == 12 ? '12:00 PM' : ((h + 1) > 12 ? '${(h + 1) - 12}:00 PM' : '${h + 1}:00 AM');
+      // Only process days that fall within our window
+      if (DateTime(date.year, date.month, date.day, openHour).isAfter(windowEnd)) {
+        break; 
+      }
+
+      for (int h = openHour; h < closeHour; h++) {
+        final slotTime = DateTime(date.year, date.month, date.day, h);
         
-        bool isPast = isToday && h <= now.hour;
+        // Skip if slot is in the past
+        if (isToday && h <= now.hour) continue;
+        
+        // Skip if slot is outside the allowed window
+        if (slotTime.isAfter(windowEnd)) continue;
+
+        final hStart = h;
+        final hEnd   = h + 1;
+        
+        final timeLabel = hStart == 12 ? '12:00 PM' : (hStart > 12 ? '${hStart - 12}:00 PM' : '$hStart:00 AM');
+        final endLabel  = hEnd == 12 ? '12:00 PM' : (hEnd > 12 ? '${hEnd - 12}:00 PM' : '$hEnd:00 AM');
 
         allSlots.add({
           'value': '$dayName $timeLabel',
           'label': '$dayName (${dateStr.format(date)}): $timeLabel – $endLabel',
-          'isPast': isPast,
+          'isPast': false,
           'hour': h,
         });
       }

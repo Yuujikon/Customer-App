@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import '../models/product.dart';
+import '../models/bundle.dart';
 import '../models/order.dart';
 import '../models/transaction.dart';
 import '../models/store_settings.dart';
@@ -11,10 +12,12 @@ class InventoryProvider extends ChangeNotifier {
 
   List<Product>          _products     = [];
   List<StoreTransaction> _transactions = [];
+  List<ProductBundle>    _bundles      = [];
   StoreSettings          _settings     = const StoreSettings(isClosed: false);
 
   List<Product>          get products     => _products;
   List<StoreTransaction> get transactions => _transactions;
+  List<ProductBundle>    get bundles      => _bundles;
   StoreSettings          get settings     => _settings;
 
   // ── Sorting Logic ──────────────────────────────────────────────────────────
@@ -56,6 +59,10 @@ class InventoryProvider extends ChangeNotifier {
       _transactions = list;
       notifyListeners();
     });
+    _fs.bundlesStream().listen((list) {
+      _bundles = list;
+      notifyListeners();
+    });
     _fs.settingsStream().listen((settings) {
       _settings = settings;
       notifyListeners();
@@ -87,4 +94,10 @@ class InventoryProvider extends ChangeNotifier {
     ]);
     // No notifyListeners needed — Firestore streams handle it
   }
+
+  Future<void> watchProduct(String productId, String email) =>
+      _fs.watchProduct(productId, email);
+
+  Future<bool> isWatching(String productId, String email) =>
+      _fs.isWatching(productId, email);
 }

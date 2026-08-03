@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 import '../models/order.dart';
 import '../models/product.dart';
 import '../models/refund_request.dart';
+import '../models/store_settings.dart';
 import '../services/firestore_service.dart';
 import '../services/notification_service.dart';
 
@@ -11,6 +12,7 @@ class OrderProvider extends ChangeNotifier {
 
   final List<PreOrder> _orders  = [];
   final List<CartItem> _preCart = [];
+  StoreSettings _settings = const StoreSettings(isClosed: false);
 
   List<PreOrder> get orders  => _orders;
   List<CartItem> get preCart => _preCart;
@@ -19,19 +21,55 @@ class OrderProvider extends ChangeNotifier {
   Stream<List<PreOrder>> get ordersStream => _fs.ordersStream();
 
   // Stream for a specific customer
-  Stream<List<PreOrder>> ordersStreamForEmail(String email) =>
-      _fs.ordersStreamForEmail(email).map((list) {
-        _orders.clear();
-        _orders.addAll(list);
-        return list;
-      });
+  Stream<List<PreOrder>>? _cachedStream;
+  String? _cachedEmail;
+
+  Stream<List<PreOrder>> ordersStreamForEmail(String email, {int limit = 20}) {
+    if (_cachedStream != null && _cachedEmail == email) {
+      return _cachedStream!;
+    }
+    
+    _cachedEmail = email;
+    _cachedStream = _fs.ordersStreamForEmail(email, limit: limit).map((list) {
+      _orders.clear();
+      _orders.addAll(list);
+      return list;
+    }).asBroadcastStream();
+    
+    return _cachedStream!;
+  }
 
   Stream<List<RefundRequest>> refundRequestsStreamForEmail(String email) =>
       _fs.refundRequestsStreamForEmail(email);
 
+  List<CartItem> getBuyItAgainItems() {
+    if (_orders.isEmpty) return [];
+    
+    // Count occurrences of each product in the last 10 orders
+    final counts = <String, int>{};
+    final itemsMap = <String, CartItem>{};
+    
+    final recentOrders = _orders.take(10);
+    for (final order in recentOrders) {
+      if (order.status == OrderStatus.collected) {
+        for (final item in order.items) {
+          counts[item.productId] = (counts[item.productId] ?? 0) + 1;
+          itemsMap[item.productId] = item;
+        }
+      }
+    }
+
+    final sortedIds = counts.keys.toList()
+      ..sort((a, b) => counts[b]!.compareTo(counts[a]!));
+      
+    return sortedIds.take(5).map((id) => itemsMap[id]!).toList();
+  }
+
   void initialize() {
-    // In the customer app, we don't listen to ALL orders at startup.
-    // Individual screens use ordersStreamForEmail()
+    _fs.settingsStream().listen((s) {
+      _settings = s;
+      notifyListeners();
+    });
   }
 
   // ── Pre-order cart ─────────────────────────────────────────────────────────
@@ -82,17 +120,31 @@ class OrderProvider extends ChangeNotifier {
     required List<Product> allProducts,
   }) async {
     // Determine expiration based on items
-    final hasPerishables = _preCart.any((i) => i.isPerishable);
-    final onlyPerishables = _preCart.every((i) => i.isPerishable);
-    
-    DateTime expiresAt;
-    if (onlyPerishables) {
-      expiresAt = DateTime.now().add(const Duration(hours: 2));
-    } else if (hasPerishables) {
-      expiresAt = DateTime.now().add(const Duration(days: 1));
-    } else {
-      expiresAt = DateTime.now().add(const Duration(days: 3));
+    int minWindow = _settings.standardWindowHours;
+    bool hasPerishables = false;
+
+    for (final item in _preCart) {
+      final p = allProducts.firstWhere((prod) => prod.id == item.productId);
+      int itemWindow;
+      
+      if (p.pickupWindowHours != null) {
+        itemWindow = p.pickupWindowHours!;
+      } else if (p.isPerishable) {
+        itemWindow = _settings.perishableWindowHours;
+      } else {
+        itemWindow = _settings.standardWindowHours;
+      }
+
+      if (p.isPerishable) hasPerishables = true;
+      if (itemWindow < minWindow) minWindow = itemWindow;
     }
+
+    // Special case for mixed orders if store has a specific mixed window policy
+    if (hasPerishables && _preCart.any((i) => !i.isPerishable)) {
+       if (_settings.mixedWindowHours < minWindow) minWindow = _settings.mixedWindowHours;
+    }
+    
+    final expiresAt = DateTime.now().add(Duration(hours: minWindow));
 
     // Generate a human-readable order ID using timestamp to avoid needing a full orders listener
     final ts = DateTime.now().millisecondsSinceEpoch.toString();

@@ -4,6 +4,7 @@ import '../models/order.dart';
 import '../models/transaction.dart';
 import '../models/expense.dart';
 import '../models/refund_request.dart';
+import '../models/bundle.dart';
 import '../models/store_settings.dart';
 
 class FirestoreService {
@@ -15,6 +16,8 @@ class FirestoreService {
   CollectionReference get _transactions => _db.collection('transactions');
   CollectionReference get _expenses     => _db.collection('expenses');
   CollectionReference get _refundQueue  => _db.collection('refund_requests');
+  CollectionReference get _watches      => _db.collection('watched_products');
+  CollectionReference get _bundles      => _db.collection('bundles');
   DocumentReference   get _settings     => _db.collection('settings').doc('store_settings');
 
   // ── Store Settings ─────────────────────────────────────────────────────────
@@ -55,10 +58,11 @@ class FirestoreService {
       _orders.orderBy('createdAt', descending: true).snapshots().map(
               (s) => s.docs.map(PreOrder.fromFirestore).toList());
 
-  Stream<List<PreOrder>> ordersStreamForEmail(String email) =>
+  Stream<List<PreOrder>> ordersStreamForEmail(String email, {int limit = 20}) =>
       _orders
           .where('customerEmail', isEqualTo: email)
           .orderBy('createdAt', descending: true)
+          .limit(limit)
           .snapshots()
           .map((s) => s.docs.map(PreOrder.fromFirestore).toList());
 
@@ -135,4 +139,26 @@ class FirestoreService {
           .orderBy('createdAt', descending: true)
           .snapshots()
           .map((s) => s.docs.map(RefundRequest.fromFirestore).toList());
+
+  // ── Product Watches ────────────────────────────────────────────────────────
+
+  Future<void> watchProduct(String productId, String email) {
+    final id = '${productId}_${email.replaceAll('@', '_').replaceAll('.', '_')}';
+    return _watches.doc(id).set({
+      'productId': productId,
+      'email': email,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<bool> isWatching(String productId, String email) async {
+    final id = '${productId}_${email.replaceAll('@', '_').replaceAll('.', '_')}';
+    final doc = await _watches.doc(id).get();
+    return doc.exists;
+  }
+
+  // ── Bundles ────────────────────────────────────────────────────────────────
+
+  Stream<List<ProductBundle>> bundlesStream() =>
+      _bundles.where('isActive', isEqualTo: true).snapshots().map((s) => s.docs.map(ProductBundle.fromFirestore).toList());
 }

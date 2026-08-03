@@ -16,6 +16,14 @@ class MyOrdersScreen extends StatefulWidget {
 
 class _MyOrdersScreenState extends State<MyOrdersScreen> {
   String? _expanded;
+  late Stream<List<PreOrder>> _ordersStream;
+
+  @override
+  void initState() {
+    super.initState();
+    final email = context.read<AppAuthProvider>().email;
+    _ordersStream = context.read<OrderProvider>().ordersStreamForEmail(email);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,12 +52,13 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
         ],
       ),
       body: StreamBuilder<List<PreOrder>>(
-        stream: context.read<OrderProvider>().ordersStreamForEmail(email),
+        stream: _ordersStream,
         builder: (context, snap) {
           if (snap.hasError) {
             return _ErrorState(error: snap.error.toString());
           }
-          if (snap.connectionState == ConnectionState.waiting) {
+          
+          if (!snap.hasData && snap.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
@@ -63,6 +72,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
             itemCount: orders.length,
             separatorBuilder: (_, __) => const SizedBox(height: 12),
+            physics: const AlwaysScrollableScrollPhysics(),
             itemBuilder: (_, i) {
               final o = orders[i];
               final isOpen = _expanded == o.id;

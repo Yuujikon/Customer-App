@@ -6,15 +6,20 @@ class GdcColors {
   static const terracottaLight = Color(0xFFE28B6B);
   static const terracottaDark  = Color(0xFF8B3D1F);
   
-  static const cream           = Color(0xFFFDF6EE);
-  static const creamDark       = Color(0xFFF5EAD9);
-  static const warmWhite       = Color(0xFFFFFBF5);
-  static const warmBrown       = Color(0xFF7C4A2D);
+  // More grounded neutrals
+  static const cream           = Color(0xFFF9F3EB); // Slightly darker
+  static const creamDark       = Color(0xFFF2E4D0);
+  static const warmWhite       = Color(0xFFFEFAF5);
+  static const warmBrown       = Color(0xFF5D3A26); // Darker for better contrast
   
-  static const success         = Color(0xFF4CAF50);
-  static const warning         = Color(0xFFFF9800);
-  static const error           = Color(0xFFE53935);
-  static const info            = Color(0xFF03A9F4);
+  static const success         = Color(0xFF2E7D32); // Darker green
+  static const warning         = Color(0xFFEF6C00); // Darker orange
+  static const error           = Color(0xFFC62828); // Darker red
+  static const info            = Color(0xFF0277BD);
+  
+  static const textPrimary     = Color(0xFF2D241E);
+  static const textSecondary   = Color(0xFF5A4D46);
+  static const textMuted       = Color(0xFF8D7F78);
 }
 
 class GdcTheme {
@@ -27,39 +32,47 @@ class GdcTheme {
         onPrimary:      Colors.white,
         secondary:      GdcColors.warmBrown,
         onSecondary:    Colors.white,
-        surface:        GdcColors.warmWhite,
-        onSurface:      const Color(0xFF2D241E),
-        surfaceContainerLow: GdcColors.cream,
+        surface:        GdcColors.cream, // Use cream as surface to reduce "white bloom"
+        onSurface:      GdcColors.textPrimary,
+        surfaceContainerLow: GdcColors.warmWhite,
         surfaceContainerHighest: GdcColors.creamDark,
-        outline:        GdcColors.terracotta.withOpacity(0.12),
+        outline:        GdcColors.terracotta.withOpacity(0.2), // Stronger outline
       ),
-      textTheme: GoogleFonts.plusJakartaSansTextTheme(base.textTheme),
+      textTheme: GoogleFonts.plusJakartaSansTextTheme(base.textTheme).copyWith(
+        bodyMedium: TextStyle(color: GdcColors.textPrimary),
+        bodySmall:  TextStyle(color: GdcColors.textSecondary),
+      ),
       cardTheme: CardThemeData(
         elevation: 0,
         color: Colors.white,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: GdcColors.terracotta.withOpacity(0.08)),
+          borderRadius: BorderRadius.circular(16), // Slightly tighter corners
+          side: BorderSide(color: GdcColors.terracotta.withOpacity(0.15)), // More visible border
         ),
       ),
       chipTheme: ChipThemeData(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        side: BorderSide.none,
-        backgroundColor: GdcColors.cream,
+        side: BorderSide(color: GdcColors.terracotta.withOpacity(0.2)),
+        backgroundColor: Colors.white,
         selectedColor: GdcColors.terracotta,
-        labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+        disabledColor: Colors.grey.shade100,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: GdcColors.textPrimary),
+        secondaryLabelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: Colors.white,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        labelStyle: const TextStyle(color: GdcColors.textSecondary),
+        hintStyle: const TextStyle(color: GdcColors.textMuted),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: GdcColors.terracotta.withOpacity(0.1)),
+          borderSide: BorderSide(color: GdcColors.terracotta.withOpacity(0.15)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: GdcColors.terracotta.withOpacity(0.1)),
+          borderSide: BorderSide(color: GdcColors.terracotta.withOpacity(0.15)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
@@ -73,19 +86,25 @@ class GdcTheme {
           minimumSize: const Size.fromHeight(54),
           elevation: 0,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 0.5),
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: Colors.white,
+        backgroundColor: GdcColors.cream,
         indicatorColor: GdcColors.terracotta.withOpacity(0.1),
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         height: 70,
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return const TextStyle(color: GdcColors.terracotta, fontWeight: FontWeight.bold, fontSize: 12);
+          }
+          return const TextStyle(color: GdcColors.textMuted, fontSize: 12);
+        }),
         iconTheme: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
             return const IconThemeData(color: GdcColors.terracotta);
           }
-          return const IconThemeData(color: Colors.grey);
+          return const IconThemeData(color: GdcColors.textMuted);
         }),
       ),
     ).addSemanticExtensions();
@@ -96,9 +115,9 @@ extension on ThemeData {
   ThemeData addSemanticExtensions() {
     return copyWith(extensions: [
       GdcSemanticColors(
-        perishable: const Color(0xFFF57C00),
-        fresh:      const Color(0xFF4CAF50),
-        urgent:     const Color(0xFFE53935),
+        perishable: const Color(0xFFD35400), // More contrast
+        fresh:      const Color(0xFF1E8449),
+        urgent:     const Color(0xFFC0392B),
       ),
     ]);
   }
