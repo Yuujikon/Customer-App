@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'dart:convert';
 import '../../providers/auth_provider.dart';
+import '../../utils/format.dart';
 import '../../config/theme.dart';
 
 class AccountScreen extends StatefulWidget {

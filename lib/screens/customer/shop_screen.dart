@@ -291,6 +291,13 @@ class _ProductTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final semantic = Theme.of(context).extension<GdcSemanticColors>();
     final perishableColor = semantic?.perishable ?? Colors.orange;
+
+    // Calculate effective price for display
+    double effectivePrice = product.price;
+    if (product.discountPercentage > 0) {
+      effectivePrice -= (product.price * (product.discountPercentage / 100));
+    }
+    effectivePrice -= product.discountFixed;
     
     return GestureDetector(
       onTap: onTap,
@@ -379,7 +386,10 @@ class _ProductTile extends StatelessWidget {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(formatPeso(product.price),
+                                  if (product.discountPercentage > 0 || product.discountFixed > 0)
+                                    Text(formatPeso(product.price),
+                                        style: const TextStyle(fontSize: 10, color: Colors.grey, decoration: TextDecoration.lineThrough, fontWeight: FontWeight.w600)),
+                                  Text(formatPeso(effectivePrice),
                                       style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: GdcColors.terracotta)),
                                   Text('${product.stock} ${product.unit} left',
                                       style: TextStyle(fontSize: 9.5, color: product.stock <= 5 ? GdcColors.error : GdcColors.textSecondary, fontWeight: FontWeight.w800)),

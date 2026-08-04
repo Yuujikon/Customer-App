@@ -15,8 +15,8 @@ class StatusBadge extends StatelessWidget {
       OrderStatus.collected => ('Collected', const Color(0xFFE8F5E9), GdcColors.success),
       OrderStatus.cancelled => ('Cancelled', const Color(0xFFFDECEA), GdcColors.error),
       OrderStatus.refunded  => ('Refunded',  const Color(0xFFF5F5F5), GdcColors.textMuted),
-      OrderStatus.refund_requested => ('Refund Requested', const Color(0xFFFFF3E0), GdcColors.warning),
-      OrderStatus.refund_rejected  => ('Refund Rejected',  const Color(0xFFFDECEA), GdcColors.error),
+      OrderStatus.refundRequested => ('Refund Requested', const Color(0xFFFFF3E0), GdcColors.warning),
+      OrderStatus.refundRejected  => ('Refund Rejected',  const Color(0xFFFDECEA), GdcColors.error),
     };
     
     return Container(

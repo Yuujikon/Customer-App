@@ -19,6 +19,7 @@ class OrderProvider extends ChangeNotifier {
 
   List<PreOrder> get orders  => _orders;
   List<CartItem> get preCart => _preCart;
+  List<Promotion> get promotions => _promotions;
 
   // Stream that auto-updates for admin view
   Stream<List<PreOrder>> get ordersStream => _fs.ordersStream();
@@ -126,6 +127,8 @@ class OrderProvider extends ChangeNotifier {
     required String location,
     required String pickupSlot,
     required List<Product> allProducts,
+    int pointsRedeemed = 0,
+    bool isSeniorPWD = false,
   }) async {
     // Determine expiration based on items
     int minWindow = _settings.standardWindowHours;
@@ -158,11 +161,11 @@ class OrderProvider extends ChangeNotifier {
     final ts = DateTime.now().millisecondsSinceEpoch.toString();
     final shortId = ts.substring(ts.length - 4);
     
-    // Calculate breakdown using PricingEngine
     final breakdown = PricingEngine.calculate(
       items: _preCart, 
       allProducts: allProducts, 
       activePromos: _promotions,
+      pointsToRedeem: pointsRedeemed,
     );
     
     final order = PreOrder(
@@ -172,15 +175,17 @@ class OrderProvider extends ChangeNotifier {
       customerEmail: customerEmail,
       items:         List.from(_preCart),
       subtotal:      breakdown.subtotal,
-      discount:      breakdown.promoDiscount + breakdown.seniorDiscount,
+      discount:      breakdown.promoDiscount + breakdown.seniorDiscount + breakdown.pointsDiscount,
       tax:           breakdown.vAtAmount,
       total:         breakdown.total,
+      pointsRedeemed: pointsRedeemed,
       status:        OrderStatus.pending,
       notes:         notes,
       location:      location,
       pickupTime:    pickupSlot,
       createdAt:     DateTime.now(),
       expiresAt:     expiresAt,
+      isSeniorPWD:   isSeniorPWD,
     );
 
     await _fs.addOrder(order);
@@ -252,7 +257,7 @@ class OrderProvider extends ChangeNotifier {
     await NotificationService.notifyAdminRefundRequest(order.orderId, order.customerName);
     
     // Update order status to show it's being reviewed
-    await _fs.updateOrderStatus(orderId, OrderStatus.refund_requested);
+    await _fs.updateOrderStatus(orderId, OrderStatus.refundRequested);
 
     notifyListeners();
   }

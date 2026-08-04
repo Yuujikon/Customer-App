@@ -5,6 +5,7 @@ import '../models/transaction.dart';
 import '../models/expense.dart';
 import '../models/refund_request.dart';
 import '../models/bundle.dart';
+import '../models/promotion.dart';
 import '../models/store_settings.dart';
 
 class FirestoreService {

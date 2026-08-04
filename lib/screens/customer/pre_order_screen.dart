@@ -9,6 +9,7 @@ import '../../providers/order_provider.dart';
 import '../../widgets/qty_control.dart';
 import '../../utils/format.dart';
 import '../../utils/store_hours.dart';
+import '../../utils/pricing_engine.dart';
 import '../../config/theme.dart';
 
 const _pickupLocations = [
@@ -30,6 +31,8 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
   String    _location  = _pickupLocations[0];
   String    _slot      = '';
   String    _notes     = '';
+  bool      _redeemPoints = false; 
+  bool      _isSeniorPWD = false; // NEW
   bool      _schedOpen = false;
   String    _error     = '';
   bool      _loading   = false;
@@ -100,6 +103,7 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
 
     final op            = context.read<OrderProvider>();
     final inventory      = context.read<InventoryProvider>();
+    final auth           = context.watch<AppAuthProvider>();
     final settings       = inventory.settings;
     final effectivelyClosed = inventory.settings.effectivelyClosed;
     final products       = inventory.products;
@@ -108,7 +112,15 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
     final onlyPerishables = cart.every((ci) =>
         products.any((p) => p.id == ci.productId && p.isPerishable));
 
-    final total = cart.fold(0.0, (s, i) => s + i.price * i.qty);
+    final breakdown = PricingEngine.calculate(
+      items: cart, 
+      allProducts: products, 
+      activePromos: op.promotions,
+      pointsToRedeem: _redeemPoints ? auth.loyaltyPoints : 0,
+      isSeniorOrPWD: _isSeniorPWD,
+    );
+
+    final total = breakdown.total;
     
     // Calculate dynamic maxHours for slot picker and notice
     int minWindow = settings.standardWindowHours;
@@ -202,6 +214,42 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
 
           const SizedBox(height: 24),
 
+          // ── Loyalty Redemption ──────────────────────────────────────────────
+          if (auth.loyaltyPoints >= 10) ...[
+             _SectionHeader('Loyalty Rewards'),
+             Card(
+               elevation: 0,
+               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: GdcColors.terracotta.withOpacity(0.1))),
+               child: CheckboxListTile(
+                 title: const Text('Redeem Suki Points', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                 subtitle: Text('Use ${auth.loyaltyPoints} points for ${formatPeso(auth.loyaltyPoints.toDouble())} discount', style: const TextStyle(fontSize: 12)),
+                 value: _redeemPoints,
+                 onChanged: (v) => setState(() => _redeemPoints = v ?? false),
+                 secondary: const Icon(Icons.stars_rounded, color: Colors.amber),
+                 activeColor: GdcColors.terracotta,
+                 contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+               ),
+             ),
+             const SizedBox(height: 24),
+          ],
+
+          // ── Senior / PWD Discount ──────────────────────────────────────────
+          _SectionHeader('Discounts'),
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: GdcColors.terracotta.withOpacity(0.1))),
+            child: CheckboxListTile(
+              title: const Text('Senior / PWD Discount', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              subtitle: const Text('Applies 20% discount (VAT Exempt)', style: TextStyle(fontSize: 12)),
+              value: _isSeniorPWD,
+              onChanged: (v) => setState(() => _isSeniorPWD = v ?? false),
+              secondary: const Icon(Icons.badge_outlined, color: Colors.blue),
+              activeColor: GdcColors.terracotta,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+            ),
+          ),
+          const SizedBox(height: 24),
+
           // ── Cart items ──────────────────────────────────────────────────────
           _SectionHeader('Items In Basket (${cart.length})'),
           ...cart.map((item) {
@@ -282,6 +330,8 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                           location:      _location,
                           pickupSlot:    _slot,
                           allProducts:   context.read<InventoryProvider>().products,
+                          pointsRedeemed: _redeemPoints ? auth.loyaltyPoints : 0,
+                          isSeniorPWD: _isSeniorPWD,
                         );
                         setState(() { 
                           _done = order; 
