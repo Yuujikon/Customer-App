@@ -11,7 +11,7 @@ class AppAuthProvider extends ChangeNotifier {
 
   String?   _gender;
   String    _bio = '';
-  DateTime? _birthday;
+  String?   _phoneNumber; // Added phone number
   String?   _base64Photo; 
   int       _loyaltyPoints = 0;
 
@@ -21,8 +21,10 @@ class AppAuthProvider extends ChangeNotifier {
   String? get photoUrl   => _base64Photo; 
   String? get gender     => _gender;
   String get bio         => _bio;
-  DateTime? get birthday => _birthday;
+  String? get phoneNumber => _phoneNumber;
   int get loyaltyPoints  => _loyaltyPoints;
+
+  bool get initialized => _auth.currentUser != null;
 
   void initialize() {
     if (currentUser != null) {
@@ -35,7 +37,7 @@ class AppAuthProvider extends ChangeNotifier {
       } else {
         _gender = null;
         _bio = '';
-        _birthday = null;
+        _phoneNumber = null;
         _base64Photo = null;
       }
       notifyListeners();
@@ -50,7 +52,7 @@ class AppAuthProvider extends ChangeNotifier {
         final d = snap.data() ?? {};
         _gender = d['gender'];
         _bio = d['bio'] ?? '';
-        _birthday = (d['birthday'] as Timestamp?)?.toDate();
+        _phoneNumber = d['phoneNumber']; // Read phone from Firestore
         _base64Photo = d['photoBase64']; 
         _loyaltyPoints = d['loyaltyPoints'] ?? 0;
         notifyListeners();
@@ -91,7 +93,7 @@ class AppAuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> updateProfile({String? name, String? gender, String? bio, DateTime? birthday}) async {
+  Future<void> updateProfile({String? name, String? gender, String? bio, String? phone}) async {
     final user = currentUser;
     if (user == null) return;
 
@@ -100,7 +102,7 @@ class AppAuthProvider extends ChangeNotifier {
     await _db.collection('users').doc(user.uid).set({
       if (gender != null) 'gender': gender,
       if (bio != null) 'bio': bio,
-      if (birthday != null) 'birthday': Timestamp.fromDate(birthday),
+      if (phone != null) 'phoneNumber': phone,
     }, SetOptions(merge: true));
     
     notifyListeners();

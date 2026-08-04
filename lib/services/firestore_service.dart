@@ -18,6 +18,7 @@ class FirestoreService {
   CollectionReference get _refundQueue  => _db.collection('refund_requests');
   CollectionReference get _watches      => _db.collection('watched_products');
   CollectionReference get _bundles      => _db.collection('bundles');
+  CollectionReference get _promotions   => _db.collection('promotions');
   DocumentReference   get _settings     => _db.collection('settings').doc('store_settings');
 
   // ── Store Settings ─────────────────────────────────────────────────────────
@@ -161,4 +162,9 @@ class FirestoreService {
 
   Stream<List<ProductBundle>> bundlesStream() =>
       _bundles.where('isActive', isEqualTo: true).snapshots().map((s) => s.docs.map(ProductBundle.fromFirestore).toList());
+
+  // ── Promotions ─────────────────────────────────────────────────────────────
+
+  Stream<List<Promotion>> promotionsStream() =>
+      _promotions.where('isActive', isEqualTo: true).snapshots().map((s) => s.docs.map(Promotion.fromFirestore).toList());
 }

@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'dart:convert';
 import '../../providers/auth_provider.dart';
+import '../../config/theme.dart';
 
 class AccountScreen extends StatefulWidget {
   final VoidCallback onLogout;
@@ -23,8 +24,11 @@ class _AccountScreenState extends State<AccountScreen> {
     final auth = context.watch<AppAuthProvider>();
 
     return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        title: const Text('Account', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Account', style: TextStyle(fontWeight: FontWeight.w900)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         actions: [
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
@@ -69,7 +73,7 @@ class _AccountScreenState extends State<AccountScreen> {
               if (_uploading)
                 Positioned.fill(
                   child: Container(
-                    decoration: BoxDecoration(
+                    decoration: const BoxDecoration(
                       color: Colors.black26,
                       shape: BoxShape.circle,
                     ),
@@ -96,62 +100,52 @@ class _AccountScreenState extends State<AccountScreen> {
           ),
           const SizedBox(height: 16),
           Text(auth.displayName,
-              style: Theme.of(context).textTheme.titleLarge
-                  ?.copyWith(fontWeight: FontWeight.bold)),
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
           const SizedBox(height: 4),
           Text(auth.email,
-              style: const TextStyle(color: Colors.grey)),
-          if (auth.bio.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(auth.bio, 
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.blueGrey)),
-            ),
+              style: const TextStyle(color: GdcColors.textMuted, fontWeight: FontWeight.w500)),
         ])),
 
         const SizedBox(height: 32),
 
         // Info card
-        Card(child: Column(children: [
-          ListTile(
-              leading: const Icon(Icons.email_outlined),
-              title: const Text('Email'),
-              subtitle: Text(auth.email)),
-          const Divider(height: 1),
-          ListTile(
-              leading: const Icon(Icons.person_outline),
-              title: const Text('Display Name'),
-              subtitle: Text(auth.displayName)),
-          const Divider(height: 1),
-          ListTile(
-              leading: const Icon(Icons.wc_outlined),
-              title: const Text('Gender'),
-              subtitle: Text(auth.gender ?? 'Not specified')),
-          const Divider(height: 1),
-          ListTile(
-              leading: const Icon(Icons.cake_outlined),
-              title: const Text('Birthday'),
-              subtitle: Text(auth.birthday != null 
-                  ? DateFormat('MMMM dd, yyyy').format(auth.birthday!)
-                  : 'Not specified')),
-        ])),
+        Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: GdcColors.terracotta.withOpacity(0.1))),
+          child: Column(children: [
+            ListTile(
+                leading: const Icon(Icons.email_outlined, color: GdcColors.terracotta),
+                title: const Text('Email', style: TextStyle(fontSize: 12, color: GdcColors.textMuted, fontWeight: FontWeight.bold)),
+                subtitle: Text(auth.email, style: const TextStyle(fontWeight: FontWeight.w700, color: GdcColors.textPrimary))),
+            const Divider(height: 1, indent: 56),
+            ListTile(
+                leading: const Icon(Icons.phone_outlined, color: GdcColors.terracotta),
+                title: const Text('Phone Number', style: TextStyle(fontSize: 12, color: GdcColors.textMuted, fontWeight: FontWeight.bold)),
+                subtitle: Text(auth.phoneNumber ?? 'Not set', style: const TextStyle(fontWeight: FontWeight.w700, color: GdcColors.textPrimary))),
+            const Divider(height: 1, indent: 56),
+            ListTile(
+                leading: const Icon(Icons.wc_outlined, color: GdcColors.terracotta),
+                title: const Text('Gender', style: TextStyle(fontSize: 12, color: GdcColors.textMuted, fontWeight: FontWeight.bold)),
+                subtitle: Text(auth.gender ?? 'Not specified', style: const TextStyle(fontWeight: FontWeight.w700, color: GdcColors.textPrimary))),
+          ])),
 
         const SizedBox(height: 16),
 
         // About card
-        Card(child: Column(children: [
-          ListTile(
-              leading: const Icon(Icons.store_outlined),
-              title: const Text('GDC Sari-Sari Store'),
-              subtitle: const Text('Pickup hours: 11:00 AM – 3:00 PM')),
-          const Divider(height: 1),
-          ListTile(
-              leading: const Icon(Icons.info_outline),
-              title: const Text('How it works'),
-              subtitle: const Text(
-                  'Add items from Shop → Submit Pre-Order → Pick up at the store')),
-        ])),
+        Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: GdcColors.terracotta.withOpacity(0.1))),
+          child: Column(children: [
+            const ListTile(
+                leading: Icon(Icons.store_outlined, color: GdcColors.terracotta),
+                title: Text('GDC Sari-Sari Store', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text('Pickup hours: 9:00 AM – 10:00 PM')),
+            const Divider(height: 1, indent: 56),
+            ListTile(
+                leading: const Icon(Icons.info_outline, color: GdcColors.terracotta),
+                title: const Text('How it works', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text('Earn 1 point for every ${formatPeso(100)} spent! Points can be used for future rewards.', style: const TextStyle(fontSize: 12))),
+          ])),
 
         const SizedBox(height: 32),
 
@@ -186,11 +180,11 @@ class _AccountScreenState extends State<AccountScreen> {
               }
             },
             icon:  const Icon(Icons.logout, color: Colors.red),
-            label: const Text('Sign Out', style: TextStyle(color: Colors.red)),
+            label: const Text('Sign Out', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
             style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(52),
+                minimumSize: const Size.fromHeight(56),
                 side: const BorderSide(color: Colors.red),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)))),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)))),
       ]),
     );
   }
@@ -215,14 +209,10 @@ class _AccountScreenState extends State<AccountScreen> {
         }
       } catch (e) {
         if (mounted) {
-          String msg = 'Upload failed. Please check if Firebase Storage is enabled in Console.';
-          if (e.toString().contains('404')) {
-            msg = 'Error 404: Storage bucket not found. Please click "Get Started" in Firebase Storage Console.';
-          }
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(msg), backgroundColor: Colors.red, duration: const Duration(seconds: 5))
+            SnackBar(content: Text('Upload failed: $e'), backgroundColor: Colors.red)
           );
-          setState(() => _localPhoto = null); // Reset preview on failure
+          setState(() => _localPhoto = null);
         }
       } finally {
         if (mounted) setState(() => _uploading = false);
@@ -232,15 +222,15 @@ class _AccountScreenState extends State<AccountScreen> {
 
   void _showEditDialog(BuildContext context, AppAuthProvider auth) {
     final nameCtrl = TextEditingController(text: auth.displayName);
+    final phoneCtrl = TextEditingController(text: auth.phoneNumber ?? '');
     final bioCtrl  = TextEditingController(text: auth.bio);
     String? tempGender = auth.gender;
-    DateTime? tempBday = auth.birthday;
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Edit Profile'),
+          title: const Text('Edit Profile', style: TextStyle(fontWeight: FontWeight.w900)),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -248,6 +238,12 @@ class _AccountScreenState extends State<AccountScreen> {
                 TextField(
                   controller: nameCtrl,
                   decoration: const InputDecoration(labelText: 'Display Name'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: phoneCtrl,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(labelText: 'Phone Number', hintText: '09123456789'),
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
@@ -264,24 +260,6 @@ class _AccountScreenState extends State<AccountScreen> {
                   decoration: const InputDecoration(labelText: 'Bio', hintText: 'Tell us about yourself'),
                   maxLines: 2,
                 ),
-                const SizedBox(height: 12),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Birthday', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                  subtitle: Text(tempBday != null 
-                      ? DateFormat('MMM dd, yyyy').format(tempBday!) 
-                      : 'Select Date'),
-                  trailing: const Icon(Icons.calendar_today_outlined, size: 20),
-                  onTap: () async {
-                    final d = await showDatePicker(
-                      context: context,
-                      initialDate: tempBday ?? DateTime.now().subtract(const Duration(days: 365 * 18)),
-                      firstDate: DateTime(1900),
-                      lastDate: DateTime.now(),
-                    );
-                    if (d != null) setDialogState(() => tempBday = d);
-                  },
-                ),
               ],
             ),
           ),
@@ -290,10 +268,10 @@ class _AccountScreenState extends State<AccountScreen> {
             ElevatedButton(
               onPressed: () async {
                 await auth.updateProfile(
-                  name:     nameCtrl.text.trim(),
-                  gender:   tempGender,
-                  bio:      bioCtrl.text.trim(),
-                  birthday: tempBday,
+                  name:  nameCtrl.text.trim(),
+                  gender: tempGender,
+                  bio:   bioCtrl.text.trim(),
+                  phone: phoneCtrl.text.trim(),
                 );
                 if (ctx.mounted) Navigator.pop(ctx);
               },

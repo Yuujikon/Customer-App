@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
 
-enum OrderStatus { pending, staging, ready, collected, cancelled, refunded, refund_requested, refund_rejected }
+enum OrderStatus { pending, staging, ready, collected, cancelled, refunded, refundRequested, refundRejected }
 
 class CartItem {
   final String productId;
@@ -18,13 +17,18 @@ class CartItem {
     this.isPerishable = false,
   });
 
-  factory CartItem.fromMap(Map<String, dynamic> m) => CartItem(
-    productId:    m['productId'] ?? '',
-    name:         m['name'] ?? '',
-    price:        (m['price'] as num).toDouble(),
-    qty:          m['qty'] ?? 1,
-    isPerishable: m['isPerishable'] ?? false,
-  );
+  factory CartItem.fromMap(dynamic m) {
+    if (m is! Map) {
+      return const CartItem(productId: '', name: 'Unknown Item', price: 0, qty: 0);
+    }
+    return CartItem(
+      productId:    m['productId'] ?? '',
+      name:         m['name'] ?? '',
+      price:        (m['price'] as num? ?? 0).toDouble(),
+      qty:          m['qty'] ?? 1,
+      isPerishable: m['isPerishable'] ?? false,
+    );
+  }
 
   Map<String, dynamic> toMap() => {
     'productId':    productId,
@@ -34,8 +38,14 @@ class CartItem {
     'isPerishable': isPerishable,
   };
 
-  CartItem copyWith({int? qty}) =>
-      CartItem(productId: productId, name: name, price: price, qty: qty ?? this.qty, isPerishable: isPerishable);
+  CartItem copyWith({int? qty, double? price}) =>
+      CartItem(
+        productId: productId, 
+        name: name, 
+        price: price ?? this.price, 
+        qty: qty ?? this.qty, 
+        isPerishable: isPerishable
+      );
 }
 
 class PreOrder {
@@ -44,6 +54,9 @@ class PreOrder {
   final String         customerName;
   final String         customerEmail;
   final List<CartItem> items;
+  final double         subtotal;
+  final double         discount;
+  final double         tax;
   final double         total;
   final OrderStatus    status;
   final String         notes;
@@ -52,6 +65,7 @@ class PreOrder {
   final DateTime       createdAt;
   final DateTime?      expiresAt;
   final String?        rejectionReason;
+  final bool           isSeniorPWD;
 
   const PreOrder({
     required this.id,
@@ -59,6 +73,9 @@ class PreOrder {
     required this.customerName,
     required this.customerEmail,
     required this.items,
+    this.subtotal = 0,
+    this.discount = 0,
+    this.tax = 0,
     required this.total,
     required this.status,
     this.notes      = '',
@@ -67,41 +84,33 @@ class PreOrder {
     required this.createdAt,
     this.expiresAt,
     this.rejectionReason,
+    this.isSeniorPWD = false,
   });
 
   factory PreOrder.fromFirestore(DocumentSnapshot doc) {
-    try {
-      final d = doc.data() as Map<String, dynamic>? ?? {};
-      return PreOrder(
-        id:            doc.id,
-        orderId:       d['orderId'] ?? '',
-        customerName:  d['customerName'] ?? '',
-        customerEmail: d['customerEmail'] ?? '',
-        items:         (d['items'] as List? ?? []).map((e) {
-          if (e is Map) return CartItem.fromMap(Map<String, dynamic>.from(e));
-          return const CartItem(productId: 'err', name: 'Invalid Item', price: 0, qty: 0);
-        }).toList(),
-        total:         (d['total'] as num? ?? 0).toDouble(),
-        status: OrderStatus.values.firstWhere(
-          (e) => e.name == (d['status'] ?? 'pending'),
-          orElse: () => OrderStatus.pending,
-        ),
-        notes:         d['notes'] ?? '',
-        location:      d['location'] ?? '',
-        pickupTime:    d['pickupTime'] ?? '',
-        createdAt:     (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-        expiresAt:     (d['expiresAt'] as Timestamp?)?.toDate(),
-        rejectionReason: d['rejectionReason'],
-      );
-    } catch (e) {
-      debugPrint('Error parsing order ${doc.id}: $e');
-      // Return a dummy order so the whole screen doesn't crash
-      return PreOrder(
-        id: doc.id, orderId: 'ERROR', customerName: 'Error Loading',
-        customerEmail: '', items: [], total: 0, status: OrderStatus.cancelled,
-        createdAt: DateTime.now(),
-      );
-    }
+    final d = doc.data() as Map<String, dynamic>;
+    return PreOrder(
+      id:            doc.id,
+      orderId:       d['orderId'] ?? '',
+      customerName:  d['customerName'] ?? '',
+      customerEmail: d['customerEmail'] ?? '',
+      items:         (d['items'] as List? ?? []).map((e) => CartItem.fromMap(e)).toList(),
+      subtotal:      (d['subtotal'] as num? ?? 0).toDouble(),
+      discount:      (d['discount'] as num? ?? 0).toDouble(),
+      tax:           (d['tax'] as num? ?? 0).toDouble(),
+      total:         (d['total'] as num? ?? 0).toDouble(),
+      status: OrderStatus.values.firstWhere(
+        (e) => e.name == (d['status'] ?? 'pending'),
+        orElse: () => OrderStatus.pending,
+      ),
+      notes:         d['notes'] ?? '',
+      location:      d['location'] ?? '',
+      pickupTime:    d['pickupTime'] ?? '',
+      createdAt:     (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      expiresAt:     (d['expiresAt'] as Timestamp?)?.toDate(),
+      rejectionReason: d['rejectionReason'],
+      isSeniorPWD:   d['isSeniorPWD'] ?? false,
+    );
   }
 
   Map<String, dynamic> toFirestore() => {
@@ -109,6 +118,9 @@ class PreOrder {
     'customerName':  customerName,
     'customerEmail': customerEmail,
     'items':         items.map((i) => i.toMap()).toList(),
+    'subtotal':      subtotal,
+    'discount':      discount,
+    'tax':           tax,
     'total':         total,
     'status':        status.name,
     'notes':         notes,
@@ -116,17 +128,20 @@ class PreOrder {
     'pickupTime':    pickupTime,
     'createdAt':     FieldValue.serverTimestamp(),
     'expiresAt':     expiresAt != null ? Timestamp.fromDate(expiresAt!) : null,
+    'isSeniorPWD':   isSeniorPWD,
     if (rejectionReason != null) 'rejectionReason': rejectionReason,
   };
 
   PreOrder copyWith({OrderStatus? status}) => PreOrder(
     id: id, orderId: orderId,
     customerName: customerName, customerEmail: customerEmail,
-    items: items, total: total,
+    items: items, 
+    subtotal: subtotal, discount: discount, tax: tax, total: total,
     status: status ?? this.status,
     notes: notes, location: location,
     pickupTime: pickupTime, createdAt: createdAt,
     expiresAt: expiresAt,
     rejectionReason: rejectionReason,
+    isSeniorPWD: isSeniorPWD,
   );
 }

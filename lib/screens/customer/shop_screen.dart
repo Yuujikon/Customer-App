@@ -42,6 +42,7 @@ class _ShopScreenState extends State<ShopScreen> {
 
     final cats = ['All', ...inventory.products.map((p) => p.category).toSet().toList()..sort()];
     final filtered = products
+        .where((p) => p.status == ProductStatus.published) // Requirement 7
         .where((p) => _cat == 'All' || p.category == _cat)
         .where((p) => _search.isEmpty || p.name.toLowerCase().contains(_search.toLowerCase()))
         .toList();

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'order.dart';
 
 enum RefundStatus { pending, approved, rejected }
+enum RefundCondition { good, expired, damaged }
 
 class RefundRequest {
   final String id;
@@ -14,6 +15,7 @@ class RefundRequest {
   final String reason;
   final String? rejectionReason;
   final RefundStatus status;
+  final RefundCondition? condition; 
   final DateTime createdAt;
   final String? processedByEmail;
 
@@ -27,20 +29,24 @@ class RefundRequest {
     required this.reason,
     this.rejectionReason,
     required this.status,
+    this.condition,
     required this.createdAt,
     this.processedByEmail,
   });
 
   factory RefundRequest.fromFirestore(DocumentSnapshot doc) {
-    final d = doc.data() as Map<String, dynamic>? ?? {};
+    final d = doc.data() as Map<String, dynamic>;
     
     RefundStatus status = RefundStatus.pending;
     try {
-      if (d['status'] != null) {
-        status = RefundStatus.values.byName(d['status']);
-      }
-    } catch (e) {
-      debugPrint('RefundStatus parsing error: $e');
+      status = RefundStatus.values.byName(d['status'] ?? 'pending');
+    } catch (_) {}
+
+    RefundCondition? condition;
+    if (d['condition'] != null) {
+      try {
+        condition = RefundCondition.values.byName(d['condition']);
+      } catch (_) {}
     }
 
     return RefundRequest(
@@ -48,14 +54,12 @@ class RefundRequest {
       transactionId: d['transactionId'] ?? '',
       customerEmail: d['customerEmail'] ?? '',
       customerName: d['customerName'] ?? '',
-      items: (d['items'] as List? ?? []).map((e) {
-        if (e is Map) return CartItem.fromMap(Map<String, dynamic>.from(e));
-        return const CartItem(productId: 'err', name: 'Invalid', price: 0, qty: 0);
-      }).toList(),
+      items: (d['items'] as List? ?? []).map((e) => CartItem.fromMap(e)).toList(),
       total: (d['total'] as num? ?? 0).toDouble(),
       reason: d['reason'] ?? '',
       rejectionReason: d['rejectionReason'],
       status: status,
+      condition: condition,
       createdAt: (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       processedByEmail: d['processedByEmail'],
     );
@@ -68,7 +72,10 @@ class RefundRequest {
     'items': items.map((i) => i.toMap()).toList(),
     'total': total,
     'reason': reason,
+    if (rejectionReason != null) 'rejectionReason': rejectionReason,
     'status': status.name,
+    if (condition != null) 'condition': condition!.name,
     'createdAt': FieldValue.serverTimestamp(),
+    if (processedByEmail != null) 'processedByEmail': processedByEmail,
   };
 }

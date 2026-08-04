@@ -2,16 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import '../models/order.dart';
 import '../models/product.dart';
+import '../models/promotion.dart';
 import '../models/refund_request.dart';
 import '../models/store_settings.dart';
 import '../services/firestore_service.dart';
 import '../services/notification_service.dart';
+import '../utils/pricing_engine.dart';
 
 class OrderProvider extends ChangeNotifier {
   final _fs = FirestoreService();
 
   final List<PreOrder> _orders  = [];
   final List<CartItem> _preCart = [];
+  List<Promotion> _promotions = [];
   StoreSettings _settings = const StoreSettings(isClosed: false);
 
   List<PreOrder> get orders  => _orders;
@@ -68,6 +71,11 @@ class OrderProvider extends ChangeNotifier {
   void initialize() {
     _fs.settingsStream().listen((s) {
       _settings = s;
+      notifyListeners();
+    });
+
+    _fs.promotionsStream().listen((list) {
+      _promotions = list;
       notifyListeners();
     });
   }
@@ -150,13 +158,23 @@ class OrderProvider extends ChangeNotifier {
     final ts = DateTime.now().millisecondsSinceEpoch.toString();
     final shortId = ts.substring(ts.length - 4);
     
+    // Calculate breakdown using PricingEngine
+    final breakdown = PricingEngine.calculate(
+      items: _preCart, 
+      allProducts: allProducts, 
+      activePromos: _promotions,
+    );
+    
     final order = PreOrder(
       id:            const Uuid().v4(),
       orderId:       'GDC-$shortId',
       customerName:  customerName,
       customerEmail: customerEmail,
       items:         List.from(_preCart),
-      total:         _preCart.fold(0.0, (s, i) => s + i.price * i.qty),
+      subtotal:      breakdown.subtotal,
+      discount:      breakdown.promoDiscount + breakdown.seniorDiscount,
+      tax:           breakdown.vAtAmount,
+      total:         breakdown.total,
       status:        OrderStatus.pending,
       notes:         notes,
       location:      location,
