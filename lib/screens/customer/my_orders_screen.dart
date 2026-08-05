@@ -20,13 +20,12 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AppAuthProvider>();
+    final orderProvider = context.watch<OrderProvider>();
     final email = auth.email;
 
     if (email.isEmpty) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-
-    final ordersStream = context.read<OrderProvider>().ordersStreamForEmail(email);
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
@@ -51,26 +50,21 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
         ],
       ),
       body: StreamBuilder<List<PreOrder>>(
-        stream: ordersStream,
+        stream: orderProvider.ordersStreamForEmail(email),
         builder: (context, snap) {
-          if (snap.hasError) {
-            return _ErrorState(error: snap.error.toString());
-          }
+          if (snap.hasError) return _ErrorState(error: snap.error.toString());
           
           if (!snap.hasData && snap.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
           final orders = snap.data ?? [];
-
-          if (orders.isEmpty) {
-            return const _EmptyOrdersState();
-          }
+          if (orders.isEmpty) return const _EmptyOrdersState();
 
           return ListView.separated(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
             itemCount: orders.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            separatorBuilder: (_, __) => const Divider(height: 12, color: Colors.transparent),
             physics: const AlwaysScrollableScrollPhysics(),
             itemBuilder: (_, i) {
               final o = orders[i];
