@@ -16,18 +16,17 @@ class MyOrdersScreen extends StatefulWidget {
 
 class _MyOrdersScreenState extends State<MyOrdersScreen> {
   String? _expanded;
-  late Stream<List<PreOrder>> _ordersStream;
-
-  @override
-  void initState() {
-    super.initState();
-    final email = context.read<AppAuthProvider>().email;
-    _ordersStream = context.read<OrderProvider>().ordersStreamForEmail(email);
-  }
 
   @override
   Widget build(BuildContext context) {
-    final email = context.read<AppAuthProvider>().email;
+    final auth = context.watch<AppAuthProvider>();
+    final email = auth.email;
+
+    if (email.isEmpty) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    final ordersStream = context.read<OrderProvider>().ordersStreamForEmail(email);
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
@@ -52,7 +51,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
         ],
       ),
       body: StreamBuilder<List<PreOrder>>(
-        stream: _ordersStream,
+        stream: ordersStream,
         builder: (context, snap) {
           if (snap.hasError) {
             return _ErrorState(error: snap.error.toString());
