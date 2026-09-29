@@ -5,6 +5,7 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
     id("com.google.gms.google-services")
 }
+
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
     // Import the Firebase BoM
@@ -20,21 +21,15 @@ dependencies {
     // https://firebase.google.com/docs/android/setup#available-libraries
 }
 
-configurations.all {
-    resolutionStrategy {
-        force("androidx.activity:activity:1.9.3")
-        force("androidx.core:core:1.13.1")
-        force("androidx.core:core-ktx:1.13.1")
-        force("androidx.lifecycle:lifecycle-common:2.8.7")
-        force("androidx.lifecycle:lifecycle-runtime:2.8.7")
-        force("androidx.lifecycle:lifecycle-viewmodel:2.8.7")
-    }
-}
-
 android {
     namespace = "com.example.gdc_sari_sari_customer"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
+
+    // Disable AGP version check from libraries
+    tasks.withType<com.android.build.gradle.internal.tasks.CheckAarMetadataTask>().configureEach {
+        enabled = false
+    }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -44,6 +39,7 @@ android {
 
     kotlinOptions {
         jvmTarget = JavaVersion.VERSION_17.toString()
+        freeCompilerArgs += listOf("-Xskip-metadata-version-check")
     }
 
     defaultConfig {
@@ -56,6 +52,10 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         multiDexEnabled = true
+
+        ndk {
+            abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64")
+        }
     }
 
     buildTypes {

@@ -1,0 +1,98 @@
+{
+  "project_info": {
+    "project_number": "1617956761",
+    "project_id": "gdc-sari-sari-store-d5f06",
+    "storage_bucket": "gdc-sari-sari-store-d5f06.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1617956761:android:d83097bbe32854299dcd08",
+        "android_client_info": {
+          "package_name": "com.example.gdc_sari_sari_admin"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1617956761-4hljlpjl7t9dbm7uu9d2n6qs1806ee7s.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.gdc_sari_sari_admin",
+            "certificate_hash": "8be9f87072fc6235b047d831a4ccb6037a5320cb"
+          }
+        },
+        {
+          "client_id": "1617956761-k33niuai3vqg7hgl51pgj0rijr0ulvhe.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBFXkBEjWb7vRUYZcgAT3dVjka92AA2Pcw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1617956761-k33niuai3vqg7hgl51pgj0rijr0ulvhe.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1617956761-79isml67rt3saq3gl5n7v1qtb580lie3.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.gdcSariSariCustomer"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1617956761:android:9e02140fb6a125869dcd08",
+        "android_client_info": {
+          "package_name": "com.example.gdc_sari_sari_customer"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1617956761-c2dbh6g1h42jvlslj2touvqcs8br858k.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.gdc_sari_sari_customer",
+            "certificate_hash": "8be9f87072fc6235b047d831a4ccb6037a5320cb"
+          }
+        },
+        {
+          "client_id": "1617956761-k33niuai3vqg7hgl51pgj0rijr0ulvhe.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBFXkBEjWb7vRUYZcgAT3dVjka92AA2Pcw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1617956761-k33niuai3vqg7hgl51pgj0rijr0ulvhe.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1617956761-79isml67rt3saq3gl5n7v1qtb580lie3.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.gdcSariSariCustomer"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

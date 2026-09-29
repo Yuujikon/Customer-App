@@ -1,6 +1,7 @@
 plugins {
     id("com.google.gms.google-services") version "4.5.0" apply false
 }
+
 allprojects {
     repositories {
         google()
@@ -8,16 +9,17 @@ allprojects {
     }
 }
 
-val newBuildDir: Directory =
-    rootProject.layout.buildDirectory
-        .dir("../../build")
-        .get()
-rootProject.layout.buildDirectory.value(newBuildDir)
+// Redirect build artifacts to the root build directory (Flutter standard)
+val rootBuildDir = rootProject.layout.projectDirectory.dir("../build")
+rootProject.layout.buildDirectory.value(rootBuildDir)
 
 subprojects {
-    val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
-    project.layout.buildDirectory.value(newSubprojectBuildDir)
+    val subBuildDir = rootBuildDir.dir(project.name)
+    if (project.projectDir.absolutePath.startsWith(rootProject.projectDir.parent)) {
+        project.layout.buildDirectory.value(subBuildDir)
+    }
 }
+
 subprojects {
     project.evaluationDependsOn(":app")
 }
