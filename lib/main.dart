@@ -1,5 +1,6 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'app.dart';
@@ -14,10 +15,13 @@ Future<void> _bgHandler(RemoteMessage message) async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await NotificationService.initializeBackground();
-  
-  final String title = message.notification?.title ?? message.data['title'] ?? 'Update';
-  final String body = message.notification?.body ?? message.data['body'] ?? 'You have a new update.';
-  
+
+  final String title =
+      message.notification?.title ?? message.data['title'] ?? 'Update';
+  final String body = message.notification?.body ??
+      message.data['body'] ??
+      'You have a new update.';
+
   await NotificationService.showSmsNotificationPopUp(
     title: title,
     body: body,
@@ -27,23 +31,28 @@ Future<void> _bgHandler(RemoteMessage message) async {
 void main() async {
   try {
     WidgetsFlutterBinding.ensureInitialized();
-    
-    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    SystemChrome.setSystemUIOverlayStyle(
-      const SystemUiOverlayStyle(
-        systemNavigationBarColor: Colors.transparent,
-        statusBarColor: Colors.transparent,
-        systemNavigationBarIconBrightness: Brightness.dark,
-        statusBarIconBrightness: Brightness.dark,
-      ),
-    );
 
-    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-    FirebaseMessaging.onBackgroundMessage(_bgHandler);
-    
+    if (!kIsWeb) {
+      await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      SystemChrome.setSystemUIOverlayStyle(
+        const SystemUiOverlayStyle(
+          systemNavigationBarColor: Colors.transparent,
+          statusBarColor: Colors.transparent,
+          systemNavigationBarIconBrightness: Brightness.dark,
+          statusBarIconBrightness: Brightness.dark,
+        ),
+      );
+    }
+
+    await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform);
+    if (!kIsWeb) {
+      FirebaseMessaging.onBackgroundMessage(_bgHandler);
+    }
+
     // Initialize notifications (permissions, channels, timezone)
     await NotificationService.initialize();
-    
+
     runApp(const GdcCustomerApp());
   } catch (e) {
     debugPrint("Fatal startup error: $e");

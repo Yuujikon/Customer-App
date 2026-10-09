@@ -1,14 +1,32 @@
 import 'package:intl/intl.dart';
 
 class StoreHours {
-  // Current active store hours for pickup
-  static const int openHour  = 9;  // 9:00 AM
-  static const int closeHour = 22; // 10:00 PM
+  // Designated store pickup hours (11:00 AM to 3:00 PM)
+  static const int openHour = 11; // 11:00 AM
+  static const int closeHour = 15; // 3:00 PM (15:00)
 
-  /// Checks if the store is currently within active pickup hours.
+  /// Checks if the store is currently within active pickup hours (11:00 AM – 3:00 PM).
   static bool isOpen() {
     final h = DateTime.now().hour;
     return h >= openHour && h < closeHour;
+  }
+
+  /// Returns dynamic initial default pickup slot formatted string within 11:00 AM – 3:00 PM hours.
+  static String defaultPickupSlot() {
+    final now = DateTime.now();
+    if (now.hour < closeHour) {
+      final startH = now.hour < openHour ? openHour : now.hour;
+      final endH = startH + 1;
+      final startStr = startH == 12
+          ? '12:00 PM'
+          : (startH > 12 ? '${startH - 12}:00 PM' : '$startH:00 AM');
+      final endStr = endH == 12
+          ? '12:00 PM'
+          : (endH > 12 ? '${endH - 12}:00 PM' : '$endH:00 AM');
+      return 'Today, $startStr – $endStr';
+    } else {
+      return 'Tomorrow, 11:00 AM – 12:00 PM';
+    }
   }
 
   /// Returns allowed pickup dates starting from today up to maxHours window from now.
@@ -29,12 +47,14 @@ class StoreHours {
   }
 
   /// Returns available time slots for a specific date within store hours (9 AM - 10 PM) and maxHours window.
-  static List<Map<String, dynamic>> getTimeSlotsForDate(DateTime date, {int maxHours = 72}) {
+  static List<Map<String, dynamic>> getTimeSlotsForDate(DateTime date,
+      {int maxHours = 72}) {
     final now = DateTime.now();
     final windowEnd = now.add(Duration(hours: maxHours));
     final List<Map<String, dynamic>> slots = [];
 
-    final isToday = date.year == now.year && date.month == now.month && date.day == now.day;
+    final isToday =
+        date.year == now.year && date.month == now.month && date.day == now.day;
 
     for (int h = openHour; h < closeHour; h++) {
       final slotDateTime = DateTime(date.year, date.month, date.day, h);
@@ -46,12 +66,17 @@ class StoreHours {
       if (slotDateTime.isAfter(windowEnd)) continue;
 
       final hStart = h;
-      final hEnd   = h + 1;
+      final hEnd = h + 1;
 
-      final startStr = hStart == 12 ? '12:00 PM' : (hStart > 12 ? '${hStart - 12}:00 PM' : '$hStart:00 AM');
-      final endStr   = hEnd == 12 ? '12:00 PM' : (hEnd > 12 ? '${hEnd - 12}:00 PM' : '$hEnd:00 AM');
+      final startStr = hStart == 12
+          ? '12:00 PM'
+          : (hStart > 12 ? '${hStart - 12}:00 PM' : '$hStart:00 AM');
+      final endStr = hEnd == 12
+          ? '12:00 PM'
+          : (hEnd > 12 ? '${hEnd - 12}:00 PM' : '$hEnd:00 AM');
 
-      final dateLabel = isToday ? 'Today' : DateFormat('EEE, MMM d').format(date);
+      final dateLabel =
+          isToday ? 'Today' : DateFormat('EEE, MMM d').format(date);
       final slotValue = '$dateLabel $startStr';
 
       slots.add({
@@ -74,9 +99,17 @@ class StoreHours {
 
     for (final date in dates) {
       final daySlots = getTimeSlotsForDate(date, maxHours: maxHours);
-      final isToday = date.year == DateTime.now().year && date.month == DateTime.now().month && date.day == DateTime.now().day;
-      final isTomorrow = date.difference(DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day)).inDays == 1;
-      final dayName = isToday ? 'Today' : (isTomorrow ? 'Tomorrow' : DateFormat('EEEE').format(date));
+      final isToday = date.year == DateTime.now().year &&
+          date.month == DateTime.now().month &&
+          date.day == DateTime.now().day;
+      final isTomorrow = date
+              .difference(DateTime(DateTime.now().year, DateTime.now().month,
+                  DateTime.now().day))
+              .inDays ==
+          1;
+      final dayName = isToday
+          ? 'Today'
+          : (isTomorrow ? 'Tomorrow' : DateFormat('EEEE').format(date));
       final dateStr = DateFormat('MMM d').format(date);
 
       for (final slot in daySlots) {

@@ -1,4 +1,5 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
@@ -30,31 +31,35 @@ class NotificationService {
       criticalAlert: true,
     );
 
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const iosSettings = DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
-    );
+    if (!kIsWeb) {
+      const androidSettings =
+          AndroidInitializationSettings('@mipmap/ic_launcher');
+      const iosSettings = DarwinInitializationSettings(
+        requestAlertPermission: true,
+        requestBadgePermission: true,
+        requestSoundPermission: true,
+      );
 
-    await _local.initialize(
-      const InitializationSettings(android: androidSettings, iOS: iosSettings),
-    );
+      await _local.initialize(
+        const InitializationSettings(
+            android: androidSettings, iOS: iosSettings),
+      );
 
-    final androidImpl = _local.resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>();
-    if (androidImpl != null) {
-      await androidImpl.requestNotificationsPermission();
-      await androidImpl.createNotificationChannel(_customerChannel);
+      final androidImpl = _local.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      if (androidImpl != null) {
+        await androidImpl.requestNotificationsPermission();
+        await androidImpl.createNotificationChannel(_customerChannel);
+      }
     }
 
     FirebaseMessaging.onMessage.listen((msg) => handleMessage(msg));
 
     try {
       final token = await _fcm.getToken();
-      print('FCM Token: $token');
+      debugPrint('FCM Token: $token');
     } catch (e) {
-      print('Failed to get FCM token: $e');
+      debugPrint('Failed to get FCM token: $e');
     }
 
     _initialized = true;
@@ -62,29 +67,34 @@ class NotificationService {
 
   static Future<void> initializeBackground() async {
     tz.initializeTimeZones();
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-    await _local.initialize(const InitializationSettings(android: androidSettings));
+    const androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    await _local
+        .initialize(const InitializationSettings(android: androidSettings));
   }
 
   static Future<void> subscribeToCustomerTopic(String email) async {
+    if (kIsWeb) return;
     final topic = 'customer_${email.replaceAll(RegExp(r'[@.]'), '_')}';
     await _fcm.subscribeToTopic(topic);
-    print('Subscribed to topic: $topic');
+    debugPrint('Subscribed to topic: $topic');
   }
 
   static Future<void> unsubscribeFromCustomerTopic(String email) async {
+    if (kIsWeb) return;
     final topic = 'customer_${email.replaceAll(RegExp(r'[@.]'), '_')}';
     await _fcm.unsubscribeFromTopic(topic);
-    print('Unsubscribed from topic: $topic');
+    debugPrint('Unsubscribed from topic: $topic');
   }
 
-  static void handleMessage(RemoteMessage message, {bool showIfNotification = true}) {
+  static void handleMessage(RemoteMessage message,
+      {bool showIfNotification = true}) {
     // Strict Recipient Filter: Customer app ONLY handles customer messages
     final String recipient = message.data['recipient'] ?? '';
     if (recipient == 'admin') return;
 
     String? title = message.notification?.title ?? message.data['title'];
-    String? body  = message.notification?.body  ?? message.data['body'];
+    String? body = message.notification?.body ?? message.data['body'];
 
     if (title == null && body == null) return;
 
@@ -100,8 +110,12 @@ class NotificationService {
     required String body,
     int? id,
   }) {
-    final String formattedTitle = title.startsWith('🛍️ GDC Store') || title.startsWith('💸 GDC Store') || title.startsWith('❌ GDC Store')
-        ? title 
+    if (kIsWeb) return Future.value();
+
+    final String formattedTitle = title.startsWith('🛍️ GDC Store') ||
+            title.startsWith('💸 GDC Store') ||
+            title.startsWith('❌ GDC Store')
+        ? title
         : '🛍️ GDC Store • $title';
 
     return _local.show(
@@ -112,7 +126,8 @@ class NotificationService {
         android: AndroidNotificationDetails(
           'gdc_customer_popups',
           'GDC Customer Updates',
-          channelDescription: 'High-priority pop-up updates for GDC Customer App',
+          channelDescription:
+              'High-priority pop-up updates for GDC Customer App',
           importance: Importance.max,
           priority: Priority.high,
           visibility: NotificationVisibility.public,
@@ -129,23 +144,27 @@ class NotificationService {
     );
   }
 
-  static Future<void> sendOrderReady(String orderId) => showSmsNotificationPopUp(
+  static Future<void> sendOrderReady(String orderId) =>
+      showSmsNotificationPopUp(
         id: orderId.hashCode,
         title: 'Order Ready for Pickup! 📦',
-        body: 'Your order $orderId is packed and ready for pickup at GDC Store.',
+        body:
+            'Your order $orderId is packed and ready for pickup at GDC Store.',
       );
 
   static Future<void> schedulePerishableReminder(String id, String orderId,
       {int hours = 2}) async {
     if (!_initialized) await initialize();
-    
-    final scheduleTime = tz.TZDateTime.now(tz.local).add(Duration(hours: hours));
+
+    final scheduleTime =
+        tz.TZDateTime.now(tz.local).add(Duration(hours: hours));
 
     // 1. Immediate heads-up pop-up
     await showSmsNotificationPopUp(
-      id: (id + 'placed').hashCode,
+      id: '${id}_placed'.hashCode,
       title: 'Pre-Order Received ✅',
-      body: 'Order $orderId placed successfully. Please collect within $hours hours.',
+      body:
+          'Order $orderId placed successfully. Please collect within $hours hours.',
     );
 
     // 2. Schedule reminder 30 mins before expiry
@@ -154,7 +173,7 @@ class NotificationService {
       if (reminderTime.isAfter(tz.TZDateTime.now(tz.local))) {
         try {
           await _local.zonedSchedule(
-            (id + 'remind').hashCode,
+            '${id}_remind'.hashCode,
             'Pickup Reminder ⏰',
             'Your order $orderId will expire in 30 minutes. Please collect it soon!',
             reminderTime,
@@ -175,7 +194,8 @@ class NotificationService {
                 UILocalNotificationDateInterpretation.absoluteTime,
           );
         } catch (e) {
-          print('Exact alarm scheduling failed or exact alarm permission not granted: $e');
+          debugPrint(
+              'Exact alarm scheduling failed or exact alarm permission not granted: $e');
         }
       }
     }

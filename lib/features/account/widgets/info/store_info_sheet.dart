@@ -1,12 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../shop/providers/inventory_provider.dart';
 
 class StoreInfoSheet extends StatelessWidget {
   const StoreInfoSheet({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final inventory = context.watch<InventoryProvider>();
+    final websiteUrl = inventory.settings.websiteUrl.isNotEmpty
+        ? inventory.settings.websiteUrl
+        : 'https://gdc-sari-sari.web.app';
+
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
       decoration: const BoxDecoration(
@@ -18,19 +25,37 @@ class StoreInfoSheet extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Center(
-            child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+            child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2))),
           ),
           const SizedBox(height: 24),
-          const Text('About GDC Sari-Sari', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: GdcColors.textPrimary)),
+          const Text('About GDC Sari-Sari',
+              style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  color: GdcColors.textPrimary)),
           const SizedBox(height: 8),
-          const Text('Your friendly neighborhood store in General Douglas MacArthur.', style: TextStyle(fontSize: 14, color: GdcColors.textSecondary)),
+          const Text(
+              'Your friendly neighborhood store in General Douglas MacArthur.',
+              style: TextStyle(fontSize: 14, color: GdcColors.textSecondary)),
           const SizedBox(height: 24),
-          
+          _buildInfoRow(
+            icon: Icons.language_rounded,
+            title: 'Official Website',
+            subtitle: websiteUrl,
+            onTap: () => _launchUrl(context, websiteUrl),
+          ),
+          const SizedBox(height: 16),
           _buildInfoRow(
             icon: Icons.location_on_rounded,
             title: 'Location',
             subtitle: 'Main St, Brgy. Poblacion, GDC',
-            onTap: () => _launchUrl('https://maps.google.com/?q=GDC+Sari-Sari+Store'),
+            onTap: () => _launchUrl(
+                context, 'https://maps.google.com/?q=GDC+Sari-Sari+Store'),
           ),
           const SizedBox(height: 16),
           _buildInfoRow(
@@ -43,20 +68,20 @@ class StoreInfoSheet extends StatelessWidget {
             icon: Icons.chat_rounded,
             title: 'Chat with Us',
             subtitle: 'Message us on Messenger',
-            onTap: () => _launchUrl('https://m.me/gdcsarisari'),
+            onTap: () => _launchUrl(context, 'https://m.me/gdcsarisari'),
           ),
           const SizedBox(height: 16),
           _buildInfoRow(
             icon: Icons.phone_rounded,
             title: 'Call Store',
             subtitle: '+63 912 345 6789',
-            onTap: () => _launchUrl('tel:+639123456789'),
+            onTap: () => _launchUrl(context, 'tel:+639123456789'),
           ),
-          
           const SizedBox(height: 32),
           ElevatedButton(
             onPressed: () => Navigator.pop(context),
-            style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
+            style: ElevatedButton.styleFrom(
+                minimumSize: const Size.fromHeight(56)),
             child: const Text('CLOSE'),
           ),
         ],
@@ -64,7 +89,11 @@ class StoreInfoSheet extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoRow({required IconData icon, required String title, required String subtitle, VoidCallback? onTap}) {
+  Widget _buildInfoRow(
+      {required IconData icon,
+      required String title,
+      required String subtitle,
+      VoidCallback? onTap}) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
@@ -74,7 +103,9 @@ class StoreInfoSheet extends StatelessWidget {
           children: [
             Container(
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: GdcColors.terracotta.withValues(alpha: 0.1), shape: BoxShape.circle),
+              decoration: BoxDecoration(
+                  color: GdcColors.terracotta.withValues(alpha: 0.1),
+                  shape: BoxShape.circle),
               child: Icon(icon, color: GdcColors.terracotta, size: 20),
             ),
             const SizedBox(width: 16),
@@ -82,23 +113,49 @@ class StoreInfoSheet extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: GdcColors.textPrimary)),
-                  Text(subtitle, style: const TextStyle(fontSize: 12, color: GdcColors.textSecondary, fontWeight: FontWeight.w600)),
+                  Text(title,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 14,
+                          color: GdcColors.textPrimary)),
+                  Text(subtitle,
+                      style: const TextStyle(
+                          fontSize: 12,
+                          color: GdcColors.textSecondary,
+                          fontWeight: FontWeight.w600)),
                 ],
               ),
             ),
             if (onTap != null)
-              const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.black12),
+              const Icon(Icons.arrow_forward_ios_rounded,
+                  size: 14, color: Colors.black12),
           ],
         ),
       ),
     );
   }
 
-  Future<void> _launchUrl(String url) async {
+  Future<void> _launchUrl(BuildContext context, String url) async {
     final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    try {
+      bool launched = false;
+      if (await canLaunchUrl(uri)) {
+        launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+      if (!launched) {
+        launched = await launchUrl(uri, mode: LaunchMode.platformDefault);
+      }
+      if (!launched && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open $url')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not launch URL: $e')),
+        );
+      }
     }
   }
 }

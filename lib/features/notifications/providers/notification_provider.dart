@@ -16,6 +16,7 @@ class NotificationProvider extends ChangeNotifier {
   int get unreadCount => _notifications.where((n) => !n.isRead).length;
 
   void _init() {
+    if (userId.isEmpty) return;
     _sub = FirebaseFirestore.instance
         .collection('users')
         .doc(userId)
@@ -24,8 +25,11 @@ class NotificationProvider extends ChangeNotifier {
         .limit(50)
         .snapshots()
         .listen((snap) {
-      _notifications = snap.docs.map((doc) => AppNotification.fromFirestore(doc)).toList();
+      _notifications =
+          snap.docs.map((doc) => AppNotification.fromFirestore(doc)).toList();
       notifyListeners();
+    }, onError: (e) {
+      debugPrint('Error listening to user notifications stream: $e');
     });
   }
 

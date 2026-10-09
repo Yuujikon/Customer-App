@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/auth/screens/landing_screen.dart';
+import 'features/auth/screens/profile_setup_screen.dart';
 import 'features/home/customer_app.dart';
 import 'features/orders/providers/order_provider.dart';
 import 'features/orders/providers/refund_provider.dart';
@@ -20,7 +21,8 @@ class GdcCustomerApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AppAuthProvider()..initialize()),
-        ChangeNotifierProvider(create: (_) => InventoryProvider()..initialize()),
+        ChangeNotifierProvider(
+            create: (_) => InventoryProvider()..initialize()),
         ChangeNotifierProvider(create: (_) => OrderProvider()..initialize()),
         ChangeNotifierProvider(create: (_) => RefundProvider()),
         ChangeNotifierProxyProvider<AppAuthProvider, NotificationProvider?>(
@@ -34,10 +36,10 @@ class GdcCustomerApp extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
-        title:                    'GDC Store',
+        title: 'GDC Store',
         debugShowCheckedModeBanner: false,
-        theme:                    GdcTheme.light,
-        home:                     const _Root(),
+        theme: GdcTheme.light,
+        home: const _Root(),
       ),
     );
   }
@@ -56,6 +58,10 @@ class _Root extends StatelessWidget {
               body: Center(child: CircularProgressIndicator()));
         }
         if (snap.hasData) {
+          final auth = context.watch<AppAuthProvider>();
+          if (auth.requiresNameSetup) {
+            return const ProfileSetupScreen();
+          }
           return const CustomerApp();
         }
         return const LandingScreen();

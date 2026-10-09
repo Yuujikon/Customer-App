@@ -33,12 +33,12 @@ class ProductBundle {
   }
 
   Map<String, dynamic> toFirestore() => {
-    'name': name,
-    'description': description,
-    'category': category,
-    'productIds': productIds,
-    'photoBase64': photoBase64,
-    'isActive': isActive,
-    'updatedAt': FieldValue.serverTimestamp(),
-  };
+        'name': name,
+        'description': description,
+        'category': category,
+        'productIds': productIds,
+        'photoBase64': photoBase64,
+        'isActive': isActive,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
 }

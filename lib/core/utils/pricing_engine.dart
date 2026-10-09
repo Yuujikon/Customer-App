@@ -23,12 +23,14 @@ class PricingEngine {
       } catch (_) {}
 
       final double price;
-      if (item.variantId != null && product != null && product.variants != null) {
+      if (item.variantId != null &&
+          product != null &&
+          product.variants != null) {
         price = product.variants![item.variantId]?.price ?? item.price;
       } else {
         price = product?.price ?? item.price;
       }
-      
+
       final double itemTotal = price * item.qty;
       total += itemTotal;
     }

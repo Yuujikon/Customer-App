@@ -14,16 +14,18 @@ class ExpenseProvider extends ChangeNotifier {
     _fs.expensesStream().listen((list) {
       _expenses = list;
       notifyListeners();
+    }, onError: (e) {
+      debugPrint('Error listening to expenses stream: $e');
     });
   }
 
   Future<void> addExpense(String description, double amount, String category) {
     final expense = Expense(
-      id:          '',
+      id: '',
       description: description,
-      amount:      amount,
-      category:    category,
-      createdAt:   DateTime.now(),
+      amount: amount,
+      category: category,
+      createdAt: DateTime.now(),
     );
     return _fs.addExpense(expense);
     // Stream updates _expenses automatically

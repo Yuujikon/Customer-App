@@ -3,8 +3,8 @@ import 'dart:convert';
 import '../../../shared/models/product.dart';
 import '../../../core/utils/format.dart';
 import '../../../core/theme/app_theme.dart';
-
 import '../../../core/utils/responsive.dart';
+import '../screens/out_of_stock_dashboard.dart';
 
 class FavoritesSection extends StatelessWidget {
   final List<Product> products;
@@ -23,30 +23,166 @@ class FavoritesSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (products.isEmpty) return const SizedBox.shrink();
+
+    final inStockProducts =
+        products.where((p) => !p.isOutOfStockForCustomer).toList();
+    final oosProducts =
+        products.where((p) => p.isOutOfStockForCustomer).toList();
+
     final bool isTablet = Responsive.isTablet(context);
     final double itemWidth = isTablet ? 180 : 140;
+
+    // Empty State: All favorited items are out of stock
+    if (inStockProducts.isEmpty && oosProducts.isNotEmpty) {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border:
+              Border.all(color: GdcColors.terracotta.withValues(alpha: 0.2)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            )
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: GdcColors.terracotta.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.bookmark_border_rounded,
+                      color: GdcColors.terracotta, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Your Favorite Items',
+                        style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                            color: GdcColors.textPrimary),
+                      ),
+                      Text(
+                        '${oosProducts.length} saved item${oosProducts.length > 1 ? 's' : ''} currently out of stock',
+                        style: const TextStyle(
+                            fontSize: 12, color: GdcColors.textMuted),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const OutOfStockDashboardScreen()),
+                );
+              },
+              icon: const Icon(Icons.notifications_active_rounded,
+                  size: 16, color: GdcColors.orangeCTA),
+              label: const Text('🔔 Set Restock Alerts for Favorites'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: GdcColors.orangeCTA,
+                side: const BorderSide(color: GdcColors.orangeCTA),
+                minimumSize: const Size(double.infinity, 40),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(100)),
+                textStyle:
+                    const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (inStockProducts.isEmpty) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(20, 24, 20, 12),
-          child: Text('Your Favorites', 
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: GdcColors.textPrimary)),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Text(
+                    'Your Favorites',
+                    style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: GdcColors.textPrimary),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE2F0D9),
+                      borderRadius: BorderRadius.circular(100),
+                    ),
+                    child: Text(
+                      '${inStockProducts.length} Available',
+                      style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF38662A)),
+                    ),
+                  ),
+                ],
+              ),
+              if (oosProducts.isNotEmpty)
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const OutOfStockDashboardScreen()),
+                    );
+                  },
+                  child: Text(
+                    '${oosProducts.length} Out of Stock 🔔',
+                    style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: GdcColors.terracotta),
+                  ),
+                ),
+            ],
+          ),
         ),
         SizedBox(
           height: 160,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            itemCount: products.length,
+            itemCount: inStockProducts.length,
             separatorBuilder: (_, __) => const SizedBox(width: 16),
             itemBuilder: (_, i) {
-              final p = products[i];
+              final p = inStockProducts[i];
               return _FavoriteCard(
-                product: p, 
-                onAdd: () => onAdd(p), 
-                onRemove: () => onRemove(p.id), 
+                product: p,
+                onAdd: () => onAdd(p),
+                onRemove: () => onRemove(p.id),
                 onTap: () => onTap(p),
                 width: itemWidth,
               );
@@ -66,9 +202,9 @@ class _FavoriteCard extends StatelessWidget {
   final double width;
 
   const _FavoriteCard({
-    required this.product, 
-    required this.onAdd, 
-    required this.onRemove, 
+    required this.product,
+    required this.onAdd,
+    required this.onRemove,
     required this.onTap,
     required this.width,
   });
@@ -83,34 +219,53 @@ class _FavoriteCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 4))],
+          border: Border.all(color: const Color(0xFFE5EBDD)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            )
+          ],
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
+            SizedBox(
+              height: 90,
+              width: double.infinity,
               child: Stack(
                 children: [
                   Container(
                     width: double.infinity,
+                    height: double.infinity,
                     color: GdcColors.cream.withValues(alpha: 0.5),
                     child: product.photoBase64 != null
-                      ? Image.memory(base64Decode(product.photoBase64!), fit: BoxFit.cover)
-                      : const Icon(Icons.inventory_2_outlined, color: Colors.grey, size: 32),
+                        ? Image.memory(
+                            base64Decode(product.photoBase64!),
+                            fit: BoxFit.cover,
+                            alignment: Alignment.center,
+                          )
+                        : const Icon(Icons.inventory_2_outlined,
+                            color: Colors.grey, size: 32),
                   ),
                   Positioned(
-                    top: 4, right: 4,
+                    top: 6,
+                    right: 6,
                     child: GestureDetector(
                       onTap: onRemove,
                       child: Container(
                         padding: const EdgeInsets.all(6),
                         decoration: const BoxDecoration(
-                          color: Colors.amber, 
+                          color: Colors.amber,
                           shape: BoxShape.circle,
-                          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                          boxShadow: [
+                            BoxShadow(color: Colors.black12, blurRadius: 4)
+                          ],
                         ),
-                        child: const Icon(Icons.bookmark_rounded, color: Colors.white, size: 14),
+                        child: const Icon(Icons.bookmark_rounded,
+                            color: Colors.white, size: 14),
                       ),
                     ),
                   ),
@@ -122,21 +277,32 @@ class _FavoriteCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(product.name, 
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
-                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                  Text(
+                    product.name,
+                    style: const TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.w800),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   const SizedBox(height: 2),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(formatPeso(product.price), 
-                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: GdcColors.terracotta)),
+                      Text(
+                        formatPeso(product.price),
+                        style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w900,
+                            color: GdcColors.terracotta),
+                      ),
                       GestureDetector(
-                        onTap: product.stock > 0 ? onAdd : null,
+                        onTap: !product.isOutOfStockForCustomer ? onAdd : null,
                         child: Icon(
-                          Icons.add_circle_rounded, 
-                          color: product.stock > 0 ? GdcColors.terracotta : Colors.grey.shade300, 
-                          size: 20
+                          Icons.add_circle_rounded,
+                          color: !product.isOutOfStockForCustomer
+                              ? GdcColors.terracotta
+                              : Colors.grey.shade300,
+                          size: 20,
                         ),
                       ),
                     ],

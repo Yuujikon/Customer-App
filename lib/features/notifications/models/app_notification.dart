@@ -38,16 +38,21 @@ class AppNotification {
   }
 
   Map<String, dynamic> toFirestore() => {
-    'title': title,
-    'body': body,
-    'timestamp': Timestamp.fromDate(timestamp),
-    'type': type.name,
-    'isRead': isRead,
-    'relatedId': relatedId,
-  };
+        'title': title,
+        'body': body,
+        'timestamp': Timestamp.fromDate(timestamp),
+        'type': type.name,
+        'isRead': isRead,
+        'relatedId': relatedId,
+      };
 
   AppNotification copyWith({bool? isRead}) => AppNotification(
-    id: id, title: title, body: body, timestamp: timestamp,
-    type: type, relatedId: relatedId, isRead: isRead ?? this.isRead,
-  );
+        id: id,
+        title: title,
+        body: body,
+        timestamp: timestamp,
+        type: type,
+        relatedId: relatedId,
+        isRead: isRead ?? this.isRead,
+      );
 }

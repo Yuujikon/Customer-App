@@ -14,7 +14,8 @@ class RefundRequestsScreen extends StatefulWidget {
   State<RefundRequestsScreen> createState() => _RefundRequestsScreenState();
 }
 
-class _RefundRequestsScreenState extends State<RefundRequestsScreen> with AutomaticKeepAliveClientMixin {
+class _RefundRequestsScreenState extends State<RefundRequestsScreen>
+    with AutomaticKeepAliveClientMixin {
   int _displayedCount = 10;
 
   @override
@@ -31,7 +32,7 @@ class _RefundRequestsScreenState extends State<RefundRequestsScreen> with Automa
       stream: orderProvider.refundRequestsStreamForEmail(email),
       builder: (context, snap) {
         if (snap.hasError) return Center(child: Text('Error: ${snap.error}'));
-        
+
         if (!snap.hasData && snap.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
@@ -42,9 +43,12 @@ class _RefundRequestsScreenState extends State<RefundRequestsScreen> with Automa
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.assignment_return_rounded, size: 64, color: Colors.grey),
+                Icon(Icons.assignment_return_rounded,
+                    size: 64, color: Colors.grey),
                 SizedBox(height: 16),
-                Text('No refund claims found.', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+                Text('No refund claims found.',
+                    style: TextStyle(
+                        color: Colors.grey, fontWeight: FontWeight.bold)),
               ],
             ),
           );
@@ -68,7 +72,8 @@ class _RefundRequestsScreenState extends State<RefundRequestsScreen> with Automa
                   style: OutlinedButton.styleFrom(
                     foregroundColor: GdcColors.terracotta,
                     side: const BorderSide(color: GdcColors.terracotta),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                 ),
@@ -92,7 +97,8 @@ class _RefundRequestCard extends StatelessWidget {
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Cancel Refund Request?'),
-        content: Text('Are you sure you want to cancel the refund request for #${req.transactionId}?'),
+        content: Text(
+            'Are you sure you want to cancel the refund request for #${req.transactionId}?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -114,7 +120,8 @@ class _RefundRequestCard extends StatelessWidget {
       final messenger = ScaffoldMessenger.of(context);
       final op = context.read<OrderProvider>();
       try {
-        await op.cancelRefundRequest(transactionId: req.transactionId, requestId: req.id);
+        await op.cancelRefundRequest(
+            transactionId: req.transactionId, requestId: req.id);
         messenger.showSnackBar(
           const SnackBar(
             content: Text('Refund request cancelled successfully.'),
@@ -140,7 +147,8 @@ class _RefundRequestCard extends StatelessWidget {
       RefundStatus.rejected => GdcColors.error,
     };
 
-    final hasResponse = req.adminNotes != null && req.adminNotes!.trim().isNotEmpty;
+    final hasResponse =
+        req.adminNotes != null && req.adminNotes!.trim().isNotEmpty;
 
     return Card(
       elevation: 0,
@@ -156,30 +164,58 @@ class _RefundRequestCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(DateFormat('MMM dd, yyyy').format(req.createdAt), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                Text(DateFormat('MMM dd, yyyy').format(req.createdAt),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 13)),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                  child: Text(req.status.name.toUpperCase(), style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w900)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8)),
+                  child: Text(req.status.name.toUpperCase(),
+                      style: TextStyle(
+                          color: color,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900)),
                 ),
               ],
             ),
             const SizedBox(height: 8),
-            Text('Ref #: ${req.transactionId}', style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
+            Text('Ref #: ${req.transactionId}',
+                style: const TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey,
+                    fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
-            Text('Reason: ${req.reason}', style: const TextStyle(fontSize: 13, color: GdcColors.textSecondary)),
+            Text('Reason: ${req.reason}',
+                style: const TextStyle(
+                    fontSize: 13, color: GdcColors.textSecondary)),
             if (hasResponse) ...[
               const Divider(height: 16),
-              const Text('STORE RESPONSE:', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey)),
+              const Text('STORE RESPONSE:',
+                  style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.grey)),
               const SizedBox(height: 4),
-              Text(req.adminNotes!, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, fontStyle: FontStyle.italic)),
+              Text(req.adminNotes!,
+                  style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      fontStyle: FontStyle.italic)),
             ],
             const Divider(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('${req.items.length} item(s)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                Text(formatPeso(req.total), style: const TextStyle(fontWeight: FontWeight.w900, color: GdcColors.terracotta)),
+                Text('${req.items.length} item(s)',
+                    style: const TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.w600)),
+                Text(formatPeso(req.total),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        color: GdcColors.terracotta)),
               ],
             ),
             if (req.status == RefundStatus.pending) ...[
@@ -189,11 +225,15 @@ class _RefundRequestCard extends StatelessWidget {
                 child: OutlinedButton.icon(
                   onPressed: () => _confirmCancelRefund(context),
                   icon: const Icon(Icons.cancel_outlined, size: 16),
-                  label: const Text('CANCEL REFUND REQUEST', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
+                  label: const Text('CANCEL REFUND REQUEST',
+                      style:
+                          TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: GdcColors.error,
-                    side: BorderSide(color: GdcColors.error.withValues(alpha: 0.4)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    side: BorderSide(
+                        color: GdcColors.error.withValues(alpha: 0.4)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                     padding: const EdgeInsets.symmetric(vertical: 10),
                   ),
                 ),

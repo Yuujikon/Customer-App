@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'order.dart';
 
 enum RefundStatus { pending, approved, rejected }
+
 enum RefundCondition { good, expired, damaged }
 
 class RefundRequest {
@@ -15,7 +16,7 @@ class RefundRequest {
   final String? rejectionReason;
   final String? adminNotes;
   final RefundStatus status;
-  final RefundCondition? condition; 
+  final RefundCondition? condition;
   final DateTime createdAt;
   final String? processedByEmail;
 
@@ -37,7 +38,7 @@ class RefundRequest {
 
   factory RefundRequest.fromFirestore(DocumentSnapshot doc) {
     final d = doc.data() as Map<String, dynamic>? ?? {};
-    
+
     RefundStatus status = RefundStatus.pending;
     try {
       status = RefundStatus.values.byName(d['status'] ?? 'pending');
@@ -50,14 +51,16 @@ class RefundRequest {
       } catch (_) {}
     }
 
-    final txId = d['transactionId']?.toString() ?? d['orderId']?.toString() ?? '';
+    final txId =
+        d['transactionId']?.toString() ?? d['orderId']?.toString() ?? '';
 
     return RefundRequest(
       id: doc.id,
       transactionId: txId,
       customerEmail: d['customerEmail']?.toString() ?? '',
       customerName: d['customerName']?.toString() ?? '',
-      items: (d['items'] as List? ?? []).map((e) => CartItem.fromMap(e)).toList(),
+      items:
+          (d['items'] as List? ?? []).map((e) => CartItem.fromMap(e)).toList(),
       total: (d['total'] as num? ?? 0).toDouble(),
       reason: d['reason']?.toString() ?? '',
       rejectionReason: d['rejectionReason']?.toString(),
@@ -70,18 +73,18 @@ class RefundRequest {
   }
 
   Map<String, dynamic> toFirestore() => {
-    'orderId': transactionId,
-    'transactionId': transactionId,
-    'customerEmail': customerEmail,
-    'customerName': customerName,
-    'items': items.map((i) => i.toMap()).toList(),
-    'total': total,
-    'reason': reason,
-    if (rejectionReason != null) 'rejectionReason': rejectionReason,
-    if (adminNotes != null) 'adminNotes': adminNotes,
-    'status': status.name,
-    if (condition != null) 'condition': condition!.name,
-    'createdAt': FieldValue.serverTimestamp(),
-    if (processedByEmail != null) 'processedByEmail': processedByEmail,
-  };
+        'orderId': transactionId,
+        'transactionId': transactionId,
+        'customerEmail': customerEmail,
+        'customerName': customerName,
+        'items': items.map((i) => i.toMap()).toList(),
+        'total': total,
+        'reason': reason,
+        if (rejectionReason != null) 'rejectionReason': rejectionReason,
+        if (adminNotes != null) 'adminNotes': adminNotes,
+        'status': status.name,
+        if (condition != null) 'condition': condition!.name,
+        'createdAt': FieldValue.serverTimestamp(),
+        if (processedByEmail != null) 'processedByEmail': processedByEmail,
+      };
 }

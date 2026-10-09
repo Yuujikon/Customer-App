@@ -8,52 +8,63 @@ class OrderStepper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Determine current index based on status
     int currentIndex = switch (status) {
       OrderStatus.pending => 0,
       OrderStatus.staging => 1,
-      OrderStatus.ready   => 2,
+      OrderStatus.ready => 2,
       OrderStatus.collected => 3,
-      _ => -1, // For special statuses like cancelled or refunded
+      _ => -1,
     };
 
     if (currentIndex == -1) return const SizedBox.shrink();
 
-    return Column(
-      children: [
-        _buildStep(
-          index: 0,
-          current: currentIndex,
-          label: 'Order Placed',
-          subtitle: 'We have received your order.',
-          icon: Icons.assignment_turned_in_outlined,
-          isLast: false,
-        ),
-        _buildStep(
-          index: 1,
-          current: currentIndex,
-          label: 'Packing',
-          subtitle: 'Store is preparing your items.',
-          icon: Icons.inventory_2_outlined,
-          isLast: false,
-        ),
-        _buildStep(
-          index: 2,
-          current: currentIndex,
-          label: 'Ready for Pickup',
-          subtitle: 'Visit the store to collect.',
-          icon: Icons.shopping_bag_outlined,
-          isLast: false,
-        ),
-        _buildStep(
-          index: 3,
-          current: currentIndex,
-          label: 'Completed',
-          subtitle: 'Items collected successfully.',
-          icon: Icons.check_circle_outline_rounded,
-          isLast: true,
-        ),
-      ],
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F9F3),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFE5EBDD)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('ORDER TRACKING',
+              style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                  color: GdcColors.terracotta,
+                  letterSpacing: 1)),
+          const SizedBox(height: 16),
+          _buildStep(
+            index: 0,
+            current: currentIndex,
+            label: 'Order Placed',
+            subtitle: 'Order received by store.',
+            isLast: false,
+          ),
+          _buildStep(
+            index: 1,
+            current: currentIndex,
+            label: 'Order Confirmed & Packing',
+            subtitle: 'Store attendant is gathering fresh items.',
+            isLast: false,
+          ),
+          _buildStep(
+            index: 2,
+            current: currentIndex,
+            label: 'Ready for Pickup',
+            subtitle: 'Items packed and ready for pickup.',
+            isLast: false,
+          ),
+          _buildStep(
+            index: 3,
+            current: currentIndex,
+            label: 'Order Picked Up',
+            subtitle: 'Order completed in-store.',
+            isLast: true,
+          ),
+        ],
+      ),
     );
   }
 
@@ -62,35 +73,56 @@ class OrderStepper extends StatelessWidget {
     required int current,
     required String label,
     required String subtitle,
-    required IconData icon,
     required bool isLast,
   }) {
     final isDone = index < current;
     final isActive = index == current;
-    final color = isDone ? GdcColors.success : (isActive ? GdcColors.terracotta : Colors.grey.shade300);
+    final activeColor = isDone
+        ? GdcColors.success
+        : (isActive ? GdcColors.orangeCTA : Colors.grey.shade300);
 
     return IntrinsicHeight(
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Column(
             children: [
-              Container(
-                width: 32, height: 32,
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 24,
+                height: 24,
                 decoration: BoxDecoration(
-                  color: isActive ? color : color.withValues(alpha: 0.1),
+                  color: isDone || isActive ? activeColor : Colors.white,
                   shape: BoxShape.circle,
-                  border: Border.all(color: color, width: 2),
+                  border: Border.all(color: activeColor, width: 2),
+                  boxShadow: isActive
+                      ? [
+                          BoxShadow(
+                            color: activeColor.withValues(alpha: 0.4),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          )
+                        ]
+                      : null,
                 ),
-                child: Icon(
-                  isDone ? Icons.check : icon,
-                  size: 16,
-                  color: isActive ? Colors.white : color,
+                child: Center(
+                  child: isDone
+                      ? const Icon(Icons.check_rounded,
+                          size: 14, color: Colors.white)
+                      : (isActive
+                          ? Container(
+                              width: 8,
+                              height: 8,
+                              decoration: const BoxDecoration(
+                                  color: Colors.white, shape: BoxShape.circle))
+                          : null),
                 ),
               ),
               if (!isLast)
                 Expanded(
                   child: Container(
                     width: 2,
+                    margin: const EdgeInsets.symmetric(vertical: 4),
                     color: isDone ? GdcColors.success : Colors.grey.shade200,
                   ),
                 ),
@@ -101,24 +133,29 @@ class OrderStepper extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 6),
                 Text(
                   label,
                   style: TextStyle(
                     fontSize: 14,
-                    fontWeight: isActive || isDone ? FontWeight.w900 : FontWeight.w700,
-                    color: isActive || isDone ? GdcColors.textPrimary : GdcColors.textMuted,
+                    fontWeight:
+                        isActive || isDone ? FontWeight.w900 : FontWeight.w700,
+                    color: isActive || isDone
+                        ? GdcColors.textPrimary
+                        : Colors.grey.shade400,
                   ),
                 ),
+                const SizedBox(height: 2),
                 Text(
                   subtitle,
                   style: TextStyle(
-                    fontSize: 12,
-                    color: isActive ? GdcColors.textSecondary : GdcColors.textMuted,
+                    fontSize: 11,
+                    color: isActive
+                        ? GdcColors.textSecondary
+                        : Colors.grey.shade500,
                     fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 24),
+                if (!isLast) const SizedBox(height: 20),
               ],
             ),
           ),

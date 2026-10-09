@@ -21,7 +21,8 @@ class _VariantSelectionSheetState extends State<VariantSelectionSheet> {
   void _syncQuantityWithCart() {
     if (!mounted) return;
     final op = context.read<OrderProvider>();
-    final idx = op.preCart.indexWhere((i) => i.productId == widget.product.id && i.variantId == _selectedVariantId);
+    final idx = op.preCart.indexWhere((i) =>
+        i.productId == widget.product.id && i.variantId == _selectedVariantId);
     if (idx >= 0) {
       setState(() {
         _quantity = op.preCart[idx].qty;
@@ -34,8 +35,8 @@ class _VariantSelectionSheetState extends State<VariantSelectionSheet> {
     final variants = widget.product.variants?.values.toList() ?? [];
     variants.sort((a, b) => a.name.compareTo(b.name));
 
-    final selectedVariant = _selectedVariantId != null 
-        ? widget.product.variants![_selectedVariantId] 
+    final selectedVariant = _selectedVariantId != null
+        ? widget.product.variants![_selectedVariantId]
         : null;
 
     return Container(
@@ -54,16 +55,24 @@ class _VariantSelectionSheetState extends State<VariantSelectionSheet> {
           children: [
             Center(
               child: Container(
-                width: 40, height: 4,
-                decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2)),
               ),
             ),
             const SizedBox(height: 24),
-            Text(capitalize(widget.product.name), 
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: GdcColors.textPrimary)),
-            const Text('Choose your flavor/type', 
-                style: TextStyle(fontSize: 14, color: GdcColors.textSecondary, fontWeight: FontWeight.w500)),
-            
+            Text(capitalize(widget.product.name),
+                style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    color: GdcColors.textPrimary)),
+            const Text('Choose your flavor/type',
+                style: TextStyle(
+                    fontSize: 14,
+                    color: GdcColors.textSecondary,
+                    fontWeight: FontWeight.w500)),
             const SizedBox(height: 24),
             ...variants.map((v) {
               final isSelected = _selectedVariantId == v.id;
@@ -72,23 +81,30 @@ class _VariantSelectionSheetState extends State<VariantSelectionSheet> {
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: InkWell(
-                  onTap: isSoldOut ? null : () {
-                    setState(() {
-                      _selectedVariantId = v.id;
-                      if (_quantity > v.maxPurchasableStock) _quantity = v.maxPurchasableStock;
-                      if (_quantity < 1) _quantity = 1;
-                      _syncQuantityWithCart();
-                    });
-                  },
+                  onTap: isSoldOut
+                      ? null
+                      : () {
+                          setState(() {
+                            _selectedVariantId = v.id;
+                            if (_quantity > v.maxPurchasableStock)
+                              _quantity = v.maxPurchasableStock;
+                            if (_quantity < 1) _quantity = 1;
+                            _syncQuantityWithCart();
+                          });
+                        },
                   borderRadius: BorderRadius.circular(16),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: isSelected ? GdcColors.terracotta.withValues(alpha: 0.05) : Colors.grey.shade50,
+                      color: isSelected
+                          ? GdcColors.terracotta.withValues(alpha: 0.05)
+                          : Colors.grey.shade50,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: isSelected ? GdcColors.terracotta : Colors.transparent,
+                        color: isSelected
+                            ? GdcColors.terracotta
+                            : Colors.transparent,
                         width: 2,
                       ),
                     ),
@@ -98,16 +114,20 @@ class _VariantSelectionSheetState extends State<VariantSelectionSheet> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(capitalize(v.name), 
+                              Text(capitalize(v.name),
                                   style: TextStyle(
-                                    fontWeight: FontWeight.bold, 
+                                    fontWeight: FontWeight.bold,
                                     fontSize: 15,
-                                    color: isSoldOut ? Colors.grey : GdcColors.textPrimary,
+                                    color: isSoldOut
+                                        ? Colors.grey
+                                        : GdcColors.textPrimary,
                                   )),
                               const SizedBox(height: 4),
-                              Text(formatPeso(v.price), 
+                              Text(formatPeso(v.price),
                                   style: TextStyle(
-                                    color: isSoldOut ? Colors.grey : GdcColors.terracotta, 
+                                    color: isSoldOut
+                                        ? Colors.grey
+                                        : GdcColors.terracotta,
                                     fontWeight: FontWeight.w800,
                                     fontSize: 13,
                                   )),
@@ -115,51 +135,59 @@ class _VariantSelectionSheetState extends State<VariantSelectionSheet> {
                           ),
                         ),
                         if (isSoldOut)
-                          const Text('SOLD OUT', 
-                              style: TextStyle(color: GdcColors.error, fontWeight: FontWeight.w900, fontSize: 11))
+                          const Text('SOLD OUT',
+                              style: TextStyle(
+                                  color: GdcColors.error,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 11))
                         else
-                          Text('${v.maxPurchasableStock} left', 
-                              style: const TextStyle(color: GdcColors.textMuted, fontSize: 12, fontWeight: FontWeight.w600)),
+                          Text('${v.maxPurchasableStock} left',
+                              style: const TextStyle(
+                                  color: GdcColors.textMuted,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600)),
                       ],
                     ),
                   ),
                 ),
               );
             }),
-
             if (_selectedVariantId != null) ...[
               const SizedBox(height: 24),
-              const Text('Quantity', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+              const Text('Quantity',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
               const SizedBox(height: 12),
               QtyControl(
-                qty: _quantity, 
-                max: selectedVariant?.maxPurchasableStock ?? 0, 
+                qty: _quantity,
+                max: selectedVariant?.maxPurchasableStock ?? 0,
                 onChanged: (v) => setState(() => _quantity = v),
               ),
             ],
-
             const SizedBox(height: 32),
             ElevatedButton(
-              onPressed: _selectedVariantId == null ? null : () {
-                final v = widget.product.variants?[_selectedVariantId!];
-                if (v == null) return;
-                
-                context.read<OrderProvider>().addToPreCart(
-                  widget.product,
-                  quantity: _quantity,
-                  variantId: v.id,
-                  variantName: v.name,
-                  replace: true,
-                );
+              onPressed: _selectedVariantId == null
+                  ? null
+                  : () {
+                      final v = widget.product.variants?[_selectedVariantId!];
+                      if (v == null) return;
 
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text('Added $_quantity x ${widget.product.name} (${v.name}) to basket.'),
-                  backgroundColor: GdcColors.success,
-                  duration: const Duration(seconds: 1),
-                ));
-                
-                Navigator.pop(context);
-              },
+                      context.read<OrderProvider>().addToPreCart(
+                            widget.product,
+                            quantity: _quantity,
+                            variantId: v.id,
+                            variantName: v.name,
+                            replace: true,
+                          );
+
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text(
+                            'Added $_quantity x ${widget.product.name} (${v.name}) to basket.'),
+                        backgroundColor: GdcColors.success,
+                        duration: const Duration(seconds: 1),
+                      ));
+
+                      Navigator.pop(context);
+                    },
               child: const Text('ADD TO BASKET'),
             ),
           ],
