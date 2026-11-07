@@ -89,6 +89,7 @@ class PreOrder {
   final DateTime? expiresAt;
   final String? rejectionReason;
   final bool isSeniorPWD;
+  final bool isExtended;
 
   const PreOrder({
     required this.id,
@@ -108,6 +109,7 @@ class PreOrder {
     this.expiresAt,
     this.rejectionReason,
     this.isSeniorPWD = false,
+    this.isExtended = false,
   });
 
   factory PreOrder.fromFirestore(DocumentSnapshot doc) {
@@ -136,6 +138,7 @@ class PreOrder {
         expiresAt: (d['expiresAt'] as Timestamp?)?.toDate(),
         rejectionReason: d['rejectionReason']?.toString(),
         isSeniorPWD: d['isSeniorPWD'] ?? false,
+        isExtended: d['isExtended'] ?? false,
       );
     } catch (e) {
       debugPrint('Error parsing PreOrder ${doc.id}: $e');
@@ -169,6 +172,7 @@ class PreOrder {
         'createdAt': FieldValue.serverTimestamp(),
         'expiresAt': expiresAt != null ? Timestamp.fromDate(expiresAt!) : null,
         'isSeniorPWD': isSeniorPWD,
+        'isExtended': isExtended,
         if (rejectionReason != null) 'rejectionReason': rejectionReason,
       };
 
@@ -184,6 +188,7 @@ class PreOrder {
     OrderStatus? status,
     String? paymentMethod,
     DateTime? expiresAt,
+    bool? isExtended,
   }) =>
       PreOrder(
         id: id,
@@ -203,5 +208,6 @@ class PreOrder {
         expiresAt: expiresAt ?? this.expiresAt,
         rejectionReason: rejectionReason,
         isSeniorPWD: isSeniorPWD,
+        isExtended: isExtended ?? this.isExtended,
       );
 }

@@ -1388,8 +1388,9 @@ class _ActiveOrderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final int availableMins =
-        OrderProvider.getAvailableExtensionMinutes(order.expiresAt);
+    final int availableMins = OrderProvider.getAvailableExtensionMinutes(
+        order.expiresAt,
+        isExtended: order.isExtended);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -1500,7 +1501,35 @@ class _ActiveOrderCard extends StatelessWidget {
               ),
             ],
           ),
-          if (availableMins > 0) ...[
+          if (order.isExtended) ...[
+            const SizedBox(height: 6),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+              decoration: BoxDecoration(
+                color: AppColors.sageTint.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(100),
+                border: Border.all(
+                    color: AppColors.forest.withValues(alpha: 0.3), width: 1),
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.check_circle_outline_rounded,
+                      size: 14, color: AppColors.forest),
+                  SizedBox(width: 6),
+                  Text(
+                    'Pickup time extended (1-time limit reached)',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.forest,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ] else if (availableMins > 0) ...[
             const SizedBox(height: 6),
             SizedBox(
               width: double.infinity,

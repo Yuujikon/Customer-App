@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../../shared/models/order.dart';
+import '../providers/order_provider.dart';
 import '../../../core/utils/format.dart';
 import '../../../core/utils/launcher.dart';
 import '../../../core/theme/app_theme.dart';
@@ -355,6 +357,75 @@ class OrderTicketScreen extends StatelessWidget {
             const SizedBox(height: 28),
 
             // Action Buttons
+            if (order.isExtended) ...[
+              Container(
+                width: double.infinity,
+                padding:
+                    const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+                decoration: BoxDecoration(
+                  color: GdcColors.cream,
+                  borderRadius: BorderRadius.circular(100),
+                  border: Border.all(
+                      color: GdcColors.forest.withValues(alpha: 0.3),
+                      width: 1.2),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.check_circle_outline_rounded,
+                        size: 16, color: GdcColors.forest),
+                    SizedBox(width: 6),
+                    Text(
+                      'Pickup time extended (1-time limit reached)',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: GdcColors.forest,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+            ] else if (OrderProvider.getAvailableExtensionMinutes(
+                    order.expiresAt,
+                    isExtended: order.isExtended) >
+                0) ...[
+              OutlinedButton.icon(
+                onPressed: () async {
+                  HapticFeedback.lightImpact();
+                  final messenger = ScaffoldMessenger.of(context);
+                  final op = context.read<OrderProvider>();
+                  final ext = await op.extendOrderPickupTime(order.id);
+                  if (ext > 0) {
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text(
+                            '⏱ Pickup time extended by $ext mins! Extended up to 3:00 PM cutoff.'),
+                        backgroundColor: GdcColors.forest,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.timer_outlined, size: 18),
+                label: Text(
+                  'EXTEND PICKUP (+ ${OrderProvider.getAvailableExtensionMinutes(order.expiresAt, isExtended: order.isExtended)} MIN)',
+                  style: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w900),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: GdcColors.orangeCTA,
+                  side:
+                      const BorderSide(color: GdcColors.orangeCTA, width: 1.5),
+                  minimumSize: const Size.fromHeight(50),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(100)),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+
             ElevatedButton.icon(
               onPressed: onTrackOrder,
               icon: const Icon(Icons.delivery_dining_rounded),

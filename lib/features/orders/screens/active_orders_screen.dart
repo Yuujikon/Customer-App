@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -187,6 +188,50 @@ class _OrderCard extends StatelessWidget {
                                 color: GdcColors.error,
                                 fontSize: 11,
                                 fontWeight: FontWeight.w800)),
+                        if (order.isExtended) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: GdcColors.forest.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                  color: GdcColors.forest, width: 1),
+                            ),
+                            child: const Text(
+                              'Extended (1-time limit reached)',
+                              style: TextStyle(
+                                color: GdcColors.forest,
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        ] else if (OrderProvider.getAvailableExtensionMinutes(
+                                order.expiresAt,
+                                isExtended: order.isExtended) >
+                            0) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: GdcColors.orangeCTA.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                  color: GdcColors.orangeCTA, width: 1),
+                            ),
+                            child: Text(
+                              '+ Extend (+${OrderProvider.getAvailableExtensionMinutes(order.expiresAt, isExtended: order.isExtended)} min)',
+                              style: const TextStyle(
+                                color: GdcColors.orangeCTA,
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        ],
                       ]),
                     ),
                 ],
@@ -403,6 +448,73 @@ class _OrderDetail extends StatelessWidget {
             icon: Icons.location_on_rounded,
             label: 'Location',
             value: order.location),
+        if (order.isExtended) ...[
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+            decoration: BoxDecoration(
+              color: GdcColors.cream,
+              borderRadius: BorderRadius.circular(100),
+              border: Border.all(
+                  color: GdcColors.forest.withValues(alpha: 0.3), width: 1.2),
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.check_circle_outline_rounded,
+                    size: 16, color: GdcColors.forest),
+                SizedBox(width: 6),
+                Text(
+                  'Pickup time extended (1-time limit reached)',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: GdcColors.forest,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ] else if (OrderProvider.getAvailableExtensionMinutes(order.expiresAt,
+                isExtended: order.isExtended) >
+            0) ...[
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () async {
+                HapticFeedback.lightImpact();
+                final messenger = ScaffoldMessenger.of(context);
+                final op = context.read<OrderProvider>();
+                final ext = await op.extendOrderPickupTime(order.id);
+                if (ext > 0) {
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text(
+                          '⏱ Pickup time extended by $ext mins! Extended up to 3:00 PM cutoff.'),
+                      backgroundColor: GdcColors.forest,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+              },
+              icon: const Icon(Icons.timer_outlined, size: 16),
+              label: Text(
+                'EXTEND PICKUP (+ ${OrderProvider.getAvailableExtensionMinutes(order.expiresAt, isExtended: order.isExtended)} MIN)',
+                style: const TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.w900),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: GdcColors.orangeCTA,
+                side: const BorderSide(color: GdcColors.orangeCTA, width: 1.5),
+                minimumSize: const Size(double.infinity, 44),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(100)),
+              ),
+            ),
+          ),
+        ],
       ]),
     );
   }
