@@ -221,56 +221,32 @@ class CustomerDashboardScreen extends StatelessWidget {
                 favoriteCount: allFavorites.length,
               ),
 
+              const SizedBox(height: 20),
+
+              // 3. Horizontal Explore Categories Carousel Card
+              _buildExploreCategoriesSection(context),
+
               const SizedBox(height: 16),
 
-              // 3. Active Order Flight Tracker
-              if (activeOrders.isNotEmpty) ...[
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Active Order Status',
-                      style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.primaryText),
-                    ),
-                    TextButton(
-                      onPressed: onViewOrders,
-                      child: const Text('View All',
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                              color: AppColors.forest)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                ...activeOrders.take(2).map((order) => _ActiveOrderCard(
-                      order: order,
-                      onShowQr: () => _showQrCode(context, order),
-                      onTrack: onViewOrders,
-                    )),
-                const SizedBox(height: 16),
-              ],
+              // 4. Side-by-Side: Active Order Status (Left) & Recent Purchase (Right)
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final bool isWide = constraints.maxWidth >= 550;
+                  final bool hasActive = activeOrders.isNotEmpty;
+                  final bool hasRecent = orderProvider.recentOrder != null;
 
-              // 4. Explore Categories (Left) & Recent Purchase (Right) Side-by-Side
-              if (orderProvider.recentOrder != null)
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final bool isWide = constraints.maxWidth >= 480;
+                  if (hasActive && hasRecent) {
                     if (isWide) {
                       return IntrinsicHeight(
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             Expanded(
-                              flex: 2,
-                              child: _buildPremiumCategoryGridCard(context),
+                              child: _buildActiveOrdersSection(
+                                  context, activeOrders),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
-                              flex: 3,
                               child: _buildRecentPurchaseCard(
                                   context, orderProvider),
                             ),
@@ -281,15 +257,24 @@ class CustomerDashboardScreen extends StatelessWidget {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildPremiumCategoryGridCard(context),
+                        _buildActiveOrdersSection(context, activeOrders),
                         const SizedBox(height: 12),
                         _buildRecentPurchaseCard(context, orderProvider),
                       ],
                     );
-                  },
-                )
-              else
-                _buildPremiumCategoryGridCard(context),
+                  }
+
+                  if (hasActive) {
+                    return _buildActiveOrdersSection(context, activeOrders);
+                  }
+
+                  if (hasRecent) {
+                    return _buildRecentPurchaseCard(context, orderProvider);
+                  }
+
+                  return const SizedBox.shrink();
+                },
+              ),
 
               const SizedBox(height: 20),
 
@@ -306,55 +291,106 @@ class CustomerDashboardScreen extends StatelessWidget {
 
               const SizedBox(height: 24),
 
-              // 8. Fresh Essentials Featured Row
+              // 8. Fresh Essentials Featured Section Card
               if (featuredProducts.isNotEmpty) ...[
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Fresh Essentials Today',
-                      style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.primaryText),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: AppColors.forest.withValues(alpha: 0.3),
+                      width: 1.5,
                     ),
-                    TextButton(
-                      onPressed: onBrowseCatalog,
-                      child: const Text('See All →',
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                              color: AppColors.forest)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                SizedBox(
-                  height: 270,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: featuredProducts.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 14),
-                    itemBuilder: (_, i) {
-                      final p = featuredProducts[i];
-                      final inCart =
-                          orderProvider.preCart.any((c) => c.productId == p.id);
-                      return SizedBox(
-                        width: 165,
-                        child: ProductTile(
-                          product: p,
-                          inCart: inCart,
-                          isFavorite: auth.favorites.contains(p.id),
-                          isOutOfStock: p.isOutOfStockForCustomer,
-                          onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (_) =>
-                                      ProductDetailsScreen(product: p))),
-                          onToggleFavorite: () => auth.toggleFavorite(p.id),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.02),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 7, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: AppColors.sageTint,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Text(
+                                  'Fresh Picks',
+                                  style: TextStyle(
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w900,
+                                    color: AppColors.forest,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'Fresh Essentials Today',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.primaryText,
+                                ),
+                              ),
+                            ],
+                          ),
+                          TextButton(
+                            onPressed: onBrowseCatalog,
+                            child: const Text(
+                              'See All →',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                                color: AppColors.forest,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 265,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: featuredProducts.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(width: 12),
+                          itemBuilder: (_, i) {
+                            final p = featuredProducts[i];
+                            final inCart = orderProvider.preCart
+                                .any((c) => c.productId == p.id);
+                            return SizedBox(
+                              width: 160,
+                              child: ProductTile(
+                                product: p,
+                                inCart: inCart,
+                                isFavorite: auth.favorites.contains(p.id),
+                                isOutOfStock: p.isOutOfStockForCustomer,
+                                onTap: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) =>
+                                            ProductDetailsScreen(product: p))),
+                                onToggleFavorite: () =>
+                                    auth.toggleFavorite(p.id),
+                              ),
+                            );
+                          },
                         ),
-                      );
-                    },
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -458,8 +494,8 @@ class CustomerDashboardScreen extends StatelessWidget {
     };
   }
 
-  /// Compact Explore Categories Vertical Container Card
-  Widget _buildPremiumCategoryGridCard(BuildContext context) {
+  /// Explore Categories Horizontal Section Card
+  Widget _buildExploreCategoriesSection(BuildContext context) {
     final inventory = context.watch<InventoryProvider>();
 
     final List<String> catNames = inventory.products
@@ -550,15 +586,166 @@ class CustomerDashboardScreen extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Column(
-            children: categories.map((cat) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 5),
-                child: _buildCategoryTile(cat),
-              );
-            }).toList(),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 54,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: categories.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                return _buildCategoryHorizontalTile(categories[index]);
+              },
+            ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryHorizontalTile(Map<String, dynamic> cat) {
+    final String label = cat['label'] as String;
+    final Color bgColor = (cat['bgColor'] as Color? ?? AppColors.sageTint);
+    final Color iconColor = cat['iconColor'] as Color? ?? AppColors.forest;
+
+    return InkWell(
+      onTap: () {
+        if (onSelectCategory != null) {
+          onSelectCategory!(label);
+        } else {
+          onBrowseCatalog();
+        }
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: 165,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.warmSurface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: bgColor,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                cat['icon'] as IconData,
+                color: iconColor,
+                size: 16,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.primaryText,
+                    ),
+                  ),
+                  Text(
+                    cat['subtitle'] as String,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 8.5,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.mutedText,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActiveOrdersSection(
+      BuildContext context, List<PreOrder> activeOrders) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border, width: 1.0),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.015),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 7, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppColors.forest.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Text(
+                      'Live Tracking',
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.forest,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Active Order Status',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.primaryText,
+                    ),
+                  ),
+                ],
+              ),
+              TextButton(
+                onPressed: onViewOrders,
+                child: const Text(
+                  'View All →',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11.5,
+                    color: AppColors.forest,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ...activeOrders.take(2).map((order) => _ActiveOrderCard(
+                order: order,
+                onShowQr: () => _showQrCode(context, order),
+                onTrack: onViewOrders,
+              )),
         ],
       ),
     );
