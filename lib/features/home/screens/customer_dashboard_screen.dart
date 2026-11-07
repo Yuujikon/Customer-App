@@ -1610,7 +1610,6 @@ class _ShopperOverviewCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
                 padding:
@@ -1632,14 +1631,18 @@ class _ShopperOverviewCard extends StatelessWidget {
                   ],
                 ),
               ),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   userEmail,
-                  textAlign: TextAlign.end,
+                  textAlign: TextAlign.start,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style:
-                      const TextStyle(color: AppColors.mutedText, fontSize: 11),
+                  style: const TextStyle(
+                    color: AppColors.mutedText,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],
@@ -1734,36 +1737,48 @@ class _ShopperTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: color, size: 14),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  label,
-                  style: const TextStyle(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.warmSurface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: color, size: 15),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: const TextStyle(
                       color: AppColors.mutedText,
-                      fontSize: 9,
+                      fontSize: 9.5,
                       fontWeight: FontWeight.w800,
-                      letterSpacing: 0.5),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                      letterSpacing: 0.5,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              value,
+              style: TextStyle(
+                color: color,
+                fontSize: 14,
+                fontWeight: FontWeight.w900,
               ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: TextStyle(
-                color: color, fontSize: 13, fontWeight: FontWeight.w900),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
       ),
     );
   }
