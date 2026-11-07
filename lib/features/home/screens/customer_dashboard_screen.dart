@@ -223,12 +223,34 @@ class CustomerDashboardScreen extends StatelessWidget {
 
               const SizedBox(height: 16),
 
-              // 3. Restock Radar Alert Banner
-              if (allOosCount > 0) ...[
-                _RestockRadarBanner(
-                  allOosCount: allOosCount,
-                  favoriteOosCount: favoriteOosCount,
+              // 3. Active Order Flight Tracker
+              if (activeOrders.isNotEmpty) ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Active Order Status',
+                      style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.primaryText),
+                    ),
+                    TextButton(
+                      onPressed: onViewOrders,
+                      child: const Text('View All',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                              color: AppColors.forest)),
+                    ),
+                  ],
                 ),
+                const SizedBox(height: 8),
+                ...activeOrders.take(2).map((order) => _ActiveOrderCard(
+                      order: order,
+                      onShowQr: () => _showQrCode(context, order),
+                      onTrack: onViewOrders,
+                    )),
                 const SizedBox(height: 16),
               ],
 
@@ -270,37 +292,6 @@ class CustomerDashboardScreen extends StatelessWidget {
                 _buildPremiumCategoryGridCard(context),
 
               const SizedBox(height: 20),
-
-              // 5. Active Order Flight Tracker
-              if (activeOrders.isNotEmpty) ...[
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Active Order Status',
-                      style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.primaryText),
-                    ),
-                    TextButton(
-                      onPressed: onViewOrders,
-                      child: const Text('View All',
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                              color: AppColors.forest)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                ...activeOrders.take(2).map((order) => _ActiveOrderCard(
-                      order: order,
-                      onShowQr: () => _showQrCode(context, order),
-                      onTrack: onViewOrders,
-                    )),
-                const SizedBox(height: 16),
-              ],
 
               // 6. Personal Shopper Overview Card
               _ShopperOverviewCard(
