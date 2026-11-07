@@ -101,7 +101,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.logout_rounded, color: GdcColors.mutedText),
-            tooltip: 'Sign Out',
+            tooltip: '',
             onPressed: () => context.read<AppAuthProvider>().signOut(),
           ),
         ],

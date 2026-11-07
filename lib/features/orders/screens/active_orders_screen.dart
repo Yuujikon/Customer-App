@@ -135,10 +135,12 @@ class _OrderCard extends StatelessWidget {
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(children: [
-          ListTile(
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            onTap: onToggle,
+          Material(
+            color: Colors.transparent,
+            child: ListTile(
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              onTap: onToggle,
             title: Row(
               children: [
                 Expanded(
@@ -195,6 +197,7 @@ class _OrderCard extends StatelessWidget {
                     ? Icons.keyboard_arrow_up_rounded
                     : Icons.keyboard_arrow_down_rounded,
                 color: Colors.grey),
+          ),
           ),
           if (isOpen) ...[
             const Divider(height: 1, indent: 20, endIndent: 20),

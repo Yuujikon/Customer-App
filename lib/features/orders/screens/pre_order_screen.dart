@@ -7,6 +7,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/store_hours.dart';
 import '../../../shared/models/order.dart';
 import '../../../shared/models/product.dart';
+import '../../../shared/widgets/common/quantity_selector_dialog.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../shop/providers/inventory_provider.dart';
 import '../providers/order_provider.dart';
@@ -243,89 +244,21 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
     required int maxStock,
     required OrderProvider orderProvider,
   }) {
-    final ctrl = TextEditingController(text: '${item.qty}');
-
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Modify Quantity',
-            style: TextStyle(fontWeight: FontWeight.w900)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              item.name,
-              style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primaryText),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Available Stock: $maxStock item${maxStock == 1 ? '' : 's'}',
-              style: const TextStyle(fontSize: 12, color: AppColors.mutedText),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: ctrl,
-              autofocus: true,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: InputDecoration(
-                labelText: 'Quantity',
-                hintText: 'Enter quantity',
-                border:
-                    OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final val = int.tryParse(ctrl.text.trim());
-              if (val == null || val <= 0) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Quantity must be at least 1.')),
-                );
-                return;
-              }
-
-              final clamped = val.clamp(1, maxStock);
-              orderProvider.setPreCartQty(
-                item.productId,
-                clamped,
-                maxStock,
-                variantId: item.variantId,
-              );
-
-              Navigator.pop(ctx);
-
-              if (val > maxStock) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                        'Quantity capped at maximum available stock ($maxStock).'),
-                    backgroundColor: AppColors.orangeCTA,
-                  ),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.orangeCTA,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(100)),
-            ),
-            child: const Text('Save'),
-          ),
-        ],
+      builder: (ctx) => QuantitySelectorDialog(
+        productName: item.name,
+        unitPrice: item.price,
+        initialQty: item.qty,
+        maxStock: maxStock,
+        onConfirm: (newQty) {
+          orderProvider.setPreCartQty(
+            item.productId,
+            newQty,
+            maxStock,
+            variantId: item.variantId,
+          );
+        },
       ),
     );
   }
@@ -680,6 +613,37 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                                 ],
                               ),
                             ),
+
+                            // Direct Remove Item Button
+                            IconButton(
+                              icon: Icon(
+                                Icons.delete_outline_rounded,
+                                color: Colors.red.shade600,
+                                size: 18,
+                              ),
+                              tooltip: '',
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              onPressed: () {
+                                orderProvider.removeFromPreCart(
+                                  item.productId,
+                                  variantId: item.variantId,
+                                );
+                                ScaffoldMessenger.of(context)
+                                    .hideCurrentSnackBar();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                        'Removed "${item.name}" from basket.'),
+                                    backgroundColor: AppColors.orangeCTA,
+                                    duration: const Duration(seconds: 1),
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                              },
+                            ),
+
+                            const SizedBox(width: 8),
 
                             // Capped & Non-Negative Quantity Controller
                             Container(

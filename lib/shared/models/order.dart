@@ -180,7 +180,12 @@ class PreOrder {
     return isActive && DateTime.now().isAfter(expiresAt!);
   }
 
-  PreOrder copyWith({OrderStatus? status, String? paymentMethod}) => PreOrder(
+  PreOrder copyWith({
+    OrderStatus? status,
+    String? paymentMethod,
+    DateTime? expiresAt,
+  }) =>
+      PreOrder(
         id: id,
         orderId: orderId,
         customerId: customerId,
@@ -195,7 +200,7 @@ class PreOrder {
         location: location,
         pickupTime: pickupTime,
         createdAt: createdAt,
-        expiresAt: expiresAt,
+        expiresAt: expiresAt ?? this.expiresAt,
         rejectionReason: rejectionReason,
         isSeniorPWD: isSeniorPWD,
       );

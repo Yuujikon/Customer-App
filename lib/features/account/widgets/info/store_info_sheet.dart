@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/launcher.dart';
 import '../../../shop/providers/inventory_provider.dart';
 
 class StoreInfoSheet extends StatelessWidget {
@@ -66,9 +67,9 @@ class StoreInfoSheet extends StatelessWidget {
           const SizedBox(height: 16),
           _buildInfoRow(
             icon: Icons.chat_rounded,
-            title: 'Chat with Us',
-            subtitle: 'Message us on Messenger',
-            onTap: () => _launchUrl(context, 'https://m.me/gdcsarisari'),
+            title: 'Social Media & Channels',
+            subtitle: 'Facebook, Messenger & Chat',
+            onTap: () => StoreLauncher.showSocialMedia(context),
           ),
           const SizedBox(height: 16),
           _buildInfoRow(

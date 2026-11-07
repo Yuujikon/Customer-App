@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/launcher.dart';
 import '../../../core/utils/responsive.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../widgets/info/store_info_sheet.dart';
@@ -104,7 +105,7 @@ class _AccountScreenState extends State<AccountScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: const Color(0xFFE5D8C5), width: 1.2),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.02),
@@ -251,38 +252,47 @@ class _AccountScreenState extends State<AccountScreen> {
           ),
 
           const SizedBox(height: 20),
-          const Divider(height: 1, color: AppColors.border),
+          const Divider(height: 1, color: Color(0xFFE5D8C5)),
           const SizedBox(height: 16),
 
           // Action Buttons
-          OutlinedButton.icon(
-            onPressed: () => _showEditDialog(context, auth),
-            icon: const Icon(Icons.edit_note_rounded,
-                size: 18, color: AppColors.forest),
-            label: const Text('Edit Personal Information'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.primaryText,
-              side: const BorderSide(color: AppColors.border),
-              minimumSize: const Size(double.infinity, 44),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(100),
-              ),
-            ),
-          ),
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 500),
+              child: Column(
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () => _showEditDialog(context, auth),
+                    icon: const Icon(Icons.edit_note_rounded,
+                        size: 18, color: AppColors.forest),
+                    label: const Text('Edit Personal Information'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.primaryText,
+                      side: const BorderSide(color: Color(0xFFE5D8C5), width: 1.2),
+                      minimumSize: const Size(double.infinity, 44),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(100),
+                      ),
+                    ),
+                  ),
 
-          const SizedBox(height: 10),
+                  const SizedBox(height: 10),
 
-          OutlinedButton.icon(
-            onPressed: () => _showLogoutConfirm(context),
-            icon: const Icon(Icons.logout_rounded,
-                size: 18, color: AppColors.error),
-            label: const Text('Sign out of account'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.error,
-              side: const BorderSide(color: AppColors.border),
-              minimumSize: const Size(double.infinity, 44),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(100),
+                  OutlinedButton.icon(
+                    onPressed: () => _showLogoutConfirm(context),
+                    icon: const Icon(Icons.logout_rounded,
+                        size: 18, color: AppColors.error),
+                    label: const Text('Sign out of account'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.error,
+                      side: const BorderSide(color: Color(0xFFE5D8C5), width: 1.2),
+                      minimumSize: const Size(double.infinity, 44),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(100),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -297,7 +307,7 @@ class _AccountScreenState extends State<AccountScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: const Color(0xFFE5D8C5), width: 1.2),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.02),
@@ -370,11 +380,12 @@ class _AccountScreenState extends State<AccountScreen> {
 
           const SizedBox(height: 14),
 
-          // Contact
+          // Contact / Social Media
           _buildInfoRow(
-            icon: Icons.phone_rounded,
-            primary: '+63 912 345 6789',
-            secondary: 'Call or message the store',
+            icon: Icons.chat_rounded,
+            primary: 'Social Media & Channels',
+            secondary: 'Facebook, Messenger & Hotline',
+            onTap: () => StoreLauncher.showSocialMedia(context),
           ),
         ],
       ),
@@ -385,48 +396,65 @@ class _AccountScreenState extends State<AccountScreen> {
     required IconData icon,
     required String primary,
     required String secondary,
+    VoidCallback? onTap,
   }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(9),
-          decoration: const BoxDecoration(
-            color: AppColors.sageTint,
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            icon,
-            color: AppColors.forest,
-            size: 18,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                primary,
-                style: const TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.primaryText,
-                ),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(9),
+              decoration: const BoxDecoration(
+                color: AppColors.sageTint,
+                shape: BoxShape.circle,
               ),
-              const SizedBox(height: 1),
-              Text(
-                secondary,
-                style: const TextStyle(
-                  fontSize: 11.5,
+              child: Icon(
+                icon,
+                color: AppColors.forest,
+                size: 18,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    primary,
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.primaryText,
+                    ),
+                  ),
+                  const SizedBox(height: 1),
+                  Text(
+                    secondary,
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      color: AppColors.mutedText,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (onTap != null)
+              const Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 12,
                   color: AppColors.mutedText,
-                  fontWeight: FontWeight.w500,
                 ),
               ),
-            ],
-          ),
+          ],
         ),
-      ],
+      ),
     );
   }
 

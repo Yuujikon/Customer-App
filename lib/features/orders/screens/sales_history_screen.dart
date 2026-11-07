@@ -122,19 +122,22 @@ class _HistoryCard extends StatelessWidget {
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(children: [
-          ListTile(
-            onTap: onToggle,
-            title: Text(order.orderId,
-                style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text(DateFormat('MMM d, yyyy').format(order.createdAt)),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(formatPeso(order.total),
-                    style: const TextStyle(fontWeight: FontWeight.w900)),
-                const SizedBox(width: 8),
-                Icon(isOpen ? Icons.expand_less : Icons.expand_more),
-              ],
+          Material(
+            color: Colors.transparent,
+            child: ListTile(
+              onTap: onToggle,
+              title: Text(order.orderId,
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text(DateFormat('MMM d, yyyy').format(order.createdAt)),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(formatPeso(order.total),
+                      style: const TextStyle(fontWeight: FontWeight.w900)),
+                  const SizedBox(width: 8),
+                  Icon(isOpen ? Icons.expand_less : Icons.expand_more),
+                ],
+              ),
             ),
           ),
           if (isOpen) ...[

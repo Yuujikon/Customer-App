@@ -86,7 +86,11 @@ class AppAuthProvider extends ChangeNotifier {
         _bio = d['bio'] ?? '';
         _phoneNumber = d['phoneNumber'];
         _base64Photo = d['photoBase64'];
-        _favorites = List<String>.from(d['favorites'] ?? []);
+        final rawFavs = d['favorites'] as List? ?? [];
+        _favorites = rawFavs
+            .map((e) => e.toString().trim())
+            .where((id) => id.isNotEmpty)
+            .toList();
         _hasEnteredFullName = d['hasEnteredFullName'] == true;
 
         final savedName = d['fullName'] ?? d['displayName'];
@@ -110,17 +114,24 @@ class AppAuthProvider extends ChangeNotifier {
   }
 
   Future<void> toggleFavorite(String productId) async {
-    final uid = currentUser?.uid;
-    if (uid == null) return;
-
     if (_favorites.contains(productId)) {
       _favorites.remove(productId);
     } else {
       _favorites.add(productId);
     }
-
-    await _db.collection('users').doc(uid).update({'favorites': _favorites});
     notifyListeners();
+
+    final uid = currentUser?.uid;
+    if (uid != null) {
+      try {
+        await _db.collection('users').doc(uid).set(
+          {'favorites': _favorites},
+          SetOptions(merge: true),
+        );
+      } catch (e) {
+        debugPrint('Error syncing favorites to Firestore: $e');
+      }
+    }
   }
 
   Future<void> signIn(String email, String password) async {

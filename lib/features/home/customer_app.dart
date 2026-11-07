@@ -25,10 +25,19 @@ class CustomerApp extends StatefulWidget {
 class _CustomerAppState extends State<CustomerApp> {
   int _tab = 0;
   bool _showNotifications = false;
+  String _selectedCatalogCategory = 'All';
 
   void _navigateToTab(int tabIndex) {
     setState(() {
       _tab = tabIndex;
+      _showNotifications = false;
+    });
+  }
+
+  void _selectCategoryAndNavigateToCatalog(String category) {
+    setState(() {
+      _selectedCatalogCategory = category;
+      _tab = 1;
       _showNotifications = false;
     });
   }
@@ -41,11 +50,15 @@ class _CustomerAppState extends State<CustomerApp> {
 
     final List<Widget> screens = [
       CustomerDashboardScreen(
-        onBrowseCatalog: () => _navigateToTab(1),
+        onBrowseCatalog: () => _selectCategoryAndNavigateToCatalog('All'),
+        onSelectCategory: (cat) => _selectCategoryAndNavigateToCatalog(cat),
         onViewCart: () => _navigateToTab(2),
         onViewOrders: () => _navigateToTab(3),
       ),
-      ShopScreen(onViewCart: () => _navigateToTab(2)),
+      ShopScreen(
+        onViewCart: () => _navigateToTab(2),
+        initialCategory: _selectedCatalogCategory,
+      ),
       PreOrderScreen(
         onSubmitted: () => _navigateToTab(3),
         onBrowseMore: () => _navigateToTab(1),
@@ -112,49 +125,52 @@ class _CustomerAppState extends State<CustomerApp> {
                     ),
                 ],
               ),
-              bottomNavigationBar: NavigationBar(
-                selectedIndex: _tab,
-                onDestinationSelected: (i) {
-                  setState(() {
-                    _tab = i;
-                    _showNotifications = false;
-                  });
-                },
-                backgroundColor: Colors.white,
-                indicatorColor: AppColors.sageTint,
-                elevation: 8,
-                shadowColor: Colors.black.withValues(alpha: 0.08),
-                destinations: const [
-                  NavigationDestination(
-                    icon: Icon(Icons.home_outlined),
-                    selectedIcon:
-                        Icon(Icons.home_rounded, color: AppColors.forest),
-                    label: 'Home',
-                  ),
-                  NavigationDestination(
-                    icon: Icon(Icons.storefront_outlined),
-                    selectedIcon:
-                        Icon(Icons.storefront_rounded, color: AppColors.forest),
-                    label: 'Catalog',
-                  ),
-                  NavigationDestination(
-                    icon: _CartBadgeIcon(isSelected: false),
-                    selectedIcon: _CartBadgeIcon(isSelected: true),
-                    label: 'Basket',
-                  ),
-                  NavigationDestination(
-                    icon: Icon(Icons.receipt_long_outlined),
-                    selectedIcon: Icon(Icons.receipt_long_rounded,
-                        color: AppColors.forest),
-                    label: 'Orders',
-                  ),
-                  NavigationDestination(
-                    icon: Icon(Icons.person_outline_rounded),
-                    selectedIcon:
-                        Icon(Icons.person_rounded, color: AppColors.forest),
-                    label: 'Account',
-                  ),
-                ],
+              bottomNavigationBar: SafeArea(
+                bottom: true,
+                child: NavigationBar(
+                  selectedIndex: _tab,
+                  onDestinationSelected: (i) {
+                    setState(() {
+                      _tab = i;
+                      _showNotifications = false;
+                    });
+                  },
+                  backgroundColor: Colors.white,
+                  indicatorColor: AppColors.sageTint,
+                  elevation: 8,
+                  shadowColor: Colors.black.withValues(alpha: 0.08),
+                  destinations: const [
+                    NavigationDestination(
+                      icon: Icon(Icons.home_outlined),
+                      selectedIcon:
+                          Icon(Icons.home_rounded, color: AppColors.forest),
+                      label: 'Home',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.storefront_outlined),
+                      selectedIcon:
+                          Icon(Icons.storefront_rounded, color: AppColors.forest),
+                      label: 'Catalog',
+                    ),
+                    NavigationDestination(
+                      icon: _CartBadgeIcon(isSelected: false),
+                      selectedIcon: _CartBadgeIcon(isSelected: true),
+                      label: 'Basket',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.receipt_long_outlined),
+                      selectedIcon: Icon(Icons.receipt_long_rounded,
+                          color: AppColors.forest),
+                      label: 'Orders',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.person_outline_rounded),
+                      selectedIcon:
+                          Icon(Icons.person_rounded, color: AppColors.forest),
+                      label: 'Account',
+                    ),
+                  ],
+                ),
               ),
             );
           }
@@ -258,15 +274,30 @@ class _CustomerAppState extends State<CustomerApp> {
                     Expanded(
                       child: Column(
                         children: [
-                          GlobalTopBar(
-                            userName: auth.displayName.split(' ').first,
-                            unreadNotifications: unreadCount,
-                            onOpenNotifications: () {
-                              setState(() =>
-                                  _showNotifications = !_showNotifications);
-                            },
-                            onSearchTap: () => _navigateToTab(1),
-                            onProfileTap: () => _navigateToTab(4),
+                          Container(
+                            width: double.infinity,
+                            decoration: const BoxDecoration(
+                              color: AppColors.warmSurface,
+                              border: Border(
+                                bottom: BorderSide(color: AppColors.border, width: 1),
+                              ),
+                            ),
+                            child: Center(
+                              child: ConstrainedBox(
+                                constraints:
+                                    const BoxConstraints(maxWidth: 1200),
+                                child: GlobalTopBar(
+                                  userName: auth.displayName.split(' ').first,
+                                  unreadNotifications: unreadCount,
+                                  onOpenNotifications: () {
+                                    setState(() =>
+                                        _showNotifications = !_showNotifications);
+                                  },
+                                  onSearchTap: () => _navigateToTab(1),
+                                  onProfileTap: () => _navigateToTab(4),
+                                ),
+                              ),
+                            ),
                           ),
                           Expanded(
                             child: Center(

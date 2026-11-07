@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 import 'dart:async';
 import 'dart:math' as math;
@@ -362,6 +363,61 @@ class OrderProvider extends ChangeNotifier {
     final newQty = qty.clamp(1, maxStock);
     _preCart[idx] = _preCart[idx].copyWith(qty: newQty);
     notifyListeners();
+  }
+
+  /// Calculates available extension minutes up to 20 minutes max.
+  /// Disabled (returns 0) if current time or expiration is at/past 3:00 PM (15:00).
+  static int getAvailableExtensionMinutes(DateTime? currentExpiry) {
+    if (currentExpiry == null) return 0;
+    final now = DateTime.now();
+    final cutoff3PM = DateTime(now.year, now.month, now.day, 15, 0);
+
+    if (now.isAfter(cutoff3PM) || now.isAtSameMomentAs(cutoff3PM)) {
+      return 0;
+    }
+
+    if (currentExpiry.isAfter(cutoff3PM) ||
+        currentExpiry.isAtSameMomentAs(cutoff3PM)) {
+      return 0;
+    }
+
+    final minutesToCutoff = cutoff3PM.difference(currentExpiry).inMinutes;
+    if (minutesToCutoff <= 0) return 0;
+
+    return minutesToCutoff.clamp(0, 20);
+  }
+
+  /// Extends an active order's pickup expiration time by up to 20 minutes max.
+  /// Strictly capped so that pickup time NEVER exceeds 3:00 PM (15:00).
+  Future<int> extendOrderPickupTime(String orderId) async {
+    final idx =
+        _orders.indexWhere((o) => o.id == orderId || o.orderId == orderId);
+    if (idx < 0) return 0;
+
+    final order = _orders[idx];
+    if (order.expiresAt == null) return 0;
+
+    final availableMinutes = getAvailableExtensionMinutes(order.expiresAt!);
+    if (availableMinutes <= 0) return 0;
+
+    final newExpiry =
+        order.expiresAt!.add(Duration(minutes: availableMinutes));
+    final updatedOrder = order.copyWith(expiresAt: newExpiry);
+    _orders[idx] = updatedOrder;
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('orders')
+          .doc(order.id)
+          .update({
+        'expiresAt': newExpiry,
+      });
+    } catch (e) {
+      debugPrint('Error updating order expiry in Firestore: $e');
+    }
+
+    notifyListeners();
+    return availableMinutes;
   }
 
   String _generate6CharAlphanumericId() {

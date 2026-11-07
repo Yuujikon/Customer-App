@@ -15,8 +15,13 @@ import 'product_details_screen.dart';
 
 class ShopScreen extends StatefulWidget {
   final VoidCallback onViewCart;
+  final String initialCategory;
 
-  const ShopScreen({super.key, required this.onViewCart});
+  const ShopScreen({
+    super.key,
+    required this.onViewCart,
+    this.initialCategory = 'All',
+  });
 
   @override
   State<ShopScreen> createState() => _ShopScreenState();
@@ -24,14 +29,49 @@ class ShopScreen extends StatefulWidget {
 
 class _ShopScreenState extends State<ShopScreen> {
   final _searchCtrl = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
+  final ScrollController _scrollController = ScrollController();
   String _search = '';
-  String _cat = 'All';
-  bool _inStockOnly = true;
+  late String _cat;
+  bool _showOutOfStock = false;
+  bool _savedOnly = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _cat = widget.initialCategory;
+  }
+
+  @override
+  void didUpdateWidget(covariant ShopScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialCategory != widget.initialCategory) {
+      setState(() {
+        _cat = widget.initialCategory;
+      });
+    }
+  }
 
   @override
   void dispose() {
     _searchCtrl.dispose();
+    _searchFocusNode.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _openProductDetails(Product p) async {
+    final double savedOffset =
+        _scrollController.hasClients ? _scrollController.offset : 0.0;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ProductDetailsScreen(product: p),
+      ),
+    );
+    if (_scrollController.hasClients && savedOffset > 0) {
+      _scrollController.jumpTo(savedOffset);
+    }
   }
 
   @override
@@ -60,16 +100,31 @@ class _ShopScreenState extends State<ShopScreen> {
     final bundles = inventory.bundles.where((b) => b.isActive).toList();
     final effectivelyClosed = inventory.settings.effectivelyClosed;
 
+    final rawCats = inventory.products
+        .map((p) => p.category.trim())
+        .where((c) => c.isNotEmpty)
+        .toSet()
+        .toList();
+
+    final bool hasOthers = rawCats.any((c) => c.toLowerCase() == 'others');
+    final nonOthers =
+        rawCats.where((c) => c.toLowerCase() != 'others').toList()..sort();
+
     final cats = [
       'All',
-      ...inventory.products.map((p) => p.category).toSet().toList()..sort()
+      ...nonOthers,
+      if (hasOthers) 'Others',
     ];
 
-    // Main catalog grid filtering
+    // Main catalog grid filtering (Defaults to in-stock products only)
     final filtered = products
         .where((p) => p.status == ProductStatus.published)
         .where((p) {
-          if (_inStockOnly) return !p.isOutOfStockForCustomer;
+          if (!_showOutOfStock) return !p.isOutOfStockForCustomer;
+          return true;
+        })
+        .where((p) {
+          if (_savedOnly) return auth.favorites.contains(p.id);
           return true;
         })
         .where((p) =>
@@ -82,6 +137,9 @@ class _ShopScreenState extends State<ShopScreen> {
 
     final cartTotal = preCart.fold(0.0, (s, i) => s + i.price * i.qty);
     final cartCount = preCart.fold(0, (s, i) => s + i.qty);
+    final savedCount = inventory.products
+        .where((p) => auth.favorites.contains(p.id))
+        .length;
 
     return Scaffold(
       backgroundColor: AppColors.cream,
@@ -92,42 +150,189 @@ class _ShopScreenState extends State<ShopScreen> {
             await Future.delayed(const Duration(milliseconds: 300));
           },
           child: CustomScrollView(
+            controller: _scrollController,
+            key: const PageStorageKey('shop_catalog_scroll'),
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
-              // Header
+              // Header with Swapped Top-Right Actions (3-Dot Menu First, Notification Bell Second)
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-                  child: Column(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
-                      Text(
-                        'GDC MARKET',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.sage,
-                          letterSpacing: 1.2,
-                        ),
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          Text(
+                            'GDC MARKET',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.sage,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Browse Catalog',
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.primaryText,
+                              letterSpacing: -0.4,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Fresh essentials, ready for express pickup.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.mutedText,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ),
-                      SizedBox(height: 2),
-                      Text(
-                        'Browse the catalog',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.primaryText,
-                          letterSpacing: -0.4,
-                        ),
-                      ),
-                      SizedBox(height: 2),
-                      Text(
-                        'Fresh essentials and everyday favorites, ready for pickup.',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          color: AppColors.mutedText,
-                          fontWeight: FontWeight.w500,
-                        ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // 1. 3-Dot Filter Options Menu (Swapped Position)
+                          PopupMenuButton<String>(
+                            tooltip: '',
+                            icon: Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: (_showOutOfStock || _savedOnly)
+                                    ? AppColors.sageTint
+                                    : Colors.white,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: (_showOutOfStock || _savedOnly)
+                                      ? AppColors.forest
+                                      : AppColors.border,
+                                ),
+                              ),
+                              child: Icon(
+                                Icons.more_vert_rounded,
+                                color: (_showOutOfStock || _savedOnly)
+                                    ? AppColors.forest
+                                    : AppColors.primaryText,
+                                size: 20,
+                              ),
+                            ),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16)),
+                            onSelected: (val) {
+                              setState(() {
+                                if (val == 'oos') {
+                                  _showOutOfStock = !_showOutOfStock;
+                                } else if (val == 'saved') {
+                                  _savedOnly = !_savedOnly;
+                                } else if (val == 'reset') {
+                                  _showOutOfStock = false;
+                                  _savedOnly = false;
+                                }
+                              });
+                            },
+                            itemBuilder: (context) => [
+                              PopupMenuItem(
+                                value: 'oos',
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      _showOutOfStock
+                                          ? Icons.check_circle_rounded
+                                          : Icons.radio_button_unchecked_rounded,
+                                      size: 18,
+                                      color: _showOutOfStock
+                                          ? AppColors.forest
+                                          : AppColors.mutedText,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const Text('Show Sold Out Items',
+                                        style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700)),
+                                  ],
+                                ),
+                              ),
+                              PopupMenuItem(
+                                value: 'saved',
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      _savedOnly
+                                          ? Icons.favorite_rounded
+                                          : Icons.favorite_border_rounded,
+                                      size: 18,
+                                      color: _savedOnly
+                                          ? Colors.red.shade600
+                                          : AppColors.mutedText,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text('Saved Items ($savedCount)',
+                                        style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700)),
+                                  ],
+                                ),
+                              ),
+                              if (_showOutOfStock || _savedOnly)
+                                PopupMenuItem(
+                                  value: 'reset',
+                                  child: Row(
+                                    children: const [
+                                      Icon(Icons.refresh_rounded,
+                                          size: 18, color: AppColors.mutedText),
+                                      SizedBox(width: 8),
+                                      Text('Reset Filters',
+                                          style: TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                              color: AppColors.mutedText)),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          ),
+
+                          const SizedBox(width: 6),
+
+                          // 2. Notification Bell Icon (Restock Radar)
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: AppColors.orangeCTA
+                                  .withValues(alpha: 0.12),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                  color: AppColors.orangeCTA
+                                      .withValues(alpha: 0.3)),
+                            ),
+                            child: IconButton(
+                              icon: const Icon(
+                                Icons.notifications_active_rounded,
+                                color: AppColors.orangeCTA,
+                                size: 18,
+                              ),
+                              tooltip: '',
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) =>
+                                          const OutOfStockDashboardScreen()),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -169,239 +374,246 @@ class _ShopScreenState extends State<ShopScreen> {
                 ),
               ),
 
-              // Search & Filters Section
+              // Professional Search Bar & Filters Section Card
               SliverToBoxAdapter(
                 child: Padding(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          // Search Input
-                          Expanded(
-                            child: Container(
-                              height: 48,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(100),
-                                border: Border.all(color: AppColors.border),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.02),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: TextField(
-                                controller: _searchCtrl,
-                                decoration: const InputDecoration(
-                                  hintText: 'Search groceries...',
-                                  prefixIcon: Icon(Icons.search_rounded,
-                                      color: AppColors.mutedText, size: 20),
-                                  border: InputBorder.none,
-                                  enabledBorder: InputBorder.none,
-                                  focusedBorder: InputBorder.none,
-                                  contentPadding: EdgeInsets.symmetric(
-                                      horizontal: 16, vertical: 12),
-                                ),
-                                onChanged: (v) => setState(() => _search = v),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-
-                          // Restock Radar Shortcut Button
-                          Tooltip(
-                            message: 'Restock Notifications Hub',
-                            child: GestureDetector(
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (_) =>
-                                          const OutOfStockDashboardScreen()),
-                                );
-                              },
-                              child: Container(
-                                width: 48,
-                                height: 48,
-                                decoration: BoxDecoration(
-                                  color: AppColors.orangeCTA
-                                      .withValues(alpha: 0.12),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                      color: AppColors.orangeCTA
-                                          .withValues(alpha: 0.3)),
-                                ),
-                                child: const Icon(
-                                    Icons.notifications_active_rounded,
-                                    color: AppColors.orangeCTA,
-                                    size: 22),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 12),
-
-                      // Filter Chips Row
-                      SizedBox(
-                        height: 40,
-                        child: ListView(
-                          scrollDirection: Axis.horizontal,
-                          children: [
-                            FilterChip(
-                              label: const Text('In Stock Only'),
-                              selected: _inStockOnly,
-                              onSelected: (val) => setState(() {
-                                _inStockOnly = val;
-                              }),
-                              selectedColor: AppColors.sageTint,
-                              labelStyle: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: _inStockOnly
-                                    ? AppColors.forest
-                                    : AppColors.mutedText,
-                              ),
-                              showCheckmark: true,
-                              checkmarkColor: AppColors.forest,
-                              side: BorderSide(
-                                color: _inStockOnly
-                                    ? AppColors.forest.withValues(alpha: 0.3)
-                                    : AppColors.border,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            ...cats.map((catName) => Padding(
-                                  padding: const EdgeInsets.only(right: 8),
-                                  child: ChoiceChip(
-                                    label: Text(catName),
-                                    selected: _cat == catName,
-                                    onSelected: (selected) {
-                                      if (selected)
-                                        setState(() => _cat = catName);
-                                    },
-                                    selectedColor: AppColors.forest,
-                                    backgroundColor: Colors.white,
-                                    showCheckmark: false,
-                                    labelStyle: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                      color: _cat == catName
-                                          ? Colors.white
-                                          : AppColors.mutedText,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(100),
-                                      side: BorderSide(
-                                        color: _cat == catName
-                                            ? AppColors.forest
-                                            : AppColors.border,
-                                      ),
-                                    ),
-                                  ),
-                                )),
-                          ],
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border:
+                          Border.all(color: const Color(0xFFE5D8C5), width: 1.2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.015),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Sleek Professional Full-Width Search Input
+                        Container(
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: AppColors.warmSurface,
+                            borderRadius: BorderRadius.circular(100),
+                            border: Border.all(color: const Color(0xFFE5D8C5)),
+                          ),
+                          child: TextField(
+                            controller: _searchCtrl,
+                            focusNode: _searchFocusNode,
+                            decoration: InputDecoration(
+                              hintText: 'Search groceries, produce, snacks...',
+                              hintStyle: const TextStyle(
+                                  fontSize: 12.5,
+                                  color: AppColors.mutedText,
+                                  fontWeight: FontWeight.w500),
+                              prefixIcon: const Icon(Icons.search_rounded,
+                                  color: AppColors.forest, size: 20),
+                              suffixIcon: _search.isNotEmpty
+                                  ? IconButton(
+                                      icon: const Icon(Icons.clear_rounded,
+                                          size: 18, color: AppColors.mutedText),
+                                      onPressed: () {
+                                        _searchCtrl.clear();
+                                        setState(() => _search = '');
+                                      },
+                                    )
+                                  : null,
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 10),
+                            ),
+                            onChanged: (v) => setState(() => _search = v),
+                          ),
+                        ),
+
+                        const SizedBox(height: 10),
+
+                        // Category Filter Chips Row
+                        SizedBox(
+                          height: 38,
+                          child: ListView(
+                            scrollDirection: Axis.horizontal,
+                            children: cats.map((catName) {
+                              final bool isSelected = _cat == catName;
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: ChoiceChip(
+                                  label: Text(catName),
+                                  selected: isSelected,
+                                  materialTapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                  visualDensity: VisualDensity.compact,
+                                  onSelected: (selected) {
+                                    if (selected)
+                                      setState(() => _cat = catName);
+                                  },
+                                  selectedColor: AppColors.forest,
+                                  labelStyle: TextStyle(
+                                    color: isSelected
+                                        ? Colors.white
+                                        : AppColors.primaryText,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                  backgroundColor: Colors.white,
+                                  side: BorderSide(
+                                    color: isSelected
+                                        ? AppColors.forest
+                                        : const Color(0xFFE5D8C5),
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
 
-              if (inventory.settings.announcement?.isNotEmpty ?? false)
-                SliverToBoxAdapter(
-                    child: AnnouncementTicker(
-                        text: inventory.settings.announcement!)),
+              // Active Basket Summary Section Card (Stable Sliver Key)
+              SliverToBoxAdapter(
+                key: const ValueKey('basket_summary_sliver'),
+                child: preCart.isNotEmpty
+                    ? Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 6),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                                color: const Color(0xFFE5D8C5), width: 1.2),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.015),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: BasketSummarySection(
+                            items: preCart,
+                            allProducts: inventory.products,
+                            onRemove: (id, variantId) => orderProvider
+                                .removeFromPreCart(id, variantId: variantId),
+                            onClearAll: () => orderProvider.clearPreCart(),
+                          ),
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
 
-              // Active Basket Summary
-              if (preCart.isNotEmpty)
-                SliverToBoxAdapter(
-                  child: BasketSummarySection(
-                    items: preCart,
-                    allProducts: inventory.products,
-                    onRemove: (id, variantId) => orderProvider
-                        .removeFromPreCart(id, variantId: variantId),
-                    onClearAll: () => orderProvider.clearPreCart(),
-                  ),
-                ),
+              // Your Usual Items Section Card (Stable Sliver Key)
+              SliverToBoxAdapter(
+                key: const ValueKey('usual_basket_sliver'),
+                child: buyAgain.isNotEmpty
+                    ? Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 6),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                                color: const Color(0xFFE5D8C5), width: 1.2),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.015),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: UsualBasketSection(
+                            items: buyAgain,
+                            allProducts: inventory.products,
+                            inCart: (id) =>
+                                preCart.any((c) => c.productId == id),
+                            onAdd: (p) => _openProductDetails(p),
+                            onAddAll: () async {
+                              final messenger = ScaffoldMessenger.of(context);
+                              final itemsToAdd = buyAgain
+                                  .map((b) => inventory.products
+                                      .firstWhere((p) => p.id == b.productId))
+                                  .toList();
+                              final result = await orderProvider.reorderItems(
+                                  buyAgain, itemsToAdd);
 
-              // Your Usual Items Section
-              if (buyAgain.isNotEmpty)
-                SliverToBoxAdapter(
-                  child: UsualBasketSection(
-                    items: buyAgain,
-                    allProducts: inventory.products,
-                    inCart: (id) => preCart.any((c) => c.productId == id),
-                    onAdd: (p) => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => ProductDetailsScreen(product: p))),
-                    onAddAll: () async {
-                      final messenger = ScaffoldMessenger.of(context);
-                      final result = await orderProvider.reorderItems(
-                          buyAgain, inventory.products);
-                      if (mounted) {
-                        messenger.showSnackBar(SnackBar(
-                          content:
-                              Text('${result['added']} items added to basket.'),
-                          backgroundColor: AppColors.forest,
-                        ));
-                      }
-                    },
-                  ),
-                ),
+                              messenger.showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                      'Added ${result['added']} items to pre-cart.'),
+                                  backgroundColor: AppColors.forest,
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
 
-              // Sulit Bundles Section
-              if (bundles.isNotEmpty)
-                SliverToBoxAdapter(
-                  child: BundlesSection(
-                    bundles: bundles,
-                    allProducts: inventory.products,
-                    currentCategory: _cat,
-                    onAdd: (bundle) {
-                      for (final pid in bundle.productIds) {
-                        try {
-                          final p = inventory.products
-                              .firstWhere((prod) => prod.id == pid);
-                          if (!p.hasVariants && p.stock > 0) {
-                            orderProvider.addToPreCart(p);
-                          } else if (p.hasVariants) {
-                            Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (_) =>
-                                        ProductDetailsScreen(product: p)));
-                          }
-                        } catch (_) {}
-                      }
-                    },
-                  ),
-                ),
+              // Active Bundles Section Card (Stable Sliver Key)
+              SliverToBoxAdapter(
+                key: const ValueKey('bundles_section_sliver'),
+                child: bundles.isNotEmpty
+                    ? Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 6),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                                color: const Color(0xFFE5D8C5), width: 1.2),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.015),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: BundlesSection(
+                            bundles: bundles,
+                            allProducts: inventory.products,
+                            currentCategory: _cat,
+                            onAdd: (bundle) {
+                              final messenger = ScaffoldMessenger.of(context);
+                              for (final productId in bundle.productIds) {
+                                try {
+                                  final p = inventory.products.firstWhere(
+                                      (prod) => prod.id == productId);
+                                  orderProvider.addToPreCart(p);
+                                } catch (_) {}
+                              }
+                              messenger.showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                      'Added "${bundle.name}" to pre-cart.'),
+                                  backgroundColor: AppColors.forest,
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
 
-              // Store Closure Notice
-              if (effectivelyClosed)
-                SliverToBoxAdapter(
-                  child: Container(
-                    margin: const EdgeInsets.all(16),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                        color: const Color(0xFFFDECEA),
-                        borderRadius: BorderRadius.circular(16)),
-                    child: Text(
-                      inventory.settings.closureMessage ?? 'STORE CLOSED',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold, color: AppColors.error),
-                    ),
-                  ),
-                ),
-
+              // Section Header
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 16, 20, 10),
@@ -417,7 +629,7 @@ class _ShopScreenState extends State<ShopScreen> {
                             fontWeight: FontWeight.w800,
                             color: AppColors.primaryText),
                       ),
-                      if (!_inStockOnly)
+                      if (_showOutOfStock)
                         const Text(
                           'Including Out of Stock',
                           style: TextStyle(
@@ -430,7 +642,7 @@ class _ShopScreenState extends State<ShopScreen> {
                 ),
               ),
 
-              // Product Grid
+              // Moderate Product Grid
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
                 sliver: filtered.isEmpty
@@ -443,20 +655,20 @@ class _ShopScreenState extends State<ShopScreen> {
                                   size: 48, color: AppColors.mutedText),
                               const SizedBox(height: 12),
                               const Text(
-                                  'No in-stock items found in this section',
+                                  'No items found in this section',
                                   style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       color: AppColors.primaryText)),
                               const SizedBox(height: 4),
                               TextButton(
                                 onPressed: () => setState(() {
-                                  _inStockOnly = false;
+                                  _showOutOfStock = true;
                                   _cat = 'All';
                                   _search = '';
                                   _searchCtrl.clear();
                                 }),
                                 child: const Text(
-                                    'Show all items or reset filters'),
+                                    'Include sold out items or reset filters'),
                               ),
                             ],
                           ),
@@ -465,25 +677,22 @@ class _ShopScreenState extends State<ShopScreen> {
                     : SliverGrid(
                         gridDelegate:
                             const SliverGridDelegateWithMaxCrossAxisExtent(
-                          maxCrossAxisExtent: 200,
-                          childAspectRatio: 0.58,
-                          crossAxisSpacing: 14,
-                          mainAxisSpacing: 14,
+                          maxCrossAxisExtent: 180,
+                          mainAxisExtent: 260,
+                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 10,
                         ),
                         delegate: SliverChildBuilderDelegate((context, i) {
                           final p = filtered[i];
                           final inCart =
                               preCart.any((c) => c.productId == p.id);
-                          return ProductCard(
+                          return ProductTile(
                             product: p,
                             inCart: inCart,
+                            heroTag: 'catalog_${p.id}',
                             isFavorite: auth.favorites.contains(p.id),
                             isOutOfStock: p.isOutOfStockForCustomer,
-                            onTap: () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (_) =>
-                                        ProductDetailsScreen(product: p))),
+                            onTap: () => _openProductDetails(p),
                             onToggleFavorite: () => auth.toggleFavorite(p.id),
                           );
                         }, childCount: filtered.length),
@@ -494,20 +703,65 @@ class _ShopScreenState extends State<ShopScreen> {
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: (preCart.isNotEmpty && !effectivelyClosed)
-          ? FloatingActionButton.extended(
-              onPressed: widget.onViewCart,
-              backgroundColor: AppColors.orangeCTA,
-              foregroundColor: Colors.white,
-              elevation: 8,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(100)),
-              label: Text('$cartCount items · ${formatPeso(cartTotal)}',
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w900, letterSpacing: 0.5)),
-              icon: const Icon(Icons.shopping_basket_rounded),
-            )
-          : null,
+      floatingActionButton: AnimatedOpacity(
+        duration: const Duration(milliseconds: 250),
+        opacity: (preCart.isNotEmpty && !effectivelyClosed) ? 1.0 : 0.0,
+        child: IgnorePointer(
+          ignoring: preCart.isEmpty || effectivelyClosed,
+          child: SafeArea(
+            bottom: true,
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 20),
+              child: ElevatedButton(
+                onPressed: widget.onViewCart,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.orangeCTA,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(100),
+                  ),
+                  elevation: 6,
+                  shadowColor: AppColors.orangeCTA.withValues(alpha: 0.3),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(100),
+                          ),
+                          child: Text(
+                            '$cartCount',
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        const Text(
+                          'View Pre-Cart',
+                          style: TextStyle(
+                              fontSize: 15, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      formatPeso(cartTotal),
+                      style: const TextStyle(
+                          fontSize: 15, fontWeight: FontWeight.w900),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -529,24 +783,6 @@ class _ShopScreenState extends State<ShopScreen> {
       stock: 18,
       category: 'Fresh Produce',
       shelfDays: 4,
-    ),
-    Product(
-      id: 'p3',
-      name: 'Garden Veggie Box',
-      unit: '1 basket',
-      price: 249.00,
-      stock: 10,
-      category: 'Fresh Produce',
-      shelfDays: 7,
-    ),
-    Product(
-      id: 'p4',
-      name: 'Farm Fresh Mix',
-      unit: '1 bundle',
-      price: 189.00,
-      stock: 12,
-      category: 'Fresh Produce',
-      shelfDays: 3,
     ),
   ];
 }

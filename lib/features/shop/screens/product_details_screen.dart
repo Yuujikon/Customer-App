@@ -57,13 +57,21 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
     final bool isOutOfStock = widget.product.isOutOfStockForCustomer;
 
+    final imageBytes = widget.product.photoBase64 != null
+        ? base64Decode(
+            widget.product.photoBase64!.contains(',')
+                ? widget.product.photoBase64!.split(',').last
+                : widget.product.photoBase64!.trim(),
+          )
+        : null;
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: Responsive(
         mobile: CustomScrollView(
           slivers: [
             SliverAppBar(
-              expandedHeight: 300,
+              expandedHeight: 200,
               pinned: true,
               leading: CircleAvatar(
                 backgroundColor: Colors.white.withValues(alpha: 0.8),
@@ -106,20 +114,24 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               flexibleSpace: FlexibleSpaceBar(
                 background: Hero(
                   tag: widget.product.id,
-                  child: widget.product.photoBase64 != null
-                      ? Image.memory(base64Decode(widget.product.photoBase64!),
-                          fit: BoxFit.cover)
-                      : Container(
-                          color: GdcColors.cream,
-                          child: const Icon(Icons.inventory_2_outlined,
-                              size: 80, color: GdcColors.terracotta),
-                        ),
+                  child: Container(
+                    color: const Color(0xFFF7F9F5),
+                    padding: const EdgeInsets.all(12),
+                    child: imageBytes != null
+                        ? Image.memory(
+                            imageBytes,
+                            fit: BoxFit.contain,
+                            gaplessPlayback: true,
+                          )
+                        : const Icon(Icons.inventory_2_outlined,
+                            size: 80, color: GdcColors.terracotta),
+                  ),
                 ),
               ),
             ),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(16),
                 child: _buildDetailsContent(context),
               ),
             ),
@@ -136,29 +148,41 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
   Widget _buildSplitView(BuildContext context, bool isFavorite,
       bool isOutOfStock, AppAuthProvider auth) {
+    final imageBytes = widget.product.photoBase64 != null
+        ? base64Decode(
+            widget.product.photoBase64!.contains(',')
+                ? widget.product.photoBase64!.split(',').last
+                : widget.product.photoBase64!.trim(),
+          )
+        : null;
+
     return Row(
       children: [
-        // Left pane: Image
+        // Left pane: Image (Aesthetic framed view)
         Expanded(
           flex: 4,
           child: Stack(
             children: [
               Positioned.fill(
-                child: Hero(
-                  tag: widget.product.id,
-                  child: widget.product.photoBase64 != null
-                      ? Image.memory(base64Decode(widget.product.photoBase64!),
-                          fit: BoxFit.cover)
-                      : Container(
-                          color: GdcColors.cream,
-                          child: const Icon(Icons.inventory_2_outlined,
-                              size: 120, color: GdcColors.terracotta),
-                        ),
+                child: Container(
+                  color: const Color(0xFFF7F9F5),
+                  padding: const EdgeInsets.all(16),
+                  child: Hero(
+                    tag: widget.product.id,
+                    child: imageBytes != null
+                        ? Image.memory(
+                            imageBytes,
+                            fit: BoxFit.contain,
+                            gaplessPlayback: true,
+                          )
+                        : const Icon(Icons.inventory_2_outlined,
+                            size: 100, color: GdcColors.terracotta),
+                  ),
                 ),
               ),
               Positioned(
-                top: 24,
-                left: 24,
+                top: 16,
+                left: 16,
                 child: CircleAvatar(
                   backgroundColor: Colors.white.withValues(alpha: 0.8),
                   child: IconButton(
@@ -192,12 +216,12 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 elevation: 0,
                 actions: [
                   Padding(
-                    padding: const EdgeInsets.only(right: 24),
+                    padding: const EdgeInsets.only(right: 16),
                     child: GestureDetector(
                       onTap: () => auth.toggleFavorite(widget.product.id),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
-                        padding: const EdgeInsets.all(10),
+                        padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color: isFavorite
                               ? Colors.amber.shade700
@@ -217,7 +241,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                               : Icons.bookmark_border_rounded,
                           color:
                               isFavorite ? Colors.white : GdcColors.textPrimary,
-                          size: 22,
+                          size: 20,
                         ),
                       ),
                     ),
@@ -225,7 +249,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 ],
               ),
               body: SingleChildScrollView(
-                padding: const EdgeInsets.all(32),
+                padding: const EdgeInsets.all(16),
                 child: _buildDetailsContent(context),
               ),
               bottomNavigationBar: _buildBottomActions(context, isOutOfStock),

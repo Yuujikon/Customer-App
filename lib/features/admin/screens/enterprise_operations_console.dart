@@ -701,22 +701,25 @@ class _InventoryAutomationTabState extends State<_InventoryAutomationTab> {
                 : Column(
                     children: reorderQueue
                         .take(3)
-                        .map((p) => ListTile(
-                              dense: true,
-                              contentPadding: EdgeInsets.zero,
-                              title: Text(p.name,
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13)),
-                              subtitle: Text(
-                                  'Current Stock: ${p.totalStock} ${p.unit} · ROP: ${p.effectiveReorderPoint} · Rec. Reorder: +${p.effectiveReorderQuantity}',
-                                  style: const TextStyle(
-                                      fontSize: 11,
-                                      color: GdcColors.textMuted)),
-                              trailing: Text(formatPeso(p.price),
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12)),
+                        .map((p) => Material(
+                              color: Colors.transparent,
+                              child: ListTile(
+                                dense: true,
+                                contentPadding: EdgeInsets.zero,
+                                title: Text(p.name,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13)),
+                                subtitle: Text(
+                                    'Current Stock: ${p.totalStock} ${p.unit} · ROP: ${p.effectiveReorderPoint} · Rec. Reorder: +${p.effectiveReorderQuantity}',
+                                    style: const TextStyle(
+                                        fontSize: 11,
+                                        color: GdcColors.textMuted)),
+                                trailing: Text(formatPeso(p.price),
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12)),
+                              ),
                             ))
                         .toList(),
                   ),
@@ -761,23 +764,28 @@ class _InventoryAutomationTabState extends State<_InventoryAutomationTab> {
                   )
                 : Column(
                     children: [
-                      ...expiredQueue.map((p) => ListTile(
-                            dense: true,
-                            contentPadding: EdgeInsets.zero,
-                            leading: const Icon(Icons.report_problem_rounded,
-                                color: GdcColors.error, size: 20),
-                            title: Text(p.name,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                    color: GdcColors.error)),
-                            subtitle: Text(
-                                'Expired on ${p.expiryDate != null ? DateFormat('MMM dd, yyyy').format(p.expiryDate!) : 'N/A'} · Stock: ${p.totalStock}',
-                                style: const TextStyle(
-                                    fontSize: 11, color: GdcColors.textMuted)),
+                      ...expiredQueue.map((p) => Material(
+                            color: Colors.transparent,
+                            child: ListTile(
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              leading: const Icon(Icons.report_problem_rounded,
+                                  color: GdcColors.error, size: 20),
+                              title: Text(p.name,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                      color: GdcColors.error)),
+                              subtitle: Text(
+                                  'Expired on ${p.expiryDate != null ? DateFormat('MMM dd, yyyy').format(p.expiryDate!) : 'N/A'} · Stock: ${p.totalStock}',
+                                  style: const TextStyle(
+                                      fontSize: 11, color: GdcColors.textMuted)),
+                            ),
                           )),
-                      ...criticalQueue.map((p) => ListTile(
-                            dense: true,
+                      ...criticalQueue.map((p) => Material(
+                            color: Colors.transparent,
+                            child: ListTile(
+                              dense: true,
                             contentPadding: EdgeInsets.zero,
                             leading: const Icon(Icons.warning_amber_rounded,
                                 color: GdcColors.warning, size: 20),
@@ -788,6 +796,7 @@ class _InventoryAutomationTabState extends State<_InventoryAutomationTab> {
                                 'Expires in ${p.daysUntilExpiry} days (${DateFormat('MMM dd').format(p.expiryDate!)})',
                                 style: const TextStyle(
                                     fontSize: 11, color: GdcColors.textMuted)),
+                          ),
                           )),
                     ],
                   ),
@@ -920,13 +929,13 @@ class _InventoryAutomationTabState extends State<_InventoryAutomationTab> {
                           color: GdcColors.terracotta),
                       onPressed: () =>
                           _showStockReconciliationModal(context, inv, p),
-                      tooltip: 'Quick Stock Reconciliation',
+                      tooltip: '',
                     ),
                     IconButton(
                       icon: const Icon(Icons.settings_outlined,
                           color: Colors.grey),
                       onPressed: () => _showProductEditorModal(context, inv, p),
-                      tooltip: 'Edit Full Product Settings',
+                      tooltip: '',
                     ),
                   ],
                 ),

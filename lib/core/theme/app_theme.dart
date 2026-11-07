@@ -146,15 +146,19 @@ class GdcTheme {
             style: ElevatedButton.styleFrom(
               backgroundColor: GdcColors.orangeCTA,
               foregroundColor: Colors.white,
-              minimumSize: const Size.fromHeight(56),
+              minimumSize: const Size.fromHeight(44),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
               elevation: 0,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(100)),
               textStyle: GoogleFonts.plusJakartaSans(
-                  fontSize: 15,
+                  fontSize: 14,
                   fontWeight: FontWeight.w900,
-                  letterSpacing: 0.5),
+                  letterSpacing: 0.4),
             ),
+          ),
+          tooltipTheme: const TooltipThemeData(
+            triggerMode: TooltipTriggerMode.manual,
           ),
           navigationBarTheme: NavigationBarThemeData(
             backgroundColor: Colors.white,

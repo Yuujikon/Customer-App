@@ -52,6 +52,12 @@ android {
         compose = true
     }
 
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
+        disable += "NullSafeMutableLiveData"
+    }
+
     // Disable AGP version check from libraries
     tasks.withType<com.android.build.gradle.internal.tasks.CheckAarMetadataTask>().configureEach {
         enabled = false

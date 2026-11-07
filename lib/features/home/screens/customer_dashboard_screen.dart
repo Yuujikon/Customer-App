@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
@@ -13,17 +14,19 @@ import '../../orders/providers/order_provider.dart';
 import '../../shop/providers/inventory_provider.dart';
 import '../../shop/screens/out_of_stock_dashboard.dart';
 import '../../shop/screens/product_details_screen.dart';
-import '../../shop/widgets/favorites_section.dart';
+import '../../shop/screens/saved_items_screen.dart';
 import '../../shop/widgets/shop_widgets.dart';
 
 class CustomerDashboardScreen extends StatelessWidget {
   final VoidCallback onBrowseCatalog;
+  final Function(String category)? onSelectCategory;
   final VoidCallback onViewCart;
   final VoidCallback onViewOrders;
 
   const CustomerDashboardScreen({
     super.key,
     required this.onBrowseCatalog,
+    this.onSelectCategory,
     required this.onViewCart,
     required this.onViewOrders,
   });
@@ -207,11 +210,11 @@ class CustomerDashboardScreen extends StatelessWidget {
                 },
                 onOrders: onViewOrders,
                 onFavorites: () {
-                  if (allFavorites.isNotEmpty) {
-                    FocusScope.of(context).unfocus();
-                  } else {
-                    onBrowseCatalog();
-                  }
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const SavedItemsScreen()),
+                  );
                 },
                 activeOrdersCount: activeOrders.length,
                 oosCount: allOosCount,
@@ -229,58 +232,43 @@ class CustomerDashboardScreen extends StatelessWidget {
                 const SizedBox(height: 16),
               ],
 
-              // 4. Explore Categories
-              const Text(
-                'Explore Categories',
-                style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.primaryText),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 92,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  children: [
-                    _CategoryAvatarItem(
-                      icon: Icons.eco_rounded,
-                      label: 'Vegetables',
-                      bgColor: const Color(0xFFE2F0D9),
-                      iconColor: const Color(0xFF38662A),
-                      onTap: onBrowseCatalog,
-                    ),
-                    _CategoryAvatarItem(
-                      icon: Icons.apple_rounded,
-                      label: 'Fruits',
-                      bgColor: const Color(0xFFFCE4D6),
-                      iconColor: const Color(0xFFC55A11),
-                      onTap: onBrowseCatalog,
-                    ),
-                    _CategoryAvatarItem(
-                      icon: Icons.local_drink_rounded,
-                      label: 'Beverages',
-                      bgColor: const Color(0xFFDDEBF7),
-                      iconColor: const Color(0xFF1F4E79),
-                      onTap: onBrowseCatalog,
-                    ),
-                    _CategoryAvatarItem(
-                      icon: Icons.fastfood_rounded,
-                      label: 'Snacks',
-                      bgColor: const Color(0xFFFFF2CC),
-                      iconColor: const Color(0xFFB25900),
-                      onTap: onBrowseCatalog,
-                    ),
-                    _CategoryAvatarItem(
-                      icon: Icons.home_repair_service_rounded,
-                      label: 'Household',
-                      bgColor: const Color(0xFFE8E8E8),
-                      iconColor: const Color(0xFF595959),
-                      onTap: onBrowseCatalog,
-                    ),
-                  ],
-                ),
-              ),
+              // 4. Explore Categories (Left) & Recent Purchase (Right) Side-by-Side
+              if (orderProvider.recentOrder != null)
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final bool isWide = constraints.maxWidth >= 480;
+                    if (isWide) {
+                      return IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: _buildPremiumCategoryGridCard(context),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              flex: 3,
+                              child: _buildRecentPurchaseCard(
+                                  context, orderProvider),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildPremiumCategoryGridCard(context),
+                        const SizedBox(height: 12),
+                        _buildRecentPurchaseCard(context, orderProvider),
+                      ],
+                    );
+                  },
+                )
+              else
+                _buildPremiumCategoryGridCard(context),
+
               const SizedBox(height: 20),
 
               // 5. Active Order Flight Tracker
@@ -327,7 +315,7 @@ class CustomerDashboardScreen extends StatelessWidget {
 
               const SizedBox(height: 24),
 
-              // 7. Fresh Essentials Featured Row
+              // 8. Fresh Essentials Featured Row
               if (featuredProducts.isNotEmpty) ...[
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -378,58 +366,368 @@ class CustomerDashboardScreen extends StatelessWidget {
                     },
                   ),
                 ),
-                const SizedBox(height: 24),
-              ],
-
-              // 8. Recent Order Section
-              if (orderProvider.recentOrder != null) ...[
-                RecentOrderSection(
-                  order: orderProvider.recentOrder,
-                  onReorder: () async {
-                    final messenger = ScaffoldMessenger.of(context);
-                    final invProvider = context.read<InventoryProvider>();
-                    final result = await orderProvider.reorderItems(
-                        orderProvider.recentOrder!.items, invProvider.products);
-                    messenger.showSnackBar(SnackBar(
-                      content: Text(
-                          'Order items added. ${result['added']} successful.'),
-                      backgroundColor: AppColors.forest,
-                    ));
-                  },
-                ),
                 const SizedBox(height: 20),
               ],
 
-              // 9. Customer Favorites Section
-              if (allFavorites.isNotEmpty) ...[
-                FavoritesSection(
-                  products: allFavorites,
-                  onTap: (p) => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => ProductDetailsScreen(product: p))),
-                  onAdd: (p) {
-                    if (p.hasVariants) {
-                      Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) =>
-                                  ProductDetailsScreen(product: p)));
-                    } else {
-                      orderProvider.addToPreCart(p);
-                    }
-                  },
-                  onRemove: (id) => auth.toggleFavorite(id),
-                ),
-                const SizedBox(height: 24),
-              ],
-
-              // 10. Mobile Pickup Banner
+              // 9. Mobile Pickup Banner
               PickupBanner(onStartOrder: onBrowseCatalog),
 
               const SizedBox(height: 40),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Map<String, dynamic> _getCategoryVisuals(String catName) {
+    final lower = catName.toLowerCase();
+    if (lower.contains('fresh') ||
+        lower.contains('veg') ||
+        lower.contains('produce') ||
+        lower.contains('fruit')) {
+      return {
+        'label': catName,
+        'subtitle': 'Fresh produce & fruits',
+        'icon': Icons.eco_rounded,
+        'bgColor': const Color(0xFFE2F0D9),
+        'iconColor': const Color(0xFF38662A),
+      };
+    }
+    if (lower.contains('beverage') ||
+        lower.contains('drink') ||
+        lower.contains('juice')) {
+      return {
+        'label': catName,
+        'subtitle': 'Juice, soda & drinks',
+        'icon': Icons.local_drink_rounded,
+        'bgColor': const Color(0xFFDDEBF7),
+        'iconColor': const Color(0xFF1F4E79),
+      };
+    }
+    if (lower.contains('snack') ||
+        lower.contains('chip') ||
+        lower.contains('candy')) {
+      return {
+        'label': catName,
+        'subtitle': 'Chips & treats',
+        'icon': Icons.fastfood_rounded,
+        'bgColor': const Color(0xFFFFF2CC),
+        'iconColor': const Color(0xFFB25900),
+      };
+    }
+    if (lower.contains('can') || lower.contains('soup')) {
+      return {
+        'label': catName,
+        'subtitle': 'Canned meats & soup',
+        'icon': Icons.inventory_2_rounded,
+        'bgColor': const Color(0xFFFCE4D6),
+        'iconColor': const Color(0xFFC55A11),
+      };
+    }
+    if (lower.contains('bakery') ||
+        lower.contains('bread') ||
+        lower.contains('pastry')) {
+      return {
+        'label': catName,
+        'subtitle': 'Fresh bread & pastries',
+        'icon': Icons.bakery_dining_rounded,
+        'bgColor': const Color(0xFFF5E6CC),
+        'iconColor': const Color(0xFF8C6239),
+      };
+    }
+    if (lower.contains('grain') ||
+        lower.contains('rice') ||
+        lower.contains('staple')) {
+      return {
+        'label': catName,
+        'subtitle': 'Rice & staples',
+        'icon': Icons.rice_bowl_rounded,
+        'bgColor': const Color(0xFFF5E6CC),
+        'iconColor': const Color(0xFF8C6239),
+      };
+    }
+    if (lower.contains('house') ||
+        lower.contains('pantry') ||
+        lower.contains('clean')) {
+      return {
+        'label': catName,
+        'subtitle': 'Pantry & home essentials',
+        'icon': Icons.home_repair_service_rounded,
+        'bgColor': const Color(0xFFE8E8E8),
+        'iconColor': const Color(0xFF595959),
+      };
+    }
+    return {
+      'label': catName,
+      'subtitle': 'Store items',
+      'icon': Icons.shopping_basket_rounded,
+      'bgColor': const Color(0xFFE2ECD8),
+      'iconColor': const Color(0xFF3E6B34),
+    };
+  }
+
+  /// Compact Explore Categories Vertical Container Card
+  Widget _buildPremiumCategoryGridCard(BuildContext context) {
+    final inventory = context.watch<InventoryProvider>();
+
+    final List<String> catNames = inventory.products
+        .map((p) => p.category.trim())
+        .where((c) => c.isNotEmpty)
+        .toSet()
+        .toList();
+
+    final List<Map<String, dynamic>> categories = (catNames.isNotEmpty
+        ? catNames.map((name) => _getCategoryVisuals(name)).toList()
+        : [
+            _getCategoryVisuals('Bakery'),
+            _getCategoryVisuals('Beverages'),
+            _getCategoryVisuals('Canned Goods'),
+            _getCategoryVisuals('Fresh Produce'),
+            _getCategoryVisuals('Household'),
+            _getCategoryVisuals('Snacks'),
+          ]);
+
+    categories.sort((a, b) {
+      final String labelA = (a['label'] as String).toLowerCase();
+      final String labelB = (b['label'] as String).toLowerCase();
+      if (labelA == 'others') return 1;
+      if (labelB == 'others') return -1;
+      return labelA.compareTo(labelB);
+    });
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border, width: 1.0),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.015),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 7, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppColors.sageTint,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Text(
+                      'Discover',
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.forest,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Explore Categories',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.primaryText,
+                    ),
+                  ),
+                ],
+              ),
+              TextButton(
+                onPressed: onBrowseCatalog,
+                child: const Text(
+                  'See All →',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                    color: AppColors.forest,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Column(
+            children: categories.map((cat) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 5),
+                child: _buildCategoryTile(cat),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecentPurchaseCard(
+      BuildContext context, OrderProvider orderProvider) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border, width: 1.0),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.015),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 7, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppColors.sageTint,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Text(
+                      'Reorder Quickly',
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.forest,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Recent Purchase',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.primaryText,
+                    ),
+                  ),
+                ],
+              ),
+              TextButton(
+                onPressed: onViewOrders,
+                child: const Text(
+                  'View All →',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11.5,
+                    color: AppColors.forest,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          RecentOrderSection(
+            order: orderProvider.recentOrder,
+            onReorder: () async {
+              final messenger = ScaffoldMessenger.of(context);
+              final invProvider = context.read<InventoryProvider>();
+              final result = await orderProvider.reorderItems(
+                  orderProvider.recentOrder!.items, invProvider.products);
+              messenger.showSnackBar(SnackBar(
+                content: Text(
+                    'Order items added to basket. (${result['added']} items)'),
+                backgroundColor: AppColors.forest,
+                behavior: SnackBarBehavior.floating,
+              ));
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryTile(Map<String, dynamic> cat) {
+    final String label = cat['label'] as String;
+    return InkWell(
+      onTap: () {
+        if (onSelectCategory != null) {
+          onSelectCategory!(label);
+        } else {
+          onBrowseCatalog();
+        }
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: AppColors.warmSurface,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                color: cat['bgColor'] as Color,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                cat['icon'] as IconData,
+                color: cat['iconColor'] as Color,
+                size: 12,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    cat['label'] as String,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.primaryText,
+                    ),
+                  ),
+                  Text(
+                    cat['subtitle'] as String,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 8.5,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.mutedText,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              size: 14,
+              color: AppColors.mutedText,
+            ),
+          ],
         ),
       ),
     );
@@ -912,6 +1210,9 @@ class _ActiveOrderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final int availableMins =
+        OrderProvider.getAvailableExtensionMinutes(order.expiresAt);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(18),
@@ -974,16 +1275,16 @@ class _ActiveOrderCard extends StatelessWidget {
               StatusBadge(order.status),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: onShowQr,
-                  icon: const Icon(Icons.qr_code_2_rounded, size: 18),
+                  icon: const Icon(Icons.qr_code_2_rounded, size: 16),
                   label: const Text('SHOW QR CODE',
                       style:
-                          TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+                          TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800)),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: order.status == OrderStatus.pending
                         ? AppColors.mutedText
@@ -992,26 +1293,28 @@ class _ActiveOrderCard extends StatelessWidget {
                       color: order.status == OrderStatus.pending
                           ? AppColors.border
                           : AppColors.forest,
-                      width: 1.5,
+                      width: 1.2,
                     ),
-                    minimumSize: const Size(double.infinity, 42),
+                    minimumSize: const Size(double.infinity, 36),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(100)),
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: onTrack,
-                  icon: const Icon(Icons.near_me_rounded, size: 16),
+                  icon: const Icon(Icons.near_me_rounded, size: 15),
                   label: const Text('TRACK ORDER',
                       style:
-                          TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+                          TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.orangeCTA,
                     foregroundColor: Colors.white,
-                    minimumSize: const Size(double.infinity, 42),
+                    minimumSize: const Size(double.infinity, 36),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(100)),
                   ),
@@ -1019,6 +1322,44 @@ class _ActiveOrderCard extends StatelessWidget {
               ),
             ],
           ),
+          if (availableMins > 0) ...[
+            const SizedBox(height: 6),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  HapticFeedback.lightImpact();
+                  final messenger = ScaffoldMessenger.of(context);
+                  final op = context.read<OrderProvider>();
+                  final ext = await op.extendOrderPickupTime(order.id);
+                  if (ext > 0) {
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text(
+                            '⏱ Pickup time extended by $ext mins! Extended up to 3:00 PM cutoff.'),
+                        backgroundColor: AppColors.forest,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.timer_outlined, size: 15),
+                label: Text(
+                  'EXTEND PICKUP (+ $availableMins MIN)',
+                  style: const TextStyle(
+                      fontSize: 10, fontWeight: FontWeight.w900),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.orangeCTA,
+                  side: const BorderSide(color: AppColors.orangeCTA, width: 1.2),
+                  minimumSize: const Size(double.infinity, 34),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(100)),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

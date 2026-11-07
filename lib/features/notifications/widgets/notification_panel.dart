@@ -88,7 +88,7 @@ class NotificationPanel extends StatelessWidget {
                       icon: const Icon(Icons.close_rounded,
                           size: 20, color: AppColors.mutedText),
                       onPressed: onClose,
-                      tooltip: 'Close notifications',
+                      tooltip: '',
                     ),
                   ],
                 ),

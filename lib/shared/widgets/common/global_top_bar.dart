@@ -28,12 +28,12 @@ class StoreStatusPill extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           Text(
-            isOpen ? 'STORE OPEN · PICKUP AVAILABLE' : 'STORE CLOSED',
+            isOpen ? 'Store Open · Pickup Available' : 'Store Closed',
             style: const TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w800,
               color: AppColors.forest,
-              letterSpacing: 0.5,
+              letterSpacing: 0.3,
             ),
           ),
         ],
@@ -65,6 +65,16 @@ class GlobalTopBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Size get preferredSize => const Size.fromHeight(72);
 
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    final greeting = (hour >= 5 && hour < 12)
+        ? 'Good morning'
+        : (hour >= 12 && hour < 18)
+            ? 'Good afternoon'
+            : 'Good evening';
+    return userName.trim().isNotEmpty ? '$greeting, $userName' : greeting;
+  }
+
   @override
   Widget build(BuildContext context) {
     final double topPadding = MediaQuery.paddingOf(context).top;
@@ -74,17 +84,12 @@ class GlobalTopBar extends StatelessWidget implements PreferredSizeWidget {
         final bool isTablet = constraints.maxWidth >= 600;
 
         return Container(
+          width: double.infinity,
           height: preferredSize.height + topPadding,
           padding: EdgeInsets.only(
             top: topPadding,
-            left: 20,
-            right: 20,
-          ),
-          decoration: const BoxDecoration(
-            color: AppColors.warmSurface,
-            border: Border(
-              bottom: BorderSide(color: AppColors.border, width: 1),
-            ),
+            left: 12,
+            right: isTablet ? 4 : 12,
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -97,129 +102,73 @@ class GlobalTopBar extends StatelessWidget implements PreferredSizeWidget {
                   showSubtitle: true,
                 ),
                 const Spacer(),
-                _NotificationBellButton(
-                  unreadCount: unreadNotifications,
+                Flexible(
+                  child: Text(
+                    _getGreeting(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.end,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primaryText,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _TopBarIconButton(
+                  icon: Icons.notifications_outlined,
+                  badgeCount: unreadNotifications,
                   onTap: onOpenNotifications,
                 ),
               ] else ...[
                 // Tablet Mode Header
-                Flexible(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Good morning, $userName',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.primaryText,
-                          letterSpacing: -0.3,
-                        ),
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _getGreeting(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.primaryText,
+                        letterSpacing: -0.3,
                       ),
-                      const SizedBox(height: 3),
-                      StoreStatusPill(isOpen: isStoreOpen),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 3),
+                    StoreStatusPill(isOpen: isStoreOpen),
+                  ],
                 ),
                 const SizedBox(width: 16),
                 const Spacer(),
 
-                // Search button
-                if (onSearchTap != null)
-                  IconButton(
-                    onPressed: onSearchTap,
-                    style: IconButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      padding: const EdgeInsets.all(10),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(100),
-                        side: const BorderSide(color: AppColors.border),
-                      ),
-                    ),
-                    icon: const Icon(
-                      Icons.search_rounded,
-                      color: AppColors.primaryText,
-                      size: 20,
-                    ),
-                    tooltip: 'Search catalog',
+                // Search Button
+                if (onSearchTap != null) ...[
+                  _TopBarIconButton(
+                    icon: Icons.search_rounded,
+                    onTap: onSearchTap!,
                   ),
-
-                const SizedBox(width: 10),
+                  const SizedBox(width: 8),
+                ],
 
                 // Notification Bell
-                _NotificationBellButton(
-                  unreadCount: unreadNotifications,
+                _TopBarIconButton(
+                  icon: Icons.notifications_outlined,
+                  badgeCount: unreadNotifications,
                   onTap: onOpenNotifications,
                 ),
 
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
 
-                // User Avatar & Name
-                InkWell(
+                // User Profile Pill (Far Right Corner Alignment)
+                _ProfilePillButton(
+                  userName: userName,
+                  userInitials: userInitials,
                   onTap: onProfileTap,
-                  borderRadius: BorderRadius.circular(100),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(100),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        CircleAvatar(
-                          radius: 16,
-                          backgroundColor: AppColors.forest,
-                          child: Text(
-                            userInitials,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              userName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.primaryText,
-                              ),
-                            ),
-                            const Text(
-                              'Member',
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: AppColors.mutedText,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(width: 4),
-                        const Icon(
-                          Icons.chevron_right_rounded,
-                          size: 16,
-                          color: AppColors.mutedText,
-                        ),
-                      ],
-                    ),
-                  ),
                 ),
               ],
             ],
@@ -230,38 +179,143 @@ class GlobalTopBar extends StatelessWidget implements PreferredSizeWidget {
   }
 }
 
-class _NotificationBellButton extends StatelessWidget {
-  final int unreadCount;
+/// Unified 40x40 Circular Top Bar Button for Pixel-Perfect Alignment
+class _TopBarIconButton extends StatelessWidget {
+  final IconData icon;
   final VoidCallback onTap;
+  final int badgeCount;
 
-  const _NotificationBellButton({
-    required this.unreadCount,
+  const _TopBarIconButton({
+    required this.icon,
     required this.onTap,
+    this.badgeCount = 0,
   });
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
-      onPressed: onTap,
-      style: IconButton.styleFrom(
-        backgroundColor: Colors.white,
-        padding: const EdgeInsets.all(10),
-        shape: RoundedRectangleBorder(
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      alignment: Alignment.center,
+      child: IconButton(
+        icon: Badge(
+          label: Text('$badgeCount', style: const TextStyle(fontSize: 9)),
+          isLabelVisible: badgeCount > 0,
+          backgroundColor: AppColors.orangeCTA,
+          child: Icon(
+            icon,
+            color: AppColors.primaryText,
+            size: 20,
+          ),
+        ),
+        onPressed: onTap,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(),
+        splashRadius: 20,
+      ),
+    );
+  }
+}
+
+/// Unified 40px Profile Pill Button for Pixel-Perfect Alignment
+class _ProfilePillButton extends StatelessWidget {
+  final String userName;
+  final String userInitials;
+  final VoidCallback? onTap;
+
+  const _ProfilePillButton({
+    required this.userName,
+    required this.userInitials,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(100),
+      child: Container(
+        height: 40,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.white,
           borderRadius: BorderRadius.circular(100),
-          side: const BorderSide(color: AppColors.border),
+          border: Border.all(color: AppColors.border),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            CircleAvatar(
+              radius: 14,
+              backgroundColor: AppColors.forest,
+              child: Text(
+                userInitials,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 80),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    userName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.primaryText,
+                      height: 1.1,
+                    ),
+                  ),
+                  const Text(
+                    'Member',
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.mutedText,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Icon(
+              Icons.chevron_right_rounded,
+              size: 16,
+              color: AppColors.mutedText,
+            ),
+          ],
         ),
       ),
-      icon: Badge(
-        label: Text('$unreadCount'),
-        isLabelVisible: unreadCount > 0,
-        backgroundColor: AppColors.orangeCTA,
-        child: const Icon(
-          Icons.notifications_outlined,
-          color: AppColors.primaryText,
-          size: 20,
-        ),
-      ),
-      tooltip: 'Notifications',
     );
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../../shared/models/order.dart';
 import '../../../core/utils/format.dart';
+import '../../../core/utils/launcher.dart';
 import '../../../core/theme/app_theme.dart';
 
 /// Material 3 Order Ticket Screen (Checkout Success UI)
@@ -383,6 +384,20 @@ class OrderTicketScreen extends StatelessWidget {
               child: const Text(
                 'RETURN TO SHOP',
                 style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            TextButton.icon(
+              onPressed: () => StoreLauncher.showSocialMedia(context),
+              icon: const Icon(Icons.chat_rounded, size: 18, color: Color(0xFF1877F2)),
+              label: const Text(
+                'STORE SOCIAL MEDIA & CHAT',
+                style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                    color: Color(0xFF1877F2)),
               ),
             ),
 
