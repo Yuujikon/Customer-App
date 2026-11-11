@@ -11,7 +11,9 @@ import '../../../core/utils/format.dart';
 import '../../../core/theme/app_theme.dart';
 
 class SalesHistoryScreen extends StatefulWidget {
-  const SalesHistoryScreen({super.key});
+  final Function(String category)? onBrowseSimilar;
+
+  const SalesHistoryScreen({super.key, this.onBrowseSimilar});
   @override
   State<SalesHistoryScreen> createState() => _SalesHistoryScreenState();
 }
@@ -310,8 +312,9 @@ class _HistoryCard extends StatelessWidget {
                                         );
                                       },
                                       onBrowseSimilar: (category) {
-                                        // Could trigger navigation here to the catalog with the category applied
-                                        // Using a simple snackbar to acknowledge for now
+                                        if (widget.onBrowseSimilar != null) {
+                                          widget.onBrowseSimilar!(category);
+                                        }
                                       },
                                     ),
                                   );

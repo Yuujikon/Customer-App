@@ -64,7 +64,9 @@ class _CustomerAppState extends State<CustomerApp> {
         onBrowseMore: () => _navigateToTab(1),
         onGoToAccount: () => _navigateToTab(4),
       ),
-      const MyOrdersScreen(),
+      MyOrdersScreen(
+        onBrowseSimilar: (cat) => _selectCategoryAndNavigateToCatalog(cat),
+      ),
       AccountScreen(onLogout: () {
         _navigateToTab(0);
       }),

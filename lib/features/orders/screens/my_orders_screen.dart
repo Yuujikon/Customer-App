@@ -9,7 +9,9 @@ import 'refund_requests_screen.dart';
 import 'sales_history_screen.dart';
 
 class MyOrdersScreen extends StatelessWidget {
-  const MyOrdersScreen({super.key});
+  final Function(String category)? onBrowseSimilar;
+
+  const MyOrdersScreen({super.key, this.onBrowseSimilar});
 
   @override
   Widget build(BuildContext context) {
@@ -70,11 +72,11 @@ class MyOrdersScreen extends StatelessWidget {
             ],
           ),
         ),
-        body: const TabBarView(
+        body: TabBarView(
           children: [
-            ActiveOrdersScreen(),
-            SalesHistoryScreen(),
-            RefundRequestsScreen(),
+            const ActiveOrdersScreen(),
+            SalesHistoryScreen(onBrowseSimilar: onBrowseSimilar),
+            const RefundRequestsScreen(),
           ],
         ),
       ),
