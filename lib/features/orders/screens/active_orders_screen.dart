@@ -581,7 +581,7 @@ class _OrderDetail extends StatelessWidget {
           ),
         ],
         if (order.status != OrderStatus.cancelled &&
-            order.status != OrderStatus.completed) ...[
+            order.status != OrderStatus.collected) ...[
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
