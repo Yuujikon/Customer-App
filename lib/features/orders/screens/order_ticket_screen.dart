@@ -96,7 +96,7 @@ class OrderTicketScreen extends StatelessWidget {
                 side: BorderSide(
                     color: GdcColors.terracotta.withValues(alpha: 0.2)),
               ),
-              color: Colors.white,
+              color: Theme.of(context).cardColor,
               child: Padding(
                 padding: const EdgeInsets.all(24.0),
                 child: Column(
@@ -106,7 +106,8 @@ class OrderTicketScreen extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
-                        color: GdcColors.cream,
+                        color:
+                            Theme.of(context).colorScheme.surfaceContainerLow,
                         borderRadius: BorderRadius.circular(100),
                         border: Border.all(
                             color: GdcColors.terracotta.withValues(alpha: 0.3)),
@@ -119,11 +120,11 @@ class OrderTicketScreen extends StatelessWidget {
                           const SizedBox(width: 8),
                           Text(
                             'ORDER ID: ${order.orderId}',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontWeight: FontWeight.w900,
                               fontSize: 14,
                               letterSpacing: 1.2,
-                              color: GdcColors.warmBrown,
+                              color: Theme.of(context).colorScheme.onSurface,
                             ),
                           ),
                           const SizedBox(width: 6),
@@ -304,20 +305,20 @@ class OrderTicketScreen extends StatelessWidget {
               elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
-                side: BorderSide(color: Colors.grey.shade200),
+                side: BorderSide(color: Theme.of(context).dividerColor),
               ),
-              color: Colors.white,
+              color: Theme.of(context).cardColor,
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Pickup Summary',
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
-                        color: GdcColors.textPrimary,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -348,6 +349,82 @@ class OrderTicketScreen extends StatelessWidget {
                       icon: Icons.account_balance_wallet_rounded,
                       label: 'Payment Method',
                       value: 'Cash Only (On Pickup)',
+                    ),
+                    const Divider(height: 24),
+                    const Text(
+                      'ITEM DETAILS',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.grey,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ...order.items.map((item) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '${item.qty}x ${item.name}',
+                                      style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    Text(
+                                      'Barcode: ${item.barcode.isNotEmpty ? item.barcode : "N/A"}',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontFamily: 'monospace',
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                formatPeso(item.price * item.qty),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                        )),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.warmSurface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                            color: AppColors.sage.withValues(alpha: 0.3)),
+                      ),
+                      child: const Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.info_outline_rounded,
+                              size: 16, color: GdcColors.terracotta),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Return & Exchange Policy: Present this QR receipt at the store. Opened, unsealed, or tampered items cannot be refunded or swapped.',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: GdcColors.textSecondary,
+                                height: 1.3,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -462,7 +539,8 @@ class OrderTicketScreen extends StatelessWidget {
 
             TextButton.icon(
               onPressed: () => StoreLauncher.showSocialMedia(context),
-              icon: const Icon(Icons.chat_rounded, size: 18, color: Color(0xFF1877F2)),
+              icon: const Icon(Icons.chat_rounded,
+                  size: 18, color: Color(0xFF1877F2)),
               label: const Text(
                 'STORE SOCIAL MEDIA & CHAT',
                 style: TextStyle(

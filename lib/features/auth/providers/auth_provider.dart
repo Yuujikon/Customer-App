@@ -14,7 +14,8 @@ class AppAuthProvider extends ChangeNotifier {
   final _db = FirebaseFirestore.instance;
   final _googleSignIn = GoogleSignIn();
 
-  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _profileSubscription;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
+      _profileSubscription;
 
   String _bio = '';
   String? _phoneNumber;
@@ -264,8 +265,7 @@ class AppAuthProvider extends ChangeNotifier {
       'fullName': trimmedName,
       'hasEnteredFullName': true,
       'requiresNameSetup': false,
-      if (phone != null && phone.trim().isNotEmpty)
-        'phoneNumber': phone.trim(),
+      if (phone != null && phone.trim().isNotEmpty) 'phoneNumber': phone.trim(),
     }, SetOptions(merge: true));
 
     notifyListeners();

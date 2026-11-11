@@ -24,7 +24,7 @@ class NotificationHistoryScreen extends StatelessWidget {
           if (notifications.any((n) => !n.isRead))
             TextButton(
               onPressed: () => provider?.markAllAsRead(),
-              child: const Text('Mark all as read'),
+              child: const Text('Mark All As Read'),
             ),
           const SizedBox(width: 8),
         ],
@@ -55,14 +55,16 @@ class NotificationHistoryScreen extends StatelessWidget {
           Icon(Icons.notifications_none_rounded,
               size: 64, color: GdcColors.terracotta.withValues(alpha: 0.1)),
           const SizedBox(height: 20),
-          const Text('No notifications yet',
+          Text('No notifications yet',
               style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w900,
-                  color: GdcColors.textPrimary)),
+                  color: Theme.of(context).colorScheme.onSurface)),
           const SizedBox(height: 6),
-          const Text('We\'ll let you know when something happens!',
-              style: TextStyle(fontSize: 13, color: GdcColors.textMuted)),
+          Text('We\'ll let you know when something happens!',
+              style: TextStyle(
+                  fontSize: 13,
+                  color: Theme.of(context).textTheme.bodySmall?.color)),
         ],
       ),
     );
@@ -137,15 +139,15 @@ class _NotificationTile extends StatelessWidget {
                       fontWeight: notification.isRead
                           ? FontWeight.w700
                           : FontWeight.w900,
-                      color: GdcColors.textPrimary,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     notification.body,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 13,
-                        color: GdcColors.textSecondary,
+                        color: Theme.of(context).textTheme.bodySmall?.color,
                         height: 1.3),
                   ),
                 ],

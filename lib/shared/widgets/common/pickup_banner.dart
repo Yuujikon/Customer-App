@@ -107,10 +107,12 @@ class PickupBanner extends StatelessWidget {
                           OutlinedButton(
                             onPressed: onStartOrder,
                             style: OutlinedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: AppColors.forest,
-                              side: const BorderSide(
-                                  color: AppColors.border, width: 1.5),
+                              backgroundColor: Theme.of(context).cardColor,
+                              foregroundColor:
+                                  Theme.of(context).colorScheme.primary,
+                              side: BorderSide(
+                                  color: Theme.of(context).dividerColor,
+                                  width: 1.5),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(100),
                               ),
@@ -123,7 +125,7 @@ class PickupBanner extends StatelessWidget {
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
-                            child: const Text('Start an order'),
+                            child: const Text('Start An Order'),
                           ),
                         ],
                       )
@@ -190,10 +192,12 @@ class PickupBanner extends StatelessWidget {
                             child: OutlinedButton(
                               onPressed: onStartOrder,
                               style: OutlinedButton.styleFrom(
-                                backgroundColor: Colors.white,
-                                foregroundColor: AppColors.forest,
-                                side: const BorderSide(
-                                    color: AppColors.border, width: 1.5),
+                                backgroundColor: Theme.of(context).cardColor,
+                                foregroundColor:
+                                    Theme.of(context).colorScheme.primary,
+                                side: BorderSide(
+                                    color: Theme.of(context).dividerColor,
+                                    width: 1.5),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(100),
                                 ),
@@ -204,7 +208,7 @@ class PickupBanner extends StatelessWidget {
                                   fontWeight: FontWeight.w800,
                                 ),
                               ),
-                              child: const Text('Start an order'),
+                              child: const Text('Start An Order'),
                             ),
                           ),
                         ],

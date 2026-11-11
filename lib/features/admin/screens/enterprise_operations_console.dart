@@ -779,24 +779,27 @@ class _InventoryAutomationTabState extends State<_InventoryAutomationTab> {
                               subtitle: Text(
                                   'Expired on ${p.expiryDate != null ? DateFormat('MMM dd, yyyy').format(p.expiryDate!) : 'N/A'} · Stock: ${p.totalStock}',
                                   style: const TextStyle(
-                                      fontSize: 11, color: GdcColors.textMuted)),
+                                      fontSize: 11,
+                                      color: GdcColors.textMuted)),
                             ),
                           )),
                       ...criticalQueue.map((p) => Material(
                             color: Colors.transparent,
                             child: ListTile(
                               dense: true,
-                            contentPadding: EdgeInsets.zero,
-                            leading: const Icon(Icons.warning_amber_rounded,
-                                color: GdcColors.warning, size: 20),
-                            title: Text(p.name,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold, fontSize: 13)),
-                            subtitle: Text(
-                                'Expires in ${p.daysUntilExpiry} days (${DateFormat('MMM dd').format(p.expiryDate!)})',
-                                style: const TextStyle(
-                                    fontSize: 11, color: GdcColors.textMuted)),
-                          ),
+                              contentPadding: EdgeInsets.zero,
+                              leading: const Icon(Icons.warning_amber_rounded,
+                                  color: GdcColors.warning, size: 20),
+                              title: Text(p.name,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13)),
+                              subtitle: Text(
+                                  'Expires in ${p.daysUntilExpiry} days (${DateFormat('MMM dd').format(p.expiryDate!)})',
+                                  style: const TextStyle(
+                                      fontSize: 11,
+                                      color: GdcColors.textMuted)),
+                            ),
                           )),
                     ],
                   ),

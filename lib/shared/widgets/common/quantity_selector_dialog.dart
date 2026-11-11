@@ -47,7 +47,7 @@ class _QuantitySelectorDialogState extends State<QuantitySelectorDialog> {
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).cardColor,
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: Container(
         padding: const EdgeInsets.all(20),
@@ -69,7 +69,8 @@ class _QuantitySelectorDialogState extends State<QuantitySelectorDialog> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close_rounded, size: 20, color: AppColors.mutedText),
+                  icon: const Icon(Icons.close_rounded,
+                      size: 20, color: AppColors.mutedText),
                   onPressed: () => Navigator.pop(context),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
@@ -113,7 +114,8 @@ class _QuantitySelectorDialogState extends State<QuantitySelectorDialog> {
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
                           color: AppColors.sageTint,
                           borderRadius: BorderRadius.circular(100),
@@ -148,7 +150,8 @@ class _QuantitySelectorDialogState extends State<QuantitySelectorDialog> {
                     height: 44,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: _qty > 1 ? AppColors.sageTint : AppColors.warmSurface,
+                      color:
+                          _qty > 1 ? AppColors.sageTint : AppColors.warmSurface,
                       border: Border.all(
                         color: _qty > 1 ? AppColors.forest : AppColors.border,
                       ),
@@ -165,7 +168,8 @@ class _QuantitySelectorDialogState extends State<QuantitySelectorDialog> {
 
                 // Current Quantity Display Box
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
@@ -192,14 +196,20 @@ class _QuantitySelectorDialogState extends State<QuantitySelectorDialog> {
                     height: 44,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: _qty < widget.maxStock ? AppColors.orangeCTA : AppColors.warmSurface,
+                      color: _qty < widget.maxStock
+                          ? AppColors.orangeCTA
+                          : AppColors.warmSurface,
                       border: Border.all(
-                        color: _qty < widget.maxStock ? AppColors.orangeCTA : AppColors.border,
+                        color: _qty < widget.maxStock
+                            ? AppColors.orangeCTA
+                            : AppColors.border,
                       ),
                     ),
                     child: Icon(
                       Icons.add_rounded,
-                      color: _qty < widget.maxStock ? Colors.white : AppColors.mutedText,
+                      color: _qty < widget.maxStock
+                          ? Colors.white
+                          : AppColors.mutedText,
                       size: 22,
                     ),
                   ),

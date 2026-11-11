@@ -26,6 +26,11 @@ class OrderProvider extends ChangeNotifier {
   List<CartItem> get preCart => _preCart;
 
   PreOrder? get recentOrder => _orders.isNotEmpty ? _orders.first : null;
+  List<PreOrder> get recentOrders => _orders
+      .where((o) =>
+          o.status == OrderStatus.collected || o.status == OrderStatus.ready)
+      .take(3)
+      .toList();
 
   // Stream that auto-updates for admin view
   Stream<List<PreOrder>> get ordersStream => _fs.ordersStream().map((list) {
@@ -301,11 +306,15 @@ class OrderProvider extends ChangeNotifier {
 
     if (idx >= 0) {
       final newQty = replace ? quantity : (_preCart[idx].qty + quantity);
-      _preCart[idx] = _preCart[idx].copyWith(qty: newQty.clamp(1, maxStock));
+      _preCart[idx] = _preCart[idx].copyWith(
+        qty: newQty.clamp(1, maxStock),
+        barcode: p.barcode ?? '',
+      );
     } else {
       _preCart.add(CartItem(
         productId: p.id,
         name: p.name,
+        barcode: p.barcode ?? '',
         price: itemPrice,
         qty: quantity.clamp(1, maxStock),
         isPerishable: p.isPerishable,
@@ -410,10 +419,8 @@ class OrderProvider extends ChangeNotifier {
         isExtended: order.isExtended);
     if (availableMinutes <= 0) return 0;
 
-    final newExpiry =
-        order.expiresAt!.add(Duration(minutes: availableMinutes));
-    final updatedOrder =
-        order.copyWith(expiresAt: newExpiry, isExtended: true);
+    final newExpiry = order.expiresAt!.add(Duration(minutes: availableMinutes));
+    final updatedOrder = order.copyWith(expiresAt: newExpiry, isExtended: true);
     _orders[idx] = updatedOrder;
 
     try {

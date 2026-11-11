@@ -16,8 +16,10 @@ enum OrderStatus {
 class CartItem {
   final String productId;
   final String name;
+  final String barcode;
   final double price;
   final int qty;
+  final int returnedQty;
   final bool isPerishable;
   final String? variantId;
   final String? variantName;
@@ -25,8 +27,10 @@ class CartItem {
   const CartItem({
     required this.productId,
     required this.name,
+    this.barcode = '',
     required this.price,
     required this.qty,
+    this.returnedQty = 0,
     this.isPerishable = false,
     this.variantId,
     this.variantName,
@@ -40,8 +44,10 @@ class CartItem {
     return CartItem(
       productId: m['productId'] ?? '',
       name: m['name'] ?? '',
+      barcode: m['barcode']?.toString() ?? '',
       price: (m['price'] as num? ?? 0).toDouble(),
       qty: m['qty'] ?? 1,
+      returnedQty: (m['returnedQty'] as num? ?? 0).toInt(),
       isPerishable: m['isPerishable'] ?? false,
       variantId: m['variantId']?.toString(),
       variantName: m['variantName']?.toString(),
@@ -51,20 +57,30 @@ class CartItem {
   Map<String, dynamic> toMap() => {
         'productId': productId,
         'name': name,
+        'barcode': barcode,
         'price': price,
         'qty': qty,
+        'returnedQty': returnedQty,
         'isPerishable': isPerishable,
         if (variantId != null) 'variantId': variantId,
         if (variantName != null) 'variantName': variantName,
       };
 
-  CartItem copyWith(
-          {int? qty, double? price, String? variantId, String? variantName}) =>
+  CartItem copyWith({
+    int? qty,
+    int? returnedQty,
+    double? price,
+    String? barcode,
+    String? variantId,
+    String? variantName,
+  }) =>
       CartItem(
         productId: productId,
         name: name,
+        barcode: barcode ?? this.barcode,
         price: price ?? this.price,
         qty: qty ?? this.qty,
+        returnedQty: returnedQty ?? this.returnedQty,
         isPerishable: isPerishable,
         variantId: variantId ?? this.variantId,
         variantName: variantName ?? this.variantName,

@@ -23,9 +23,9 @@ class NotificationPanel extends StatelessWidget {
       width: double.infinity,
       constraints: const BoxConstraints(maxHeight: 460),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppColors.border, width: 1),
+        border: Border.all(color: Theme.of(context).dividerColor, width: 1),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.12),
@@ -46,7 +46,7 @@ class NotificationPanel extends StatelessWidget {
               children: [
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
+                  children: [
                     Text(
                       'UPDATES',
                       style: TextStyle(
@@ -62,7 +62,7 @@ class NotificationPanel extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
-                        color: AppColors.primaryText,
+                        color: Theme.of(context).colorScheme.onSurface,
                         letterSpacing: -0.3,
                       ),
                     ),
@@ -76,7 +76,7 @@ class NotificationPanel extends StatelessWidget {
                           provider?.markAllAsRead();
                         },
                         child: const Text(
-                          'Mark all as read',
+                          'Mark All As Read',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
@@ -85,8 +85,9 @@ class NotificationPanel extends StatelessWidget {
                         ),
                       ),
                     IconButton(
-                      icon: const Icon(Icons.close_rounded,
-                          size: 20, color: AppColors.mutedText),
+                      icon: Icon(Icons.close_rounded,
+                          size: 20,
+                          color: Theme.of(context).textTheme.bodySmall?.color),
                       onPressed: onClose,
                       tooltip: '',
                     ),
@@ -214,7 +215,7 @@ class _NotificationRow extends StatelessWidget {
                             fontWeight: notification.isRead
                                 ? FontWeight.w600
                                 : FontWeight.w800,
-                            color: AppColors.primaryText,
+                            color: Theme.of(context).colorScheme.onSurface,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -236,9 +237,9 @@ class _NotificationRow extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     notification.body,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
-                      color: AppColors.mutedText,
+                      color: Theme.of(context).textTheme.bodySmall?.color,
                       height: 1.25,
                     ),
                     maxLines: 2,

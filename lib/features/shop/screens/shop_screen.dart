@@ -10,7 +10,6 @@ import '../../orders/providers/order_provider.dart';
 import '../providers/inventory_provider.dart';
 import '../widgets/basket_summary_section.dart';
 import '../widgets/shop_widgets.dart';
-import 'out_of_stock_dashboard.dart';
 import 'product_details_screen.dart';
 
 class ShopScreen extends StatefulWidget {
@@ -60,13 +59,13 @@ class _ShopScreenState extends State<ShopScreen> {
     super.dispose();
   }
 
-  Future<void> _openProductDetails(Product p) async {
+  Future<void> _openProductDetails(Product p, {String? heroTag}) async {
     final double savedOffset =
         _scrollController.hasClients ? _scrollController.offset : 0.0;
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => ProductDetailsScreen(product: p),
+        builder: (_) => ProductDetailsScreen(product: p, heroTag: heroTag),
       ),
     );
     if (_scrollController.hasClients && savedOffset > 0) {
@@ -107,8 +106,8 @@ class _ShopScreenState extends State<ShopScreen> {
         .toList();
 
     final bool hasOthers = rawCats.any((c) => c.toLowerCase() == 'others');
-    final nonOthers =
-        rawCats.where((c) => c.toLowerCase() != 'others').toList()..sort();
+    final nonOthers = rawCats.where((c) => c.toLowerCase() != 'others').toList()
+      ..sort();
 
     final cats = [
       'All',
@@ -137,12 +136,11 @@ class _ShopScreenState extends State<ShopScreen> {
 
     final cartTotal = preCart.fold(0.0, (s, i) => s + i.price * i.qty);
     final cartCount = preCart.fold(0, (s, i) => s + i.qty);
-    final savedCount = inventory.products
-        .where((p) => auth.favorites.contains(p.id))
-        .length;
+    final savedCount =
+        inventory.products.where((p) => auth.favorites.contains(p.id)).length;
 
     return Scaffold(
-      backgroundColor: AppColors.cream,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async {
@@ -164,7 +162,7 @@ class _ShopScreenState extends State<ShopScreen> {
                     children: [
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
+                        children: [
                           Text(
                             'GDC MARKET',
                             style: TextStyle(
@@ -180,7 +178,7 @@ class _ShopScreenState extends State<ShopScreen> {
                             style: TextStyle(
                               fontSize: 22,
                               fontWeight: FontWeight.w800,
-                              color: AppColors.primaryText,
+                              color: Theme.of(context).colorScheme.onSurface,
                               letterSpacing: -0.4,
                             ),
                           ),
@@ -189,7 +187,8 @@ class _ShopScreenState extends State<ShopScreen> {
                             'Fresh essentials, ready for express pickup.',
                             style: TextStyle(
                               fontSize: 12,
-                              color: AppColors.mutedText,
+                              color:
+                                  Theme.of(context).textTheme.bodySmall?.color,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -207,19 +206,19 @@ class _ShopScreenState extends State<ShopScreen> {
                               decoration: BoxDecoration(
                                 color: (_showOutOfStock || _savedOnly)
                                     ? AppColors.sageTint
-                                    : Colors.white,
+                                    : Theme.of(context).cardColor,
                                 shape: BoxShape.circle,
                                 border: Border.all(
                                   color: (_showOutOfStock || _savedOnly)
                                       ? AppColors.forest
-                                      : AppColors.border,
+                                      : Theme.of(context).dividerColor,
                                 ),
                               ),
                               child: Icon(
                                 Icons.more_vert_rounded,
                                 color: (_showOutOfStock || _savedOnly)
                                     ? AppColors.forest
-                                    : AppColors.primaryText,
+                                    : Theme.of(context).colorScheme.onSurface,
                                 size: 20,
                               ),
                             ),
@@ -245,7 +244,8 @@ class _ShopScreenState extends State<ShopScreen> {
                                     Icon(
                                       _showOutOfStock
                                           ? Icons.check_circle_rounded
-                                          : Icons.radio_button_unchecked_rounded,
+                                          : Icons
+                                              .radio_button_unchecked_rounded,
                                       size: 18,
                                       color: _showOutOfStock
                                           ? AppColors.forest
@@ -299,39 +299,7 @@ class _ShopScreenState extends State<ShopScreen> {
                             ],
                           ),
 
-                          const SizedBox(width: 6),
-
-                          // 2. Notification Bell Icon (Restock Radar)
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: AppColors.orangeCTA
-                                  .withValues(alpha: 0.12),
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                  color: AppColors.orangeCTA
-                                      .withValues(alpha: 0.3)),
-                            ),
-                            child: IconButton(
-                              icon: const Icon(
-                                Icons.notifications_active_rounded,
-                                color: AppColors.orangeCTA,
-                                size: 18,
-                              ),
-                              tooltip: '',
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (_) =>
-                                          const OutOfStockDashboardScreen()),
-                                );
-                              },
-                            ),
-                          ),
+                          // Removed Notification Bell Icon (Restock Radar)
                         ],
                       ),
                     ],
@@ -382,10 +350,10 @@ class _ShopScreenState extends State<ShopScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: Theme.of(context).cardColor,
                       borderRadius: BorderRadius.circular(20),
-                      border:
-                          Border.all(color: const Color(0xFFE5D8C5), width: 1.2),
+                      border: Border.all(
+                          color: Theme.of(context).dividerColor, width: 1.2),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.015),
@@ -400,26 +368,43 @@ class _ShopScreenState extends State<ShopScreen> {
                         // Sleek Professional Full-Width Search Input
                         Container(
                           height: 44,
+                          clipBehavior: Clip.antiAlias,
                           decoration: BoxDecoration(
-                            color: AppColors.warmSurface,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerLow,
                             borderRadius: BorderRadius.circular(100),
-                            border: Border.all(color: const Color(0xFFE5D8C5)),
+                            border: Border.all(
+                                color: Theme.of(context).dividerColor),
                           ),
                           child: TextField(
                             controller: _searchCtrl,
                             focusNode: _searchFocusNode,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
                             decoration: InputDecoration(
+                              filled: false,
+                              fillColor: Colors.transparent,
                               hintText: 'Search groceries, produce, snacks...',
-                              hintStyle: const TextStyle(
+                              hintStyle: TextStyle(
                                   fontSize: 12.5,
-                                  color: AppColors.mutedText,
+                                  color: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.color,
                                   fontWeight: FontWeight.w500),
                               prefixIcon: const Icon(Icons.search_rounded,
                                   color: AppColors.forest, size: 20),
                               suffixIcon: _search.isNotEmpty
                                   ? IconButton(
-                                      icon: const Icon(Icons.clear_rounded,
-                                          size: 18, color: AppColors.mutedText),
+                                      icon: Icon(Icons.clear_rounded,
+                                          size: 18,
+                                          color: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.color),
                                       onPressed: () {
                                         _searchCtrl.clear();
                                         setState(() => _search = '');
@@ -427,6 +412,8 @@ class _ShopScreenState extends State<ShopScreen> {
                                     )
                                   : null,
                               border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
                               contentPadding: const EdgeInsets.symmetric(
                                   horizontal: 16, vertical: 10),
                             ),
@@ -459,15 +446,17 @@ class _ShopScreenState extends State<ShopScreen> {
                                   labelStyle: TextStyle(
                                     color: isSelected
                                         ? Colors.white
-                                        : AppColors.primaryText,
+                                        : Theme.of(context)
+                                            .colorScheme
+                                            .onSurface,
                                     fontWeight: FontWeight.bold,
                                     fontSize: 12,
                                   ),
-                                  backgroundColor: Colors.white,
+                                  backgroundColor: Theme.of(context).cardColor,
                                   side: BorderSide(
                                     color: isSelected
                                         ? AppColors.forest
-                                        : const Color(0xFFE5D8C5),
+                                        : Theme.of(context).dividerColor,
                                   ),
                                 ),
                               );
@@ -489,10 +478,11 @@ class _ShopScreenState extends State<ShopScreen> {
                             horizontal: 16, vertical: 6),
                         child: Container(
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: Theme.of(context).cardColor,
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                                color: const Color(0xFFE5D8C5), width: 1.2),
+                                color: Theme.of(context).dividerColor,
+                                width: 1.2),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withValues(alpha: 0.015),
@@ -522,10 +512,11 @@ class _ShopScreenState extends State<ShopScreen> {
                             horizontal: 16, vertical: 6),
                         child: Container(
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: Theme.of(context).cardColor,
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                                color: const Color(0xFFE5D8C5), width: 1.2),
+                                color: Theme.of(context).dividerColor,
+                                width: 1.2),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withValues(alpha: 0.015),
@@ -573,10 +564,11 @@ class _ShopScreenState extends State<ShopScreen> {
                             horizontal: 16, vertical: 6),
                         child: Container(
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: Theme.of(context).cardColor,
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                                color: const Color(0xFFE5D8C5), width: 1.2),
+                                color: Theme.of(context).dividerColor,
+                                width: 1.2),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withValues(alpha: 0.015),
@@ -624,10 +616,10 @@ class _ShopScreenState extends State<ShopScreen> {
                         _cat == 'All'
                             ? 'Products (${filtered.length})'
                             : '$_cat (${filtered.length})',
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
-                            color: AppColors.primaryText),
+                            color: Theme.of(context).colorScheme.onSurface),
                       ),
                       if (_showOutOfStock)
                         const Text(
@@ -654,11 +646,12 @@ class _ShopScreenState extends State<ShopScreen> {
                               const Icon(Icons.shopping_bag_outlined,
                                   size: 48, color: AppColors.mutedText),
                               const SizedBox(height: 12),
-                              const Text(
-                                  'No items found in this section',
+                              Text('No items found in this section',
                                   style: TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      color: AppColors.primaryText)),
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurface)),
                               const SizedBox(height: 4),
                               TextButton(
                                 onPressed: () => setState(() {
@@ -692,7 +685,8 @@ class _ShopScreenState extends State<ShopScreen> {
                             heroTag: 'catalog_${p.id}',
                             isFavorite: auth.favorites.contains(p.id),
                             isOutOfStock: p.isOutOfStockForCustomer,
-                            onTap: () => _openProductDetails(p),
+                            onTap: () => _openProductDetails(p,
+                                heroTag: 'catalog_${p.id}'),
                             onToggleFavorite: () => auth.toggleFavorite(p.id),
                           );
                         }, childCount: filtered.length),

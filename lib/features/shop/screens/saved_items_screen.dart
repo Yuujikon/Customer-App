@@ -46,9 +46,8 @@ class _SavedItemsScreenState extends State<SavedItemsScreen> {
 
     final String userId = auth.currentUser?.uid ?? auth.email;
 
-    final allSavedProducts = inventory.products
-        .where((p) => auth.favorites.contains(p.id))
-        .toList();
+    final allSavedProducts =
+        inventory.products.where((p) => auth.favorites.contains(p.id)).toList();
 
     final inStockSaved =
         allSavedProducts.where((p) => !p.isOutOfStockForCustomer).toList();
@@ -65,31 +64,32 @@ class _SavedItemsScreenState extends State<SavedItemsScreen> {
     }
 
     return Scaffold(
-      backgroundColor: AppColors.cream,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).cardColor,
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: AppColors.primaryText),
+          icon: const Icon(Icons.arrow_back_rounded,
+              color: AppColors.primaryText),
           onPressed: () => Navigator.pop(context),
         ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Your Favorites',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w900,
-                color: AppColors.primaryText,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
             Text(
               '${allSavedProducts.length} item${allSavedProducts.length == 1 ? '' : 's'} saved',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
-                color: AppColors.mutedText,
+                color: Theme.of(context).textTheme.bodySmall?.color,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -132,8 +132,8 @@ class _SavedItemsScreenState extends State<SavedItemsScreen> {
               itemCount: displayedProducts.length,
               itemBuilder: (context, index) {
                 final product = displayedProducts[index];
-                final inCart = orderProvider.preCart
-                    .any((c) => c.productId == product.id);
+                final inCart =
+                    orderProvider.preCart.any((c) => c.productId == product.id);
 
                 return _SavedProductCard(
                   product: product,
@@ -168,8 +168,6 @@ class _SavedItemsScreenState extends State<SavedItemsScreen> {
                       );
                     }
                   },
-                  onToggleNotify: () =>
-                      inventory.toggleRestockNotification(product.id, userId),
                 );
               },
             )
@@ -198,19 +196,19 @@ class _SavedItemsScreenState extends State<SavedItemsScreen> {
                           : _selectedFilterIndex == 2
                               ? 'No Sold Out Favorites'
                               : 'Your Favorites List is Empty',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w900,
-                        color: AppColors.primaryText,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
+                    Text(
                       'Tap the ❤ heart icon on any product in the store to save it here.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 13,
-                        color: AppColors.mutedText,
+                        color: Theme.of(context).textTheme.bodySmall?.color,
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -271,7 +269,6 @@ class _SavedProductCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onToggleFavorite;
   final VoidCallback onAddToCart;
-  final VoidCallback onToggleNotify;
 
   const _SavedProductCard({
     required this.product,
@@ -280,13 +277,11 @@ class _SavedProductCard extends StatelessWidget {
     required this.onTap,
     required this.onToggleFavorite,
     required this.onAddToCart,
-    required this.onToggleNotify,
   });
 
   @override
   Widget build(BuildContext context) {
     final bool isOos = product.isOutOfStockForCustomer;
-    final bool isNotifying = product.isNotifyingUser(userId);
     final imageBytes = _getDecodedImageBytes(product.photoBase64, product.id);
 
     return Container(
@@ -509,7 +504,9 @@ class _SavedProductCard extends StatelessWidget {
             ElevatedButton.icon(
               onPressed: onAddToCart,
               icon: Icon(
-                inCart ? Icons.check_circle_rounded : Icons.add_shopping_cart_rounded,
+                inCart
+                    ? Icons.check_circle_rounded
+                    : Icons.add_shopping_cart_rounded,
                 size: 13,
               ),
               label: FittedBox(
@@ -521,7 +518,8 @@ class _SavedProductCard extends StatelessWidget {
                 ),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: inCart ? AppColors.forest : AppColors.orangeCTA,
+                backgroundColor:
+                    inCart ? AppColors.forest : AppColors.orangeCTA,
                 foregroundColor: Colors.white,
                 minimumSize: const Size(double.infinity, 32),
                 padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -532,29 +530,19 @@ class _SavedProductCard extends StatelessWidget {
               ),
             )
           else
-            OutlinedButton.icon(
-              onPressed: onToggleNotify,
-              icon: Icon(
-                isNotifying
-                    ? Icons.notifications_active_rounded
-                    : Icons.notifications_none_rounded,
-                size: 13,
+            Container(
+              height: 32,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade200,
+                borderRadius: BorderRadius.circular(100),
               ),
-              label: Text(
-                isNotifying ? 'Notifying' : 'Notify Me',
-                style: const TextStyle(
-                    fontSize: 9.5, fontWeight: FontWeight.w900),
-              ),
-              style: OutlinedButton.styleFrom(
-                foregroundColor:
-                    isNotifying ? AppColors.forest : AppColors.orangeCTA,
-                side: BorderSide(
-                  color: isNotifying ? AppColors.forest : AppColors.orangeCTA,
-                ),
-                minimumSize: const Size(double.infinity, 32),
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(100),
+              child: const Text(
+                'Out of Stock',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.grey,
                 ),
               ),
             ),

@@ -120,6 +120,8 @@ class _QtyControlState extends State<QtyControl> {
     final bool disabled =
         (delta > 0 && widget.max != null && widget.qty >= widget.max!) ||
             (delta < 0 && widget.qty <= 1);
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).colorScheme.primary;
 
     return GestureDetector(
       onTap: disabled ? null : onTap,
@@ -129,65 +131,81 @@ class _QtyControlState extends State<QtyControl> {
         height: 32,
         decoration: BoxDecoration(
           color: disabled
-              ? Colors.grey.shade100
-              : GdcColors.terracotta.withValues(alpha: 0.1),
+              ? (isDark ? Theme.of(context).cardColor : Colors.grey.shade100)
+              : primaryColor.withValues(alpha: 0.15),
           shape: BoxShape.circle,
         ),
         alignment: Alignment.center,
         child: Icon(
           icon,
           size: 16,
-          color: disabled ? Colors.grey.shade300 : GdcColors.terracotta,
+          color: disabled
+              ? (isDark
+                  ? Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.color
+                      ?.withValues(alpha: 0.4)
+                  : Colors.grey.shade400)
+              : primaryColor,
         ),
       ),
     );
   }
 
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade50,
-          borderRadius: BorderRadius.circular(100),
-          border: Border.all(color: const Color(0xFFE5EBDD)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            _btn(Icons.remove_rounded, -1, () => _adjust(-1)),
-            SizedBox(
-              width: 38,
-              height: 32,
-              child: Center(
-                child: TextField(
-                  controller: _ctrl,
-                  textAlign: TextAlign.center,
-                  textAlignVertical: TextAlignVertical.center,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  onChanged: _onTextTyped,
-                  onSubmitted: (_) => _commit(),
-                  onEditingComplete: _commit,
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    contentPadding: EdgeInsets.zero,
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                    filled: false,
-                  ),
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w900,
-                    height: 1.1,
-                    color: GdcColors.textPrimary,
-                  ),
+  Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark
+        ? Theme.of(context).colorScheme.surfaceContainerLow
+        : Colors.grey.shade50;
+    final borderColor = Theme.of(context).dividerColor;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(100),
+        border: Border.all(color: borderColor),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          _btn(Icons.remove_rounded, -1, () => _adjust(-1)),
+          SizedBox(
+            width: 38,
+            height: 32,
+            child: Center(
+              child: TextField(
+                controller: _ctrl,
+                textAlign: TextAlign.center,
+                textAlignVertical: TextAlignVertical.center,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                onChanged: _onTextTyped,
+                onSubmitted: (_) => _commit(),
+                onEditingComplete: _commit,
+                decoration: const InputDecoration(
+                  isDense: true,
+                  contentPadding: EdgeInsets.zero,
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  filled: false,
+                ),
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                  height: 1.1,
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
             ),
-            _btn(Icons.add_rounded, 1, () => _adjust(1)),
-          ],
-        ),
-      );
+          ),
+          _btn(Icons.add_rounded, 1, () => _adjust(1)),
+        ],
+      ),
+    );
+  }
 }

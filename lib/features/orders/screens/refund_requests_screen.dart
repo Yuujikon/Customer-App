@@ -189,8 +189,9 @@ class _RefundRequestCard extends StatelessWidget {
                     fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
             Text('Reason: ${req.reason}',
-                style: const TextStyle(
-                    fontSize: 13, color: GdcColors.textSecondary)),
+                style: TextStyle(
+                    fontSize: 13,
+                    color: Theme.of(context).colorScheme.onSurface)),
             if (hasResponse) ...[
               const Divider(height: 16),
               const Text('STORE RESPONSE:',

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/theme_provider.dart';
 import 'brand_logo.dart';
 
 class StoreStatusPill extends StatelessWidget {
@@ -9,10 +11,14 @@ class StoreStatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).colorScheme.primary;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: AppColors.sageTint,
+        color:
+            isDark ? primaryColor.withValues(alpha: 0.2) : AppColors.sageTint,
         borderRadius: BorderRadius.circular(100),
       ),
       child: Row(
@@ -23,16 +29,16 @@ class StoreStatusPill extends StatelessWidget {
             height: 7,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: isOpen ? AppColors.forest : AppColors.error,
+              color: isOpen ? primaryColor : AppColors.error,
             ),
           ),
           const SizedBox(width: 6),
           Text(
             isOpen ? 'Store Open · Pickup Available' : 'Store Closed',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w800,
-              color: AppColors.forest,
+              color: primaryColor,
               letterSpacing: 0.3,
             ),
           ),
@@ -78,6 +84,8 @@ class GlobalTopBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     final double topPadding = MediaQuery.paddingOf(context).top;
+    final themeProvider = context.watch<ThemeProvider>();
+    final bool isDark = themeProvider.isDarkMode(context);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -108,12 +116,21 @@ class GlobalTopBar extends StatelessWidget implements PreferredSizeWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.end,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.primaryText,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
+                ),
+                const SizedBox(width: 8),
+                _TopBarIconButton(
+                  icon: isDark
+                      ? Icons.dark_mode_rounded
+                      : Icons.light_mode_rounded,
+                  onTap: () {
+                    themeProvider.toggleTheme(!isDark);
+                  },
                 ),
                 const SizedBox(width: 8),
                 _TopBarIconButton(
@@ -132,10 +149,10 @@ class GlobalTopBar extends StatelessWidget implements PreferredSizeWidget {
                       _getGreeting(),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
-                        color: AppColors.primaryText,
+                        color: Theme.of(context).colorScheme.onSurface,
                         letterSpacing: -0.3,
                       ),
                     ),
@@ -145,6 +162,17 @@ class GlobalTopBar extends StatelessWidget implements PreferredSizeWidget {
                 ),
                 const SizedBox(width: 16),
                 const Spacer(),
+
+                // Theme Toggle Button
+                _TopBarIconButton(
+                  icon: isDark
+                      ? Icons.dark_mode_rounded
+                      : Icons.light_mode_rounded,
+                  onTap: () {
+                    themeProvider.toggleTheme(!isDark);
+                  },
+                ),
+                const SizedBox(width: 8),
 
                 // Search Button
                 if (onSearchTap != null) ...[
@@ -197,9 +225,9 @@ class _TopBarIconButton extends StatelessWidget {
       width: 40,
       height: 40,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         shape: BoxShape.circle,
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: Theme.of(context).dividerColor),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.02),
@@ -216,7 +244,7 @@ class _TopBarIconButton extends StatelessWidget {
           backgroundColor: AppColors.orangeCTA,
           child: Icon(
             icon,
-            color: AppColors.primaryText,
+            color: Theme.of(context).colorScheme.onSurface,
             size: 20,
           ),
         ),
@@ -250,9 +278,9 @@ class _ProfilePillButton extends StatelessWidget {
         height: 40,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(100),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: Theme.of(context).dividerColor),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.02),
@@ -289,29 +317,29 @@ class _ProfilePillButton extends StatelessWidget {
                     userName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w800,
-                      color: AppColors.primaryText,
+                      color: Theme.of(context).colorScheme.onSurface,
                       height: 1.1,
                     ),
                   ),
-                  const Text(
+                  Text(
                     'Member',
                     style: TextStyle(
                       fontSize: 9.5,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.mutedText,
+                      color: Theme.of(context).textTheme.bodySmall?.color,
                     ),
                   ),
                 ],
               ),
             ),
             const SizedBox(width: 4),
-            const Icon(
+            Icon(
               Icons.chevron_right_rounded,
               size: 16,
-              color: AppColors.mutedText,
+              color: Theme.of(context).textTheme.bodySmall?.color,
             ),
           ],
         ),

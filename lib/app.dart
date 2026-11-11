@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'core/theme/app_theme.dart';
+import 'core/theme/theme_provider.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/auth/screens/landing_screen.dart';
 import 'features/auth/screens/profile_setup_screen.dart';
@@ -20,6 +21,7 @@ class GdcCustomerApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => AppAuthProvider()..initialize()),
         ChangeNotifierProvider(
             create: (_) => InventoryProvider()..initialize()),
@@ -35,11 +37,17 @@ class GdcCustomerApp extends StatelessWidget {
           },
         ),
       ],
-      child: MaterialApp(
-        title: 'GDC Store',
-        debugShowCheckedModeBanner: false,
-        theme: GdcTheme.light,
-        home: const _Root(),
+      child: Consumer<ThemeProvider>(
+        builder: (context, themeProvider, _) {
+          return MaterialApp(
+            title: 'GDC Store',
+            debugShowCheckedModeBanner: false,
+            theme: GdcTheme.light,
+            darkTheme: GdcTheme.dark,
+            themeMode: themeProvider.themeMode,
+            home: const _Root(),
+          );
+        },
       ),
     );
   }

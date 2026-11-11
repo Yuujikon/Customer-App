@@ -12,7 +12,9 @@ import '../widgets/shop_widgets.dart';
 
 class ProductDetailsScreen extends StatefulWidget {
   final Product product;
-  const ProductDetailsScreen({super.key, required this.product});
+  final String? heroTag;
+
+  const ProductDetailsScreen({super.key, required this.product, this.heroTag});
 
   @override
   State<ProductDetailsScreen> createState() => _ProductDetailsScreenState();
@@ -66,7 +68,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         : null;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).cardColor,
       body: Responsive(
         mobile: CustomScrollView(
           slivers: [
@@ -74,10 +76,12 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               expandedHeight: 200,
               pinned: true,
               leading: CircleAvatar(
-                backgroundColor: Colors.white.withValues(alpha: 0.8),
+                backgroundColor: Theme.of(context).brightness == Brightness.dark
+                    ? Theme.of(context).colorScheme.surfaceContainerLow
+                    : Colors.white.withValues(alpha: 0.8),
                 child: IconButton(
-                  icon: const Icon(Icons.arrow_back,
-                      color: GdcColors.textPrimary),
+                  icon: Icon(Icons.arrow_back,
+                      color: Theme.of(context).colorScheme.onSurface),
                   onPressed: () => Navigator.pop(context),
                 ),
               ),
@@ -90,7 +94,11 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                     decoration: BoxDecoration(
                       color: isFavorite
                           ? Colors.amber.shade700
-                          : Colors.white.withValues(alpha: 0.9),
+                          : (Theme.of(context).brightness == Brightness.dark
+                              ? Theme.of(context)
+                                  .colorScheme
+                                  .surfaceContainerLow
+                              : Colors.white.withValues(alpha: 0.9)),
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
@@ -104,7 +112,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                       isFavorite
                           ? Icons.bookmark_rounded
                           : Icons.bookmark_border_rounded,
-                      color: isFavorite ? Colors.white : GdcColors.textPrimary,
+                      color: isFavorite
+                          ? Colors.white
+                          : Theme.of(context).colorScheme.onSurface,
                       size: 22,
                     ),
                   ),
@@ -113,9 +123,11 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               ],
               flexibleSpace: FlexibleSpaceBar(
                 background: Hero(
-                  tag: widget.product.id,
+                  tag: widget.heroTag ?? widget.product.id,
                   child: Container(
-                    color: const Color(0xFFF7F9F5),
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Theme.of(context).colorScheme.surfaceContainerLow
+                        : const Color(0xFFF7F9F5),
                     padding: const EdgeInsets.all(12),
                     child: imageBytes != null
                         ? Image.memory(
@@ -123,8 +135,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                             fit: BoxFit.contain,
                             gaplessPlayback: true,
                           )
-                        : const Icon(Icons.inventory_2_outlined,
-                            size: 80, color: GdcColors.terracotta),
+                        : Icon(Icons.inventory_2_outlined,
+                            size: 80,
+                            color: Theme.of(context).colorScheme.primary),
                   ),
                 ),
               ),
@@ -168,7 +181,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   color: const Color(0xFFF7F9F5),
                   padding: const EdgeInsets.all(16),
                   child: Hero(
-                    tag: widget.product.id,
+                    tag: widget.heroTag ?? widget.product.id,
                     child: imageBytes != null
                         ? Image.memory(
                             imageBytes,
@@ -209,7 +222,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               ],
             ),
             child: Scaffold(
-              backgroundColor: Colors.white,
+              backgroundColor: Theme.of(context).cardColor,
               appBar: AppBar(
                 automaticallyImplyLeading: false,
                 backgroundColor: Colors.transparent,
@@ -314,10 +327,10 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         const SizedBox(height: 12),
         Text(
           capitalize(widget.product.name),
-          style: const TextStyle(
+          style: TextStyle(
               fontSize: 26,
               fontWeight: FontWeight.w900,
-              color: GdcColors.textPrimary,
+              color: Theme.of(context).colorScheme.onSurface,
               letterSpacing: -0.3),
         ),
         const SizedBox(height: 12),
@@ -330,10 +343,10 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               children: [
                 Text(
                   formatPeso(selectedVariant.price),
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 26,
                       fontWeight: FontWeight.w900,
-                      color: GdcColors.terracotta),
+                      color: Theme.of(context).colorScheme.primary),
                 ),
                 const Spacer(),
                 Text(
@@ -343,7 +356,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                     fontWeight: FontWeight.w800,
                     color: selectedVariant.maxPurchasableStock <= 5
                         ? GdcColors.error
-                        : GdcColors.textSecondary,
+                        : (Theme.of(context).brightness == Brightness.dark
+                            ? Theme.of(context).colorScheme.primary
+                            : GdcColors.textSecondary),
                   ),
                 ),
               ],
@@ -363,10 +378,10 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
             children: [
               Text(
                 formatPeso(widget.product.price),
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 26,
                     fontWeight: FontWeight.w900,
-                    color: GdcColors.terracotta),
+                    color: Theme.of(context).colorScheme.primary),
               ),
               const Spacer(),
               Text(
@@ -376,7 +391,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   fontWeight: FontWeight.w800,
                   color: widget.product.maxPurchasableStock <= 5
                       ? GdcColors.error
-                      : GdcColors.textSecondary,
+                      : (Theme.of(context).brightness == Brightness.dark
+                          ? Theme.of(context).colorScheme.primary
+                          : GdcColors.textSecondary),
                 ),
               ),
             ],
@@ -413,12 +430,12 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         const SizedBox(height: 28),
 
         if (hasVariants) ...[
-          const Text(
+          Text(
             'Select Option',
             style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w900,
-                color: GdcColors.textPrimary),
+                color: Theme.of(context).colorScheme.onSurface),
           ),
           const SizedBox(height: 10),
           Wrap(
@@ -445,11 +462,14 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 labelStyle: TextStyle(
                   color: isSelected
                       ? Colors.white
-                      : (isSoldOut ? Colors.grey : GdcColors.textPrimary),
+                      : (isSoldOut
+                          ? Colors.grey
+                          : Theme.of(context).colorScheme.onSurface),
                   fontWeight: FontWeight.bold,
                 ),
-                backgroundColor:
-                    isSoldOut ? Colors.grey.shade100 : Colors.white,
+                backgroundColor: isSoldOut
+                    ? Colors.grey.shade900
+                    : Theme.of(context).cardColor,
               );
             }).toList(),
           ),
@@ -460,12 +480,12 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Quantity',
                 style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w900,
-                    color: GdcColors.textPrimary),
+                    color: Theme.of(context).colorScheme.onSurface),
               ),
               QtyControl(
                 qty: _quantity,
@@ -479,39 +499,37 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           const SizedBox(height: 28),
         ],
 
-        const Text(
+        Text(
           'Product Details',
           style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w900,
-              color: GdcColors.textPrimary),
+              color: Theme.of(context).colorScheme.onSurface),
         ),
         const SizedBox(height: 8),
-        const Text(
+        Text(
           'Freshly sourced daily for optimum quality and store freshness. Pre-order online and collect directly at GDC Main Store during your selected pickup window.',
           style: TextStyle(
               fontSize: 14,
-              color: GdcColors.textSecondary,
+              color: Theme.of(context).textTheme.bodySmall?.color,
               height: 1.5,
               fontWeight: FontWeight.w500),
         ),
         if (isOutOfStock) ...[
           const SizedBox(height: 28),
           const Text(
-            'Notify Me',
+            'Out of Stock',
             style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w900,
-                color: GdcColors.textPrimary),
+                color: GdcColors.error),
           ),
           const SizedBox(height: 6),
           const Text(
-            'This item is currently out of stock. We can notify you as soon as it becomes available again.',
+            'This item is currently unavailable.',
             style: TextStyle(
                 fontSize: 13, color: GdcColors.textSecondary, height: 1.4),
           ),
-          const SizedBox(height: 14),
-          NotifyMeButton(productId: widget.product.id, isLarge: true),
         ],
         const SizedBox(height: 100),
       ],
@@ -529,8 +547,11 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        border: Border(
+          top: BorderSide(color: Theme.of(context).dividerColor),
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.06),
@@ -599,31 +620,39 @@ class _SpecCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark
+        ? Theme.of(context).colorScheme.surfaceContainerLow
+        : const Color(0xFFF4F7EE);
+    final borderColor = Theme.of(context).dividerColor;
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    final textPrimary = Theme.of(context).colorScheme.onSurface;
+    final textMuted =
+        Theme.of(context).textTheme.bodySmall?.color ?? AppColors.mutedText;
+
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         decoration: BoxDecoration(
-          color: const Color(0xFFF4F7EE),
+          color: cardBg,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFE5EBDD)),
+          border: Border.all(color: borderColor),
         ),
         child: Column(
           children: [
-            Icon(icon, size: 20, color: GdcColors.terracotta),
+            Icon(icon, size: 20, color: primaryColor),
             const SizedBox(height: 6),
             Text(
               label,
-              style: const TextStyle(
-                  fontSize: 10,
-                  color: GdcColors.textMuted,
-                  fontWeight: FontWeight.w700),
+              style: TextStyle(
+                  fontSize: 10, color: textMuted, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 2),
             Text(
               value,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 12,
-                  color: GdcColors.textPrimary,
+                  color: textPrimary,
                   fontWeight: FontWeight.w900),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

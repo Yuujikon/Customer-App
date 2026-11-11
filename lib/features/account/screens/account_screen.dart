@@ -7,6 +7,7 @@ import 'dart:typed_data';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/launcher.dart';
 import '../../../core/utils/responsive.dart';
+import '../../../core/utils/store_hours.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../widgets/info/store_info_sheet.dart';
 
@@ -34,7 +35,7 @@ class _AccountScreenState extends State<AccountScreen> {
         Responsive.isTablet(context) || Responsive.isLargeScreen(context);
 
     return Scaffold(
-      backgroundColor: AppColors.cream,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
@@ -52,21 +53,21 @@ class _AccountScreenState extends State<AccountScreen> {
                 ),
               ),
               const SizedBox(height: 2),
-              const Text(
+              Text(
                 'Account & store',
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w800,
-                  color: AppColors.primaryText,
+                  color: Theme.of(context).colorScheme.onSurface,
                   letterSpacing: -0.4,
                 ),
               ),
               const SizedBox(height: 2),
-              const Text(
+              Text(
                 'Manage your profile and find store information.',
                 style: TextStyle(
                   fontSize: 12.5,
-                  color: AppColors.mutedText,
+                  color: Theme.of(context).textTheme.bodySmall?.color,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -74,20 +75,28 @@ class _AccountScreenState extends State<AccountScreen> {
               const SizedBox(height: 20),
 
               if (isTablet)
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                Column(
                   children: [
-                    Expanded(
-                        child: _buildProfileCard(
-                            context, auth, displayName, email)),
-                    const SizedBox(width: 20),
-                    Expanded(child: _buildStoreCard(context)),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                            child: _buildProfileCard(
+                                context, auth, displayName, email)),
+                        const SizedBox(width: 20),
+                        Expanded(child: _buildStoreCard(context)),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    _buildStoreBioCard(context),
                   ],
                 )
               else ...[
                 _buildProfileCard(context, auth, displayName, email),
                 const SizedBox(height: 16),
                 _buildStoreCard(context),
+                const SizedBox(height: 16),
+                _buildStoreBioCard(context),
               ],
 
               const SizedBox(height: 40),
@@ -103,9 +112,9 @@ class _AccountScreenState extends State<AccountScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFE5D8C5), width: 1.2),
+        border: Border.all(color: Theme.of(context).dividerColor, width: 1.2),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.02),
@@ -124,7 +133,8 @@ class _AccountScreenState extends State<AccountScreen> {
               decoration: BoxDecoration(
                 color: const Color(0xFFFFF3E0),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.orangeCTA.withValues(alpha: 0.5)),
+                border: Border.all(
+                    color: AppColors.orangeCTA.withValues(alpha: 0.5)),
               ),
               child: Row(
                 children: [
@@ -134,7 +144,7 @@ class _AccountScreenState extends State<AccountScreen> {
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
+                      children: [
                         Text(
                           'Full Name Required for Store Orders',
                           style: TextStyle(
@@ -230,18 +240,18 @@ class _AccountScreenState extends State<AccountScreen> {
                     ),
                     Text(
                       name,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
-                        color: AppColors.primaryText,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
                     const SizedBox(height: 1),
                     Text(
                       email,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: AppColors.mutedText,
+                        color: Theme.of(context).textTheme.bodySmall?.color,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -252,7 +262,7 @@ class _AccountScreenState extends State<AccountScreen> {
           ),
 
           const SizedBox(height: 20),
-          const Divider(height: 1, color: Color(0xFFE5D8C5)),
+          Divider(height: 1, color: Theme.of(context).dividerColor),
           const SizedBox(height: 16),
 
           // Action Buttons
@@ -267,25 +277,25 @@ class _AccountScreenState extends State<AccountScreen> {
                         size: 18, color: AppColors.forest),
                     label: const Text('Edit Personal Information'),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.primaryText,
-                      side: const BorderSide(color: Color(0xFFE5D8C5), width: 1.2),
+                      foregroundColor: Theme.of(context).colorScheme.onSurface,
+                      side: BorderSide(
+                          color: Theme.of(context).dividerColor, width: 1.2),
                       minimumSize: const Size(double.infinity, 44),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(100),
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 10),
-
                   OutlinedButton.icon(
                     onPressed: () => _showLogoutConfirm(context),
                     icon: const Icon(Icons.logout_rounded,
                         size: 18, color: AppColors.error),
-                    label: const Text('Sign out of account'),
+                    label: const Text('Sign Out Of Account'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.error,
-                      side: const BorderSide(color: Color(0xFFE5D8C5), width: 1.2),
+                      side: const BorderSide(
+                          color: Color(0xFFE5D8C5), width: 1.2),
                       minimumSize: const Size(double.infinity, 44),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(100),
@@ -305,9 +315,9 @@ class _AccountScreenState extends State<AccountScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFE5D8C5), width: 1.2),
+        border: Border.all(color: Theme.of(context).dividerColor, width: 1.2),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.02),
@@ -351,12 +361,12 @@ class _AccountScreenState extends State<AccountScreen> {
             ],
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'GDC Store · Main',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w800,
-              color: AppColors.primaryText,
+              color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
 
@@ -365,8 +375,8 @@ class _AccountScreenState extends State<AccountScreen> {
           // Address
           _buildInfoRow(
             icon: Icons.location_on_rounded,
-            primary: '128 Mabini Street',
-            secondary: 'Barangay San Roque, Quezon City',
+            primary: 'Main St, Brgy. Poblacion',
+            secondary: 'General Douglas MacArthur',
           ),
 
           const SizedBox(height: 14),
@@ -374,8 +384,10 @@ class _AccountScreenState extends State<AccountScreen> {
           // Operating Hours
           _buildInfoRow(
             icon: Icons.access_time_filled_rounded,
-            primary: 'Open today until 8:00 PM',
-            secondary: 'Mon–Sat, 7:00 AM–8:00 PM',
+            primary: StoreHours.isOpen()
+                ? 'Open today until 3:00 PM'
+                : 'Closed · Opens at 11:00 AM',
+            secondary: 'Open Daily, 11:00 AM–3:00 PM',
           ),
 
           const SizedBox(height: 14),
@@ -408,8 +420,10 @@ class _AccountScreenState extends State<AccountScreen> {
           children: [
             Container(
               padding: const EdgeInsets.all(9),
-              decoration: const BoxDecoration(
-                color: AppColors.sageTint,
+              decoration: BoxDecoration(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? AppColors.forest.withValues(alpha: 0.25)
+                    : AppColors.sageTint,
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -425,18 +439,18 @@ class _AccountScreenState extends State<AccountScreen> {
                 children: [
                   Text(
                     primary,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13.5,
                       fontWeight: FontWeight.w800,
-                      color: AppColors.primaryText,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                   const SizedBox(height: 1),
                   Text(
                     secondary,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11.5,
-                      color: AppColors.mutedText,
+                      color: Theme.of(context).textTheme.bodySmall?.color,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -533,72 +547,439 @@ class _AccountScreenState extends State<AccountScreen> {
     final phoneCtrl = TextEditingController(text: auth.phoneNumber ?? '');
     final bioCtrl = TextEditingController(text: auth.bio);
 
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final dialogBg = Theme.of(context).cardColor;
+    final textPrimary = Theme.of(context).colorScheme.onSurface;
+    final textMuted =
+        Theme.of(context).textTheme.bodySmall?.color ?? AppColors.mutedText;
+    final inputBg = isDark
+        ? Theme.of(context).colorScheme.surfaceContainerLow
+        : Colors.white;
+    final borderColor = Theme.of(context).dividerColor;
+
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Edit Personal Information',
-            style: TextStyle(fontWeight: FontWeight.w900)),
-        content: SingleChildScrollView(
+      builder: (ctx) => Dialog(
+        backgroundColor: dialogBg,
+        elevation: 12,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        child: Container(
+          width: 440,
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: dialogBg,
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: borderColor, width: 1.2),
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              TextField(
-                controller: nameCtrl,
-                autofocus: !auth.isFullNameSet,
-                decoration: const InputDecoration(
-                  labelText: 'Full Name (First & Last Name)',
-                  hintText: 'e.g., Juan Dela Cruz',
+              // Header Row: Title & Top-Right Close Button
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Edit Personal Information',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        color: textPrimary,
+                        letterSpacing: -0.4,
+                      ),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () => Navigator.pop(ctx),
+                    borderRadius: BorderRadius.circular(100),
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Icon(
+                        Icons.close_rounded,
+                        size: 22,
+                        color: textPrimary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // Form Scroll Area
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Field 1: Full Name
+                      Text(
+                        'Full Name',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: textMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: inputBg,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: borderColor),
+                        ),
+                        child: TextField(
+                          controller: nameCtrl,
+                          autofocus: !auth.isFullNameSet,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: textPrimary,
+                          ),
+                          decoration: InputDecoration(
+                            filled: false,
+                            fillColor: Colors.transparent,
+                            hintText: 'Enter full name...',
+                            hintStyle: TextStyle(
+                              fontSize: 13,
+                              color: textMuted.withValues(alpha: 0.7),
+                            ),
+                            prefixIcon: Icon(
+                              Icons.person_outline_rounded,
+                              size: 20,
+                              color: textMuted,
+                            ),
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Field 2: Phone Number
+                      Text(
+                        'Phone Number',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: textMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: inputBg,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: borderColor),
+                        ),
+                        child: TextField(
+                          controller: phoneCtrl,
+                          keyboardType: TextInputType.phone,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: textPrimary,
+                          ),
+                          decoration: InputDecoration(
+                            filled: false,
+                            fillColor: Colors.transparent,
+                            hintText: 'Enter phone number...',
+                            hintStyle: TextStyle(
+                              fontSize: 13,
+                              color: textMuted.withValues(alpha: 0.7),
+                            ),
+                            prefixIcon: Icon(
+                              Icons.call_outlined,
+                              size: 20,
+                              color: textMuted,
+                            ),
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Field 3: Bio
+                      Text(
+                        'Bio',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: textMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: inputBg,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: borderColor),
+                        ),
+                        child: TextField(
+                          controller: bioCtrl,
+                          maxLines: 3,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: textPrimary,
+                          ),
+                          decoration: InputDecoration(
+                            filled: false,
+                            fillColor: Colors.transparent,
+                            hintText: 'Add a short note...',
+                            hintStyle: TextStyle(
+                              fontSize: 13,
+                              color: textMuted.withValues(alpha: 0.7),
+                            ),
+                            prefixIcon: Padding(
+                              padding: const EdgeInsets.only(bottom: 32),
+                              child: Icon(
+                                Icons.mode_edit_outline_rounded,
+                                size: 20,
+                                color: textMuted,
+                              ),
+                            ),
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: phoneCtrl,
-                keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(
-                    labelText: 'Phone Number', hintText: '09123456789'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: bioCtrl,
-                decoration: const InputDecoration(
-                    labelText: 'Bio', hintText: 'Tell us about yourself'),
-                maxLines: 2,
+
+              const SizedBox(height: 24),
+
+              // Action Buttons Row: Cancel (Left Outlined) & Save Changes (Right Orange CTA)
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Theme.of(context).colorScheme.primary,
+                        side: BorderSide(
+                          color: Theme.of(context).colorScheme.primary,
+                          width: 1.5,
+                        ),
+                        minimumSize: const Size(0, 48),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(100),
+                        ),
+                      ),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        final trimmedName = nameCtrl.text.trim();
+                        if (trimmedName.isEmpty ||
+                            trimmedName == 'Customer' ||
+                            trimmedName == 'Guest') {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please enter a valid full name.'),
+                              backgroundColor: AppColors.error,
+                            ),
+                          );
+                          return;
+                        }
+
+                        await auth.updateProfile(
+                          name: trimmedName,
+                          bio: bioCtrl.text.trim(),
+                          phone: phoneCtrl.text.trim(),
+                        );
+                        if (ctx.mounted) Navigator.pop(ctx);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.orangeCTA,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(0, 48),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(100),
+                        ),
+                      ),
+                      child: const Text(
+                        'Save Changes',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
         ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              final trimmedName = nameCtrl.text.trim();
-              if (trimmedName.isEmpty || trimmedName == 'Customer' || trimmedName == 'Guest') {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Please enter a valid full name.'),
-                    backgroundColor: AppColors.error,
-                  ),
-                );
-                return;
-              }
+      ),
+    );
+  }
 
-              await auth.updateProfile(
-                name: trimmedName,
-                bio: bioCtrl.text.trim(),
-                phone: phoneCtrl.text.trim(),
-              );
-              if (ctx.mounted) Navigator.pop(ctx);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.orangeCTA,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Save Full Name'),
+  Widget _buildStoreBioCard(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: Theme.of(context).dividerColor,
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'STORE BIO & MISSION',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  color: Theme.of(context).colorScheme.primary,
+                  letterSpacing: 1.0,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .primary
+                      .withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(100),
+                ),
+                child: Text(
+                  'Verified Store',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .primary
+                      .withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.storefront_rounded,
+                  color: Theme.of(context).colorScheme.primary,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'GDC Sari-Sari Store',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Your friendly neighborhood store in General Douglas MacArthur. Providing daily fresh essentials, pantry goods, cold beverages, and fast local pre-orders.',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        height: 1.45,
+                        color: Theme.of(context).textTheme.bodySmall?.color,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Divider(height: 1, color: Theme.of(context).dividerColor),
+          const SizedBox(height: 14),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildBioTag(context,
+                  icon: Icons.verified_rounded, label: 'Fresh Daily'),
+              _buildBioTag(context,
+                  icon: Icons.favorite_rounded, label: 'Community First'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBioTag(BuildContext context,
+      {required IconData icon, required String label}) {
+    final color = Theme.of(context).colorScheme.primary;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: color),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
+        ),
+      ],
     );
   }
 }

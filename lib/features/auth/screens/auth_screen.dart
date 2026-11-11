@@ -173,8 +173,10 @@ class _CustomerAuthScreenState extends State<CustomerAuthScreen> {
                           if (email.isEmpty ||
                               _password.text.isEmpty ||
                               (widget.isRegister &&
-                                  (_name.text.isEmpty || _phone.text.isEmpty))) {
-                            setState(() => _error = 'Please fill in all fields');
+                                  (_name.text.isEmpty ||
+                                      _phone.text.isEmpty))) {
+                            setState(
+                                () => _error = 'Please fill in all fields');
                             return;
                           }
                           if (widget.isRegister) {
@@ -264,7 +266,8 @@ class _CustomerAuthScreenState extends State<CustomerAuthScreen> {
                           } catch (e) {
                             if (!mounted) return;
                             setState(() {
-                              _error = 'Google Sign-In failed. Please try again.';
+                              _error =
+                                  'Google Sign-In failed. Please try again.';
                               _loading = false;
                             });
                           }
@@ -282,8 +285,8 @@ class _CustomerAuthScreenState extends State<CustomerAuthScreen> {
                     Navigator.pushReplacement(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => CustomerAuthScreen(
-                            isRegister: !widget.isRegister),
+                        builder: (_) =>
+                            CustomerAuthScreen(isRegister: !widget.isRegister),
                       ),
                     );
                   },

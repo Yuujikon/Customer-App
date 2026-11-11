@@ -128,10 +128,10 @@ class BasketSummarySection extends StatelessWidget {
                   width: 175,
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context).cardColor,
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: const Color(0xFFE5D8C5),
+                      color: Theme.of(context).dividerColor,
                       width: 1.2,
                     ),
                     boxShadow: [
@@ -196,8 +196,7 @@ class BasketSummarySection extends StatelessWidget {
                                           horizontal: 5, vertical: 1),
                                       decoration: BoxDecoration(
                                         color: AppColors.sageTint,
-                                        borderRadius:
-                                            BorderRadius.circular(6),
+                                        borderRadius: BorderRadius.circular(6),
                                       ),
                                       child: Text(
                                         'x${item.qty}',

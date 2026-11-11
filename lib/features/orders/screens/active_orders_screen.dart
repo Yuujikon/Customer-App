@@ -121,7 +121,7 @@ class _OrderCard extends StatelessWidget {
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
               color: isOpen
@@ -142,107 +142,108 @@ class _OrderCard extends StatelessWidget {
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               onTap: onToggle,
-            title: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    order.orderId,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 16,
-                        color: GdcColors.warmBrown,
-                        letterSpacing: 0.5),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                StatusBadge(order.status),
-              ],
-            ),
-            subtitle: Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              title: Row(
                 children: [
-                  Text(
-                      '${order.items.length} items · ${DateFormat('MMM d, h:mm a').format(order.createdAt)}',
-                      style: TextStyle(
-                          color: Colors.grey.shade500,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500)),
-                  if (order.expiresAt != null &&
-                      !order.isExpired &&
-                      (order.status == OrderStatus.pending ||
-                          order.status == OrderStatus.staging ||
-                          order.status == OrderStatus.ready))
-                    Padding(
-                      padding: const EdgeInsets.only(top: 6),
-                      child: Row(children: [
-                        const Icon(Icons.timer_outlined,
-                            size: 14, color: GdcColors.error),
-                        const SizedBox(width: 4),
-                        Text(
-                            'Exp: ${DateFormat('h:mm a').format(order.expiresAt!)}',
-                            style: const TextStyle(
-                                color: GdcColors.error,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800)),
-                        if (order.isExtended) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: GdcColors.forest.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
-                                  color: GdcColors.forest, width: 1),
-                            ),
-                            child: const Text(
-                              'Extended (1-time limit reached)',
-                              style: TextStyle(
-                                color: GdcColors.forest,
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ),
-                        ] else if (OrderProvider.getAvailableExtensionMinutes(
-                                order.expiresAt,
-                                isExtended: order.isExtended) >
-                            0) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: GdcColors.orangeCTA.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
-                                  color: GdcColors.orangeCTA, width: 1),
-                            ),
-                            child: Text(
-                              '+ Extend (+${OrderProvider.getAvailableExtensionMinutes(order.expiresAt, isExtended: order.isExtended)} min)',
-                              style: const TextStyle(
-                                color: GdcColors.orangeCTA,
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ]),
+                  Expanded(
+                    child: Text(
+                      order.orderId,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 16,
+                          color: GdcColors.warmBrown,
+                          letterSpacing: 0.5),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
+                  ),
+                  const SizedBox(width: 8),
+                  StatusBadge(order.status),
                 ],
               ),
+              subtitle: Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                        '${order.items.length} items · ${DateFormat('MMM d, h:mm a').format(order.createdAt)}',
+                        style: TextStyle(
+                            color: Colors.grey.shade500,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500)),
+                    if (order.expiresAt != null &&
+                        !order.isExpired &&
+                        (order.status == OrderStatus.pending ||
+                            order.status == OrderStatus.staging ||
+                            order.status == OrderStatus.ready))
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Row(children: [
+                          const Icon(Icons.timer_outlined,
+                              size: 14, color: GdcColors.error),
+                          const SizedBox(width: 4),
+                          Text(
+                              'Exp: ${DateFormat('h:mm a').format(order.expiresAt!)}',
+                              style: const TextStyle(
+                                  color: GdcColors.error,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800)),
+                          if (order.isExtended) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: GdcColors.forest.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                    color: GdcColors.forest, width: 1),
+                              ),
+                              child: const Text(
+                                'Extended (1-time limit reached)',
+                                style: TextStyle(
+                                  color: GdcColors.forest,
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                          ] else if (OrderProvider.getAvailableExtensionMinutes(
+                                  order.expiresAt,
+                                  isExtended: order.isExtended) >
+                              0) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color:
+                                    GdcColors.orangeCTA.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                    color: GdcColors.orangeCTA, width: 1),
+                              ),
+                              child: Text(
+                                '+ Extend (+${OrderProvider.getAvailableExtensionMinutes(order.expiresAt, isExtended: order.isExtended)} min)',
+                                style: const TextStyle(
+                                  color: GdcColors.orangeCTA,
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ]),
+                      ),
+                  ],
+                ),
+              ),
+              trailing: Icon(
+                  isOpen
+                      ? Icons.keyboard_arrow_up_rounded
+                      : Icons.keyboard_arrow_down_rounded,
+                  color: Colors.grey),
             ),
-            trailing: Icon(
-                isOpen
-                    ? Icons.keyboard_arrow_up_rounded
-                    : Icons.keyboard_arrow_down_rounded,
-                color: Colors.grey),
-          ),
           ),
           if (isOpen) ...[
             const Divider(height: 1, indent: 20, endIndent: 20),
@@ -272,7 +273,7 @@ class _OrderDetail extends StatelessWidget {
       context: context,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).cardColor,
         title: Column(
           children: [
             const Text('Pickup QR Code',
@@ -375,12 +376,12 @@ class _OrderDetail extends StatelessWidget {
               label: const Text('SHOW QR CODE',
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900)),
               style: TextButton.styleFrom(
-                    foregroundColor: order.status == OrderStatus.pending
-                        ? Colors.grey
-                        : GdcColors.terracotta,
-                    padding: EdgeInsets.zero,
-                    minimumSize: Size.zero),
-              ),
+                  foregroundColor: order.status == OrderStatus.pending
+                      ? Colors.grey
+                      : GdcColors.terracotta,
+                  padding: EdgeInsets.zero,
+                  minimumSize: Size.zero),
+            ),
           ],
         ),
         const SizedBox(height: 8),
@@ -393,17 +394,53 @@ class _OrderDetail extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('${item.name} × ${item.qty}',
-                              style: const TextStyle(
-                                  fontSize: 13, fontWeight: FontWeight.w600),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text('${item.name} × ${item.qty}',
+                                    style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis),
+                              ),
+                              if (item.returnedQty > 0) ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.shade50,
+                                    borderRadius: BorderRadius.circular(4),
+                                    border:
+                                        Border.all(color: Colors.red.shade200),
+                                  ),
+                                  child: Text(
+                                    'Returned: ${item.returnedQty}',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.red.shade700,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
                           if (item.variantName != null)
                             Text('Flavor: ${item.variantName}',
                                 style: const TextStyle(
                                     fontSize: 11,
                                     color: GdcColors.terracotta,
                                     fontWeight: FontWeight.w600)),
+                          Text(
+                            'Barcode: ${item.barcode.isNotEmpty ? item.barcode : "N/A"}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontFamily: 'monospace',
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -418,13 +455,40 @@ class _OrderDetail extends StatelessWidget {
         const Padding(
             padding: EdgeInsets.symmetric(vertical: 12),
             child: Divider(height: 1)),
+        Container(
+          margin: const EdgeInsets.only(top: 8),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.warmSurface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.sage.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.info_outline_rounded,
+                  size: 16, color: GdcColors.terracotta),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Return & Exchange Policy: Present this QR receipt at the store. Opened, unsealed, or tampered items cannot be refunded or swapped.',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Theme.of(context).textTheme.bodySmall?.color,
+                    height: 1.3,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
         const SizedBox(height: 12),
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          const Text('Total Amount',
+          Text('Total Amount',
               style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 15,
-                  color: GdcColors.textPrimary)),
+                  color: Theme.of(context).colorScheme.onSurface)),
           Text(formatPeso(order.total),
               style: const TextStyle(
                   fontWeight: FontWeight.w900,
@@ -502,8 +566,8 @@ class _OrderDetail extends StatelessWidget {
               icon: const Icon(Icons.timer_outlined, size: 16),
               label: Text(
                 'EXTEND PICKUP (+ ${OrderProvider.getAvailableExtensionMinutes(order.expiresAt, isExtended: order.isExtended)} MIN)',
-                style: const TextStyle(
-                    fontSize: 12, fontWeight: FontWeight.w900),
+                style:
+                    const TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
               ),
               style: OutlinedButton.styleFrom(
                 foregroundColor: GdcColors.orangeCTA,

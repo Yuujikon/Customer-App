@@ -102,9 +102,8 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
 
     // If today is past designated pickup closing hour (3:00 PM) and lastDate allows tomorrow
     final bool isPastTodayClosing = now.hour >= StoreHours.closeHour;
-    DateTime initialCalendarDate = isPastTodayClosing
-        ? today.add(const Duration(days: 1))
-        : today;
+    DateTime initialCalendarDate =
+        isPastTodayClosing ? today.add(const Duration(days: 1)) : today;
 
     if (initialCalendarDate.isAfter(lastDate)) {
       initialCalendarDate = lastDate;
@@ -404,8 +403,10 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
-      final errorStr =
-          e.toString().replaceAll('Exception: ', '').replaceAll('Instance of ', '');
+      final errorStr = e
+          .toString()
+          .replaceAll('Exception: ', '')
+          .replaceAll('Instance of ', '');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Pre-order failed: $errorStr'),
@@ -439,7 +440,7 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
     final double subtotal = cart.fold(0.0, (sum, i) => sum + i.price * i.qty);
 
     return Scaffold(
-      backgroundColor: AppColors.cream,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: cart.isEmpty
             ? Center(
@@ -461,21 +462,21 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                         ),
                       ),
                       const SizedBox(height: 20),
-                      const Text(
+                      Text(
                         'Your basket is waiting',
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w800,
-                          color: AppColors.primaryText,
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
                       const SizedBox(height: 6),
-                      const Text(
+                      Text(
                         'Add a few fresh favorites from the catalog.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 13,
-                          color: AppColors.mutedText,
+                          color: Theme.of(context).textTheme.bodySmall?.color,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -490,7 +491,7 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                             borderRadius: BorderRadius.circular(100),
                           ),
                         ),
-                        child: const Text('Browse the catalog'),
+                        child: const Text('Browse The Catalog'),
                       ),
                     ],
                   ),
@@ -513,21 +514,21 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                       ),
                     ),
                     const SizedBox(height: 2),
-                    const Text(
+                    Text(
                       'Pre-order basket',
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w800,
-                        color: AppColors.primaryText,
+                        color: Theme.of(context).colorScheme.onSurface,
                         letterSpacing: -0.4,
                       ),
                     ),
                     const SizedBox(height: 2),
-                    const Text(
+                    Text(
                       'Review your items and choose a convenient pickup time.',
                       style: TextStyle(
                         fontSize: 12.5,
-                        color: AppColors.mutedText,
+                        color: Theme.of(context).textTheme.bodySmall?.color,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -555,9 +556,10 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                         margin: const EdgeInsets.only(bottom: 12),
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: Theme.of(context).cardColor,
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: AppColors.border),
+                          border:
+                              Border.all(color: Theme.of(context).dividerColor),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withValues(alpha: 0.02),
@@ -573,7 +575,9 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                               width: 56,
                               height: 56,
                               decoration: BoxDecoration(
-                                color: AppColors.warmSurface,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .surfaceContainerLow,
                                 borderRadius: BorderRadius.circular(14),
                               ),
                               child: const Center(
@@ -593,10 +597,12 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                                 children: [
                                   Text(
                                     item.name,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w800,
-                                      color: AppColors.primaryText,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurface,
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -604,9 +610,12 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                                   const SizedBox(height: 2),
                                   Text(
                                     '₱${item.price.toStringAsFixed(2)}',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 12.5,
-                                      color: AppColors.mutedText,
+                                      color: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.color,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -746,9 +755,10 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: Theme.of(context).cardColor,
                         borderRadius: BorderRadius.circular(22),
-                        border: Border.all(color: AppColors.border),
+                        border:
+                            Border.all(color: Theme.of(context).dividerColor),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.02),
@@ -760,12 +770,12 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             'Pickup details',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w800,
-                              color: AppColors.primaryText,
+                              color: Theme.of(context).colorScheme.onSurface,
                             ),
                           ),
                           const SizedBox(height: 14),
@@ -788,18 +798,20 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                                       color: AppColors.orangeCTA
                                           .withValues(alpha: 0.3)),
                                 ),
-                                child: const Row(
+                                child: Row(
                                   children: [
-                                    Icon(Icons.timer_outlined,
+                                    const Icon(Icons.timer_outlined,
                                         size: 18, color: AppColors.orangeCTA),
-                                    SizedBox(width: 8),
+                                    const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
                                         'Perishable Order Notice: Items must be collected within 2 hours of pre-ordering.',
                                         style: TextStyle(
                                           fontSize: 11.5,
                                           fontWeight: FontWeight.w700,
-                                          color: AppColors.primaryText,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurface,
                                         ),
                                       ),
                                     ),
@@ -817,18 +829,20 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                                       color: AppColors.forest
                                           .withValues(alpha: 0.2)),
                                 ),
-                                child: const Row(
+                                child: Row(
                                   children: [
-                                    Icon(Icons.info_outline_rounded,
+                                    const Icon(Icons.info_outline_rounded,
                                         size: 18, color: AppColors.forest),
-                                    SizedBox(width: 8),
+                                    const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
                                         'Mixed Order Notice: Pickup schedule limited to 1 day advance due to perishables.',
                                         style: TextStyle(
                                           fontSize: 11.5,
                                           fontWeight: FontWeight.w700,
-                                          color: AppColors.primaryText,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurface,
                                         ),
                                       ),
                                     ),
@@ -846,9 +860,12 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                             child: Container(
                               padding: const EdgeInsets.all(14),
                               decoration: BoxDecoration(
-                                color: AppColors.warmSurface,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .surfaceContainerLow,
                                 borderRadius: BorderRadius.circular(14),
-                                border: Border.all(color: AppColors.border),
+                                border: Border.all(
+                                    color: Theme.of(context).dividerColor),
                               ),
                               child: Row(
                                 children: [
@@ -870,20 +887,25 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        const Text(
+                                        Text(
                                           'Pickup time',
                                           style: TextStyle(
                                             fontSize: 10,
                                             fontWeight: FontWeight.w700,
-                                            color: AppColors.mutedText,
+                                            color: Theme.of(context)
+                                                .textTheme
+                                                .bodySmall
+                                                ?.color,
                                           ),
                                         ),
                                         Text(
                                           _pickupSlot,
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontSize: 13.5,
                                             fontWeight: FontWeight.w800,
-                                            color: AppColors.primaryText,
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .onSurface,
                                           ),
                                         ),
                                       ],
@@ -908,16 +930,18 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                               labelText: 'Pickup notes',
                               hintText: 'Add special instructions...',
                               filled: true,
-                              fillColor: AppColors.warmSurface,
+                              fillColor: Theme.of(context)
+                                  .colorScheme
+                                  .surfaceContainerLow,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(16),
-                                borderSide:
-                                    const BorderSide(color: AppColors.border),
+                                borderSide: BorderSide(
+                                    color: Theme.of(context).dividerColor),
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(16),
-                                borderSide:
-                                    const BorderSide(color: AppColors.border),
+                                borderSide: BorderSide(
+                                    color: Theme.of(context).dividerColor),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(16),
@@ -937,29 +961,33 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(22),
-                        border: Border.all(color: AppColors.border),
+                        color: Theme.of(context).cardColor,
+                        border:
+                            Border.all(color: Theme.of(context).dividerColor),
                       ),
                       child: Column(
                         children: [
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text(
+                              Text(
                                 'Subtotal',
                                 style: TextStyle(
                                   fontSize: 13,
-                                  color: AppColors.mutedText,
+                                  color: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.color,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
                               Text(
                                 '₱${subtotal.toStringAsFixed(2)}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w800,
-                                  color: AppColors.primaryText,
+                                  color:
+                                      Theme.of(context).colorScheme.onSurface,
                                 ),
                               ),
                             ],
@@ -967,12 +995,15 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                           const SizedBox(height: 8),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: const [
+                            children: [
                               Text(
                                 'Pickup fee',
                                 style: TextStyle(
                                   fontSize: 13,
-                                  color: AppColors.mutedText,
+                                  color: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.color,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -981,29 +1012,32 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w800,
-                                  color: AppColors.forest,
+                                  color: Theme.of(context).colorScheme.primary,
                                 ),
                               ),
                             ],
                           ),
-                          const Divider(height: 24, color: AppColors.border),
+                          Divider(
+                              height: 24,
+                              color: Theme.of(context).dividerColor),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text(
+                              Text(
                                 'Total',
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w900,
-                                  color: AppColors.primaryText,
+                                  color:
+                                      Theme.of(context).colorScheme.onSurface,
                                 ),
                               ),
                               Text(
                                 '₱${subtotal.toStringAsFixed(2)}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.w900,
-                                  color: AppColors.forest,
+                                  color: Theme.of(context).colorScheme.primary,
                                 ),
                               ),
                             ],

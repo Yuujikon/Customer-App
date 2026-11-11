@@ -26,12 +26,10 @@ class LandingScreen extends StatelessWidget {
           backgroundColor: GdcColors.orangeCTA,
           foregroundColor: Colors.white,
           minimumSize: const Size.fromHeight(56),
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(100)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
           textStyle: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0.5),
+              fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: 0.5),
         ),
       );
     }
@@ -49,10 +47,9 @@ class LandingScreen extends StatelessWidget {
           minimumSize: const Size.fromHeight(56),
           foregroundColor: GdcColors.terracotta,
           side: const BorderSide(color: GdcColors.terracotta, width: 1.5),
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(100)),
-          textStyle: const TextStyle(
-              fontSize: 15, fontWeight: FontWeight.w800),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
         ),
       );
     }
@@ -77,8 +74,8 @@ class LandingScreen extends StatelessWidget {
 
                   // Store Status Pill
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                     decoration: BoxDecoration(
                       color: isOpen
                           ? GdcColors.peachLight
@@ -86,8 +83,7 @@ class LandingScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(50),
                       border: Border.all(
                           color: isOpen
-                              ? GdcColors.terracotta
-                                  .withValues(alpha: 0.2)
+                              ? GdcColors.terracotta.withValues(alpha: 0.2)
                               : const Color(0xFFFFCDD2)),
                     ),
                     child: Row(
@@ -98,9 +94,7 @@ class LandingScreen extends StatelessWidget {
                           height: 8,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: isOpen
-                                ? GdcColors.success
-                                : GdcColors.error,
+                            color: isOpen ? GdcColors.success : GdcColors.error,
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -111,9 +105,8 @@ class LandingScreen extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
-                            color: isOpen
-                                ? GdcColors.terracotta
-                                : GdcColors.error,
+                            color:
+                                isOpen ? GdcColors.terracotta : GdcColors.error,
                           ),
                         ),
                       ],

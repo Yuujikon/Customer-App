@@ -14,7 +14,8 @@ class FirestoreService {
     try {
       _db.settings = const Settings(
         persistenceEnabled: true,
-        cacheSizeBytes: 10485760, // 10MB bounded cache to prevent Binder IPC buffer overflow
+        cacheSizeBytes:
+            10485760, // 10MB bounded cache to prevent Binder IPC buffer overflow
       );
     } catch (_) {
       // Settings can only be set before any Firestore operations or if already configured

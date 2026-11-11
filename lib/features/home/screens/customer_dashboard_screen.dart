@@ -12,7 +12,6 @@ import '../../../shared/widgets/common/status_badge.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../orders/providers/order_provider.dart';
 import '../../shop/providers/inventory_provider.dart';
-import '../../shop/screens/out_of_stock_dashboard.dart';
 import '../../shop/screens/product_details_screen.dart';
 import '../../shop/screens/saved_items_screen.dart';
 import '../../shop/widgets/shop_widgets.dart';
@@ -47,7 +46,7 @@ class CustomerDashboardScreen extends StatelessWidget {
       context: context,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).cardColor,
         title: Column(
           children: [
             const Text('Pickup QR Code',
@@ -160,8 +159,6 @@ class CustomerDashboardScreen extends StatelessWidget {
 
     final allFavorites =
         inventory.products.where((p) => auth.favorites.contains(p.id)).toList();
-    final favoriteOosCount =
-        allFavorites.where((p) => p.isOutOfStockForCustomer).length;
 
     final featuredProducts = inventory.products.isNotEmpty
         ? inventory.products
@@ -175,7 +172,7 @@ class CustomerDashboardScreen extends StatelessWidget {
     final allOosCount = inventory.outOfStockProducts.length;
 
     return Scaffold(
-      backgroundColor: AppColors.cream,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: RefreshIndicator(
         onRefresh: () async {
           await inventory.refreshData();
@@ -201,19 +198,11 @@ class CustomerDashboardScreen extends StatelessWidget {
               // 2. Quick Shortcut Launch Bar
               _QuickShortcutBar(
                 onCatalog: onBrowseCatalog,
-                onRestockRadar: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const OutOfStockDashboardScreen()),
-                  );
-                },
                 onOrders: onViewOrders,
                 onFavorites: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
-                        builder: (_) => const SavedItemsScreen()),
+                    MaterialPageRoute(builder: (_) => const SavedItemsScreen()),
                   );
                 },
                 activeOrdersCount: activeOrders.length,
@@ -297,7 +286,7 @@ class CustomerDashboardScreen extends StatelessWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context).cardColor,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
                       color: AppColors.forest.withValues(alpha: 0.3),
@@ -336,12 +325,13 @@ class CustomerDashboardScreen extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              const Text(
+                              Text(
                                 'Fresh Essentials Today',
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w800,
-                                  color: AppColors.primaryText,
+                                  color:
+                                      Theme.of(context).colorScheme.onSurface,
                                 ),
                               ),
                             ],
@@ -376,13 +366,16 @@ class CustomerDashboardScreen extends StatelessWidget {
                               child: ProductTile(
                                 product: p,
                                 inCart: inCart,
+                                heroTag: 'dashboard_${p.id}',
                                 isFavorite: auth.favorites.contains(p.id),
                                 isOutOfStock: p.isOutOfStockForCustomer,
                                 onTap: () => Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                        builder: (_) =>
-                                            ProductDetailsScreen(product: p))),
+                                        builder: (_) => ProductDetailsScreen(
+                                              product: p,
+                                              heroTag: 'dashboard_${p.id}',
+                                            ))),
                                 onToggleFavorite: () =>
                                     auth.toggleFavorite(p.id),
                               ),
@@ -527,9 +520,9 @@ class CustomerDashboardScreen extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border, width: 1.0),
+        border: Border.all(color: Theme.of(context).dividerColor, width: 1.0),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.015),
@@ -547,8 +540,8 @@ class CustomerDashboardScreen extends StatelessWidget {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 7, vertical: 3),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                     decoration: BoxDecoration(
                       color: AppColors.sageTint,
                       borderRadius: BorderRadius.circular(6),
@@ -563,12 +556,12 @@ class CustomerDashboardScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  const Text(
+                  Text(
                     'Explore Categories',
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w800,
-                      color: AppColors.primaryText,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                 ],
@@ -594,7 +587,7 @@ class CustomerDashboardScreen extends StatelessWidget {
               itemCount: categories.length,
               separatorBuilder: (_, __) => const SizedBox(width: 8),
               itemBuilder: (context, index) {
-                return _buildCategoryHorizontalTile(categories[index]);
+                return _buildCategoryHorizontalTile(context, categories[index]);
               },
             ),
           ),
@@ -603,7 +596,8 @@ class CustomerDashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildCategoryHorizontalTile(Map<String, dynamic> cat) {
+  Widget _buildCategoryHorizontalTile(
+      BuildContext context, Map<String, dynamic> cat) {
     final String label = cat['label'] as String;
     final Color bgColor = (cat['bgColor'] as Color? ?? AppColors.sageTint);
     final Color iconColor = cat['iconColor'] as Color? ?? AppColors.forest;
@@ -621,9 +615,9 @@ class CustomerDashboardScreen extends StatelessWidget {
         width: 165,
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: AppColors.warmSurface,
+          color: Theme.of(context).colorScheme.surfaceContainerLow,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: Theme.of(context).dividerColor),
         ),
         child: Row(
           children: [
@@ -631,7 +625,9 @@ class CustomerDashboardScreen extends StatelessWidget {
               width: 32,
               height: 32,
               decoration: BoxDecoration(
-                color: bgColor,
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? iconColor.withValues(alpha: 0.2)
+                    : bgColor,
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -650,20 +646,20 @@ class CustomerDashboardScreen extends StatelessWidget {
                     label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
-                      color: AppColors.primaryText,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                   Text(
                     cat['subtitle'] as String,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 8.5,
                       fontWeight: FontWeight.w500,
-                      color: AppColors.mutedText,
+                      color: Theme.of(context).textTheme.bodySmall?.color,
                     ),
                   ),
                 ],
@@ -681,9 +677,9 @@ class CustomerDashboardScreen extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border, width: 1.0),
+        border: Border.all(color: Theme.of(context).dividerColor, width: 1.0),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.015),
@@ -701,8 +697,8 @@ class CustomerDashboardScreen extends StatelessWidget {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 7, vertical: 3),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                     decoration: BoxDecoration(
                       color: AppColors.forest.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(6),
@@ -717,12 +713,12 @@ class CustomerDashboardScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  const Text(
+                  Text(
                     'Active Order Status',
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w800,
-                      color: AppColors.primaryText,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                 ],
@@ -753,13 +749,16 @@ class CustomerDashboardScreen extends StatelessWidget {
 
   Widget _buildRecentPurchaseCard(
       BuildContext context, OrderProvider orderProvider) {
+    final recentOrders = orderProvider.recentOrders;
+    if (recentOrders.isEmpty) return const SizedBox.shrink();
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border, width: 1.0),
+        border: Border.all(color: Theme.of(context).dividerColor, width: 1.0),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.015),
@@ -778,8 +777,8 @@ class CustomerDashboardScreen extends StatelessWidget {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 7, vertical: 3),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                     decoration: BoxDecoration(
                       color: AppColors.sageTint,
                       borderRadius: BorderRadius.circular(6),
@@ -794,12 +793,12 @@ class CustomerDashboardScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  const Text(
+                  Text(
                     'Recent Purchase',
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w800,
-                      color: AppColors.primaryText,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                 ],
@@ -819,26 +818,14 @@ class CustomerDashboardScreen extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           RecentOrderSection(
-            order: orderProvider.recentOrder,
-            onReorder: () async {
-              final messenger = ScaffoldMessenger.of(context);
-              final invProvider = context.read<InventoryProvider>();
-              final result = await orderProvider.reorderItems(
-                  orderProvider.recentOrder!.items, invProvider.products);
-              messenger.showSnackBar(SnackBar(
-                content: Text(
-                    'Order items added to basket. (${result['added']} items)'),
-                backgroundColor: AppColors.forest,
-                behavior: SnackBarBehavior.floating,
-              ));
-            },
+            orders: recentOrders,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildCategoryTile(Map<String, dynamic> cat) {
+  Widget _buildCategoryTile(BuildContext context, Map<String, dynamic> cat) {
     final String label = cat['label'] as String;
     return InkWell(
       onTap: () {
@@ -852,9 +839,9 @@ class CustomerDashboardScreen extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
-          color: AppColors.warmSurface,
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: Theme.of(context).dividerColor),
         ),
         child: Row(
           children: [
@@ -881,29 +868,29 @@ class CustomerDashboardScreen extends StatelessWidget {
                     cat['label'] as String,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.w800,
-                      color: AppColors.primaryText,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                   Text(
                     cat['subtitle'] as String,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 8.5,
                       fontWeight: FontWeight.w500,
-                      color: AppColors.mutedText,
+                      color: Theme.of(context).textTheme.bodySmall?.color,
                     ),
                   ),
                 ],
               ),
             ),
-            const Icon(
+            Icon(
               Icons.chevron_right_rounded,
               size: 14,
-              color: AppColors.mutedText,
+              color: Theme.of(context).textTheme.bodySmall?.color,
             ),
           ],
         ),
@@ -1001,7 +988,9 @@ class _DashboardHeroCard extends StatelessWidget {
                         children: [
                           Expanded(flex: 6, child: _buildHeroTextContent()),
                           const SizedBox(width: 20),
-                          Expanded(flex: 5, child: _buildHeroImageWithBadge()),
+                          Expanded(
+                              flex: 5,
+                              child: _buildHeroImageWithBadge(context)),
                         ],
                       )
                     : Column(
@@ -1009,7 +998,7 @@ class _DashboardHeroCard extends StatelessWidget {
                         children: [
                           _buildHeroTextContent(),
                           const SizedBox(height: 20),
-                          _buildHeroImageWithBadge(),
+                          _buildHeroImageWithBadge(context),
                         ],
                       ),
               ),
@@ -1077,14 +1066,14 @@ class _DashboardHeroCard extends StatelessWidget {
             textStyle:
                 const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
           ),
-          icon: const Text('Shop the catalog'),
+          icon: const Text('Shop The Catalog'),
           label: const Icon(Icons.arrow_forward_rounded, size: 16),
         ),
       ],
     );
   }
 
-  Widget _buildHeroImageWithBadge() {
+  Widget _buildHeroImageWithBadge(BuildContext context) {
     return Stack(
       children: [
         Container(
@@ -1112,7 +1101,7 @@ class _DashboardHeroCard extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.94),
+              color: Theme.of(context).cardColor.withValues(alpha: 0.94),
               borderRadius: BorderRadius.circular(14),
               boxShadow: [
                 BoxShadow(
@@ -1124,21 +1113,21 @@ class _DashboardHeroCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
-              children: const [
+              children: [
                 Text(
                   'Picked fresh',
                   style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
-                      color: AppColors.primaryText,
+                      color: Theme.of(context).colorScheme.onSurface,
                       height: 1.1),
                 ),
                 Text(
-                  'Just for you',
+                  'Just For You',
                   style: TextStyle(
                       fontSize: 9.5,
                       fontWeight: FontWeight.w500,
-                      color: AppColors.mutedText),
+                      color: Theme.of(context).textTheme.bodySmall?.color),
                 ),
               ],
             ),
@@ -1151,7 +1140,6 @@ class _DashboardHeroCard extends StatelessWidget {
 
 class _QuickShortcutBar extends StatelessWidget {
   final VoidCallback onCatalog;
-  final VoidCallback onRestockRadar;
   final VoidCallback onOrders;
   final VoidCallback onFavorites;
   final int activeOrdersCount;
@@ -1160,7 +1148,6 @@ class _QuickShortcutBar extends StatelessWidget {
 
   const _QuickShortcutBar({
     required this.onCatalog,
-    required this.onRestockRadar,
     required this.onOrders,
     required this.onFavorites,
     required this.activeOrdersCount,
@@ -1178,15 +1165,6 @@ class _QuickShortcutBar extends StatelessWidget {
           color: const Color(0xFF38662A),
           bgColor: const Color(0xFFE2F0D9),
           onTap: onCatalog,
-        ),
-        const SizedBox(width: 8),
-        _ShortcutTile(
-          icon: Icons.notifications_active_rounded,
-          label: 'Restock',
-          badgeCount: oosCount,
-          color: AppColors.orangeCTA,
-          bgColor: const Color(0xFFFFF6ED),
-          onTap: onRestockRadar,
         ),
         const SizedBox(width: 8),
         _ShortcutTile(
@@ -1230,6 +1208,9 @@ class _ShortcutTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final effectiveBgColor = isDark ? color.withValues(alpha: 0.2) : bgColor;
+
     return Expanded(
       child: InkWell(
         onTap: onTap,
@@ -1237,9 +1218,9 @@ class _ShortcutTile extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.border),
+            border: Border.all(color: Theme.of(context).dividerColor),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.02),
@@ -1256,119 +1237,23 @@ class _ShortcutTile extends StatelessWidget {
                 backgroundColor: color,
                 child: Container(
                   padding: const EdgeInsets.all(8),
-                  decoration:
-                      BoxDecoration(color: bgColor, shape: BoxShape.circle),
+                  decoration: BoxDecoration(
+                      color: effectiveBgColor, shape: BoxShape.circle),
                   child: Icon(icon, color: color, size: 20),
                 ),
               ),
               const SizedBox(height: 6),
               Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
-                    color: AppColors.primaryText),
+                    color: Theme.of(context).colorScheme.onSurface),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _RestockRadarBanner extends StatelessWidget {
-  final int allOosCount;
-  final int favoriteOosCount;
-
-  const _RestockRadarBanner({
-    required this.allOosCount,
-    required this.favoriteOosCount,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const OutOfStockDashboardScreen()),
-        );
-      },
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFFF6ED),
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: AppColors.orangeCTA.withValues(alpha: 0.3)),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.orangeCTA.withValues(alpha: 0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: const BoxDecoration(
-                color: AppColors.orangeCTA,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.notifications_active_rounded,
-                  color: Colors.white, size: 20),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Text(
-                        'Restock Radar Alerts',
-                        style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.primaryText),
-                      ),
-                      const SizedBox(width: 6),
-                      if (favoriteOosCount > 0)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppColors.forest,
-                            borderRadius: BorderRadius.circular(50),
-                          ),
-                          child: Text(
-                            '$favoriteOosCount Fav Sold Out',
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 9,
-                                fontWeight: FontWeight.w800),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    favoriteOosCount > 0
-                        ? '$favoriteOosCount favorited item${favoriteOosCount > 1 ? 's are' : ' is'} out of stock. Tap to configure restock alerts.'
-                        : '$allOosCount store items are sold out. Tap to set arrival notifications.',
-                    style: const TextStyle(
-                        fontSize: 12, color: AppColors.mutedText, height: 1.3),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(Icons.arrow_forward_ios_rounded,
-                size: 14, color: AppColors.orangeCTA),
-          ],
         ),
       ),
     );
@@ -1396,7 +1281,7 @@ class _ActiveOrderCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
           color: order.status == OrderStatus.ready
@@ -1435,16 +1320,16 @@ class _ActiveOrderCard extends StatelessWidget {
                     children: [
                       Text(
                         order.orderId,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontWeight: FontWeight.w800,
                             fontSize: 16,
-                            color: AppColors.primaryText),
+                            color: Theme.of(context).colorScheme.onSurface),
                       ),
                       Text(
                         '${order.items.length} item${order.items.length > 1 ? 's' : ''} · ₱${order.total.toStringAsFixed(2)}',
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 12,
-                            color: AppColors.mutedText,
+                            color: Theme.of(context).textTheme.bodySmall?.color,
                             fontWeight: FontWeight.w600),
                       ),
                     ],
@@ -1462,8 +1347,8 @@ class _ActiveOrderCard extends StatelessWidget {
                   onPressed: onShowQr,
                   icon: const Icon(Icons.qr_code_2_rounded, size: 16),
                   label: const Text('SHOW QR CODE',
-                      style:
-                          TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800)),
+                      style: TextStyle(
+                          fontSize: 10.5, fontWeight: FontWeight.w800)),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: order.status == OrderStatus.pending
                         ? AppColors.mutedText
@@ -1475,7 +1360,8 @@ class _ActiveOrderCard extends StatelessWidget {
                       width: 1.2,
                     ),
                     minimumSize: const Size(double.infinity, 36),
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(100)),
                   ),
@@ -1487,13 +1373,14 @@ class _ActiveOrderCard extends StatelessWidget {
                   onPressed: onTrack,
                   icon: const Icon(Icons.near_me_rounded, size: 15),
                   label: const Text('TRACK ORDER',
-                      style:
-                          TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800)),
+                      style: TextStyle(
+                          fontSize: 10.5, fontWeight: FontWeight.w800)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.orangeCTA,
                     foregroundColor: Colors.white,
                     minimumSize: const Size(double.infinity, 36),
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(100)),
                   ),
@@ -1558,9 +1445,11 @@ class _ActiveOrderCard extends StatelessWidget {
                 ),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.orangeCTA,
-                  side: const BorderSide(color: AppColors.orangeCTA, width: 1.2),
+                  side:
+                      const BorderSide(color: AppColors.orangeCTA, width: 1.2),
                   minimumSize: const Size(double.infinity, 34),
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(100)),
                 ),
@@ -1595,9 +1484,9 @@ class _ShopperOverviewCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: Theme.of(context).dividerColor),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
@@ -1638,8 +1527,8 @@ class _ShopperOverviewCard extends StatelessWidget {
                   textAlign: TextAlign.start,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.mutedText,
+                  style: TextStyle(
+                    color: Theme.of(context).textTheme.bodySmall?.color,
                     fontSize: 11.5,
                     fontWeight: FontWeight.w600,
                   ),
@@ -1696,10 +1585,10 @@ class _ShopperOverviewCard extends StatelessWidget {
                         const SizedBox(width: 8),
                         Text(
                           '$cartItemCount item${cartItemCount > 1 ? 's' : ''} in basket (${formatPeso(cartTotal)})',
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w800,
-                              color: AppColors.primaryText),
+                              color: Theme.of(context).colorScheme.onSurface),
                         ),
                       ],
                     ),
@@ -1740,9 +1629,9 @@ class _ShopperTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: AppColors.warmSurface,
+          color: Theme.of(context).colorScheme.surfaceContainerLow,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: Theme.of(context).dividerColor),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1754,8 +1643,8 @@ class _ShopperTile extends StatelessWidget {
                 Expanded(
                   child: Text(
                     label,
-                    style: const TextStyle(
-                      color: AppColors.mutedText,
+                    style: TextStyle(
+                      color: Theme.of(context).textTheme.bodySmall?.color,
                       fontSize: 9.5,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 0.5,
@@ -1826,10 +1715,10 @@ class _CategoryAvatarItem extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.primaryText),
+                  color: Theme.of(context).colorScheme.onSurface),
             ),
           ],
         ),

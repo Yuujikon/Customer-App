@@ -163,16 +163,54 @@ class _HistoryCard extends StatelessWidget {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('${item.qty}x ${item.name}',
-                                      style: const TextStyle(fontSize: 13),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text('${item.qty}x ${item.name}',
+                                            style: const TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w600),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis),
+                                      ),
+                                      if (item.returnedQty > 0) ...[
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.red.shade50,
+                                            borderRadius:
+                                                BorderRadius.circular(4),
+                                            border: Border.all(
+                                                color: Colors.red.shade200),
+                                          ),
+                                          child: Text(
+                                            'Returned: ${item.returnedQty}',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.red.shade700,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
                                   if (item.variantName != null)
-                                    Text('Flavor: ${item.variantName}',
+                                    Text('Variant: ${item.variantName}',
                                         style: const TextStyle(
                                             fontSize: 11,
                                             color: GdcColors.terracotta,
                                             fontWeight: FontWeight.w600)),
+                                  Text(
+                                    'Barcode: ${item.barcode.isNotEmpty ? item.barcode : "N/A"}',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontFamily: 'monospace',
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
@@ -182,15 +220,43 @@ class _HistoryCard extends StatelessWidget {
                         ),
                       )),
                   const Divider(height: 24),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.warmSurface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                          color: AppColors.sage.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.info_outline_rounded,
+                            size: 16, color: GdcColors.terracotta),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Return & Exchange Policy: Present this QR receipt at the store. Opened, unsealed, or tampered items cannot be refunded or swapped.',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color:
+                                  Theme.of(context).textTheme.bodySmall?.color,
+                              height: 1.3,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('TOTAL AMOUNT',
+                      Text('TOTAL AMOUNT',
                           style: TextStyle(
                               fontWeight: FontWeight.w900,
                               fontSize: 14,
-                              color: GdcColors.textPrimary)),
+                              color: Theme.of(context).colorScheme.onSurface)),
                       Text(formatPeso(order.total),
                           style: const TextStyle(
                               fontWeight: FontWeight.w900,

@@ -17,9 +17,9 @@ class StoreInfoSheet extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -30,21 +30,23 @@ class StoreInfoSheet extends StatelessWidget {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
+                    color: Theme.of(context).dividerColor,
                     borderRadius: BorderRadius.circular(2))),
           ),
           const SizedBox(height: 24),
-          const Text('About GDC Sari-Sari',
+          Text('About GDC Sari-Sari',
               style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w900,
-                  color: GdcColors.textPrimary)),
+                  color: Theme.of(context).colorScheme.onSurface)),
           const SizedBox(height: 8),
-          const Text(
-              'Your friendly neighborhood store in General Douglas MacArthur.',
-              style: TextStyle(fontSize: 14, color: GdcColors.textSecondary)),
+          Text('Your friendly neighborhood store in General Douglas MacArthur.',
+              style: TextStyle(
+                  fontSize: 14,
+                  color: Theme.of(context).textTheme.bodySmall?.color)),
           const SizedBox(height: 24),
           _buildInfoRow(
+            context,
             icon: Icons.language_rounded,
             title: 'Official Website',
             subtitle: websiteUrl,
@@ -52,6 +54,7 @@ class StoreInfoSheet extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           _buildInfoRow(
+            context,
             icon: Icons.location_on_rounded,
             title: 'Location',
             subtitle: 'Main St, Brgy. Poblacion, GDC',
@@ -60,12 +63,14 @@ class StoreInfoSheet extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           _buildInfoRow(
+            context,
             icon: Icons.access_time_filled_rounded,
             title: 'Store Hours',
             subtitle: 'Open Daily: 11:00 AM - 3:00 PM',
           ),
           const SizedBox(height: 16),
           _buildInfoRow(
+            context,
             icon: Icons.chat_rounded,
             title: 'Social Media & Channels',
             subtitle: 'Facebook, Messenger & Chat',
@@ -73,6 +78,7 @@ class StoreInfoSheet extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           _buildInfoRow(
+            context,
             icon: Icons.phone_rounded,
             title: 'Call Store',
             subtitle: '+63 912 345 6789',
@@ -90,7 +96,7 @@ class StoreInfoSheet extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoRow(
+  Widget _buildInfoRow(BuildContext context,
       {required IconData icon,
       required String title,
       required String subtitle,
@@ -105,9 +111,13 @@ class StoreInfoSheet extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                  color: GdcColors.terracotta.withValues(alpha: 0.1),
+                  color: Theme.of(context)
+                      .colorScheme
+                      .primary
+                      .withValues(alpha: 0.15),
                   shape: BoxShape.circle),
-              child: Icon(icon, color: GdcColors.terracotta, size: 20),
+              child: Icon(icon,
+                  color: Theme.of(context).colorScheme.primary, size: 20),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -115,21 +125,26 @@ class StoreInfoSheet extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(title,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontWeight: FontWeight.w900,
                           fontSize: 14,
-                          color: GdcColors.textPrimary)),
+                          color: Theme.of(context).colorScheme.onSurface)),
                   Text(subtitle,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 12,
-                          color: GdcColors.textSecondary,
+                          color: Theme.of(context).textTheme.bodySmall?.color,
                           fontWeight: FontWeight.w600)),
                 ],
               ),
             ),
             if (onTap != null)
-              const Icon(Icons.arrow_forward_ios_rounded,
-                  size: 14, color: Colors.black12),
+              Icon(Icons.arrow_forward_ios_rounded,
+                  size: 14,
+                  color: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.color
+                      ?.withValues(alpha: 0.5)),
           ],
         ),
       ),

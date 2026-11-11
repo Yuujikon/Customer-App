@@ -70,12 +70,15 @@ class _CustomerAppState extends State<CustomerApp> {
       }),
     ];
 
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
+      value: SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.dark,
-        systemNavigationBarColor: Colors.white,
-        systemNavigationBarIconBrightness: Brightness.dark,
+        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        systemNavigationBarColor: Theme.of(context).cardColor,
+        systemNavigationBarIconBrightness:
+            isDark ? Brightness.light : Brightness.dark,
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -85,19 +88,42 @@ class _CustomerAppState extends State<CustomerApp> {
           if (isMobile) {
             // PHONE SHELL
             return Scaffold(
-              backgroundColor: AppColors.cream,
+              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
               body: Stack(
                 children: [
                   Column(
                     children: [
-                      // Top Bar
-                      GlobalTopBar(
-                        userName: auth.displayName.split(' ').first,
-                        unreadNotifications: unreadCount,
-                        onOpenNotifications: () {
-                          setState(
-                              () => _showNotifications = !_showNotifications);
-                        },
+                      // Top Bar Container
+                      Container(
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? Theme.of(context).cardColor
+                              : AppColors.warmSurface,
+                          border: Border(
+                            bottom: BorderSide(
+                              color: isDark
+                                  ? Theme.of(context).dividerColor
+                                  : AppColors.border,
+                              width: 1.0,
+                            ),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black
+                                  .withValues(alpha: isDark ? 0.2 : 0.015),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: GlobalTopBar(
+                          userName: auth.displayName.split(' ').first,
+                          unreadNotifications: unreadCount,
+                          onOpenNotifications: () {
+                            setState(
+                                () => _showNotifications = !_showNotifications);
+                          },
+                        ),
                       ),
                       // Main Content Area
                       Expanded(
@@ -135,38 +161,40 @@ class _CustomerAppState extends State<CustomerApp> {
                       _showNotifications = false;
                     });
                   },
-                  backgroundColor: Colors.white,
-                  indicatorColor: AppColors.sageTint,
+                  backgroundColor: Theme.of(context).cardColor,
+                  indicatorColor:
+                      Theme.of(context).colorScheme.surfaceContainerHighest,
                   elevation: 8,
-                  shadowColor: Colors.black.withValues(alpha: 0.08),
-                  destinations: const [
+                  shadowColor:
+                      Colors.black.withValues(alpha: isDark ? 0.3 : 0.08),
+                  destinations: [
                     NavigationDestination(
-                      icon: Icon(Icons.home_outlined),
-                      selectedIcon:
-                          Icon(Icons.home_rounded, color: AppColors.forest),
+                      icon: const Icon(Icons.home_outlined),
+                      selectedIcon: Icon(Icons.home_rounded,
+                          color: Theme.of(context).colorScheme.primary),
                       label: 'Home',
                     ),
                     NavigationDestination(
-                      icon: Icon(Icons.storefront_outlined),
-                      selectedIcon:
-                          Icon(Icons.storefront_rounded, color: AppColors.forest),
+                      icon: const Icon(Icons.storefront_outlined),
+                      selectedIcon: Icon(Icons.storefront_rounded,
+                          color: Theme.of(context).colorScheme.primary),
                       label: 'Catalog',
                     ),
-                    NavigationDestination(
+                    const NavigationDestination(
                       icon: _CartBadgeIcon(isSelected: false),
                       selectedIcon: _CartBadgeIcon(isSelected: true),
                       label: 'Basket',
                     ),
                     NavigationDestination(
-                      icon: Icon(Icons.receipt_long_outlined),
+                      icon: const Icon(Icons.receipt_long_outlined),
                       selectedIcon: Icon(Icons.receipt_long_rounded,
-                          color: AppColors.forest),
+                          color: Theme.of(context).colorScheme.primary),
                       label: 'Orders',
                     ),
                     NavigationDestination(
-                      icon: Icon(Icons.person_outline_rounded),
-                      selectedIcon:
-                          Icon(Icons.person_rounded, color: AppColors.forest),
+                      icon: const Icon(Icons.person_outline_rounded),
+                      selectedIcon: Icon(Icons.person_rounded,
+                          color: Theme.of(context).colorScheme.primary),
                       label: 'Account',
                     ),
                   ],
@@ -179,7 +207,7 @@ class _CustomerAppState extends State<CustomerApp> {
           final double sidebarWidth = isLargeTablet ? 210 : 86;
 
           return Scaffold(
-            backgroundColor: AppColors.cream,
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             body: Stack(
               children: [
                 Row(
@@ -187,10 +215,16 @@ class _CustomerAppState extends State<CustomerApp> {
                     // Tablet Navigation Sidebar / Rail
                     Container(
                       width: sidebarWidth,
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
+                      decoration: BoxDecoration(
+                        color:
+                            isDark ? Theme.of(context).cardColor : Colors.white,
                         border: Border(
-                          right: BorderSide(color: AppColors.border, width: 1),
+                          right: BorderSide(
+                            color: isDark
+                                ? Theme.of(context).dividerColor
+                                : AppColors.border,
+                            width: 1.0,
+                          ),
                         ),
                       ),
                       child: Column(
@@ -276,11 +310,26 @@ class _CustomerAppState extends State<CustomerApp> {
                         children: [
                           Container(
                             width: double.infinity,
-                            decoration: const BoxDecoration(
-                              color: AppColors.warmSurface,
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? Theme.of(context).cardColor
+                                  : AppColors.warmSurface,
                               border: Border(
-                                bottom: BorderSide(color: AppColors.border, width: 1),
+                                bottom: BorderSide(
+                                  color: isDark
+                                      ? Theme.of(context).dividerColor
+                                      : AppColors.border,
+                                  width: 1.0,
+                                ),
                               ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black
+                                      .withValues(alpha: isDark ? 0.2 : 0.015),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
                             ),
                             child: Center(
                               child: ConstrainedBox(
@@ -290,8 +339,8 @@ class _CustomerAppState extends State<CustomerApp> {
                                   userName: auth.displayName.split(' ').first,
                                   unreadNotifications: unreadCount,
                                   onOpenNotifications: () {
-                                    setState(() =>
-                                        _showNotifications = !_showNotifications);
+                                    setState(() => _showNotifications =
+                                        !_showNotifications);
                                   },
                                   onSearchTap: () => _navigateToTab(1),
                                   onProfileTap: () => _navigateToTab(4),
@@ -360,10 +409,19 @@ class _SidebarDestinationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    final unselectedColor =
+        Theme.of(context).textTheme.bodySmall?.color ?? AppColors.mutedText;
+
     final Widget displayIcon = isSelected
         ? (selectedIconWidget ??
-            Icon(selectedIcon ?? icon, color: AppColors.forest, size: 24))
-        : (iconWidget ?? Icon(icon, color: AppColors.mutedText, size: 24));
+            Icon(selectedIcon ?? icon, color: primaryColor, size: 24))
+        : (iconWidget ?? Icon(icon, color: unselectedColor, size: 24));
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final pillBg = isSelected
+        ? (isDark ? primaryColor.withValues(alpha: 0.2) : AppColors.sageTint)
+        : Colors.transparent;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
@@ -373,7 +431,7 @@ class _SidebarDestinationTile extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
           decoration: BoxDecoration(
-            color: isSelected ? AppColors.sageTint : Colors.transparent,
+            color: pillBg,
             borderRadius: BorderRadius.circular(16),
           ),
           child: isExpanded
@@ -388,8 +446,7 @@ class _SidebarDestinationTile extends StatelessWidget {
                         fontSize: 13,
                         fontWeight:
                             isSelected ? FontWeight.w800 : FontWeight.w600,
-                        color:
-                            isSelected ? AppColors.forest : AppColors.mutedText,
+                        color: isSelected ? primaryColor : unselectedColor,
                       ),
                     ),
                   ],

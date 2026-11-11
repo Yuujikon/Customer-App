@@ -227,7 +227,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                               },
                             ),
                             const SizedBox(height: 16),
-
                             const Text(
                               'PHONE NUMBER (FOR ORDER PICKUPS)',
                               style: TextStyle(

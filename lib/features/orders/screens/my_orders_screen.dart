@@ -23,14 +23,14 @@ class MyOrdersScreen extends StatelessWidget {
     return DefaultTabController(
       length: 3,
       child: Scaffold(
-        backgroundColor: AppColors.cream,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
-          backgroundColor: AppColors.warmSurface,
+          backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
           elevation: 0,
           toolbarHeight: 70,
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
+            children: [
               Text(
                 'ORDER TRACKING',
                 style: TextStyle(
@@ -46,7 +46,7 @@ class MyOrdersScreen extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
-                  color: AppColors.primaryText,
+                  color: Theme.of(context).colorScheme.onSurface,
                   letterSpacing: -0.4,
                 ),
               ),
@@ -55,9 +55,9 @@ class MyOrdersScreen extends StatelessWidget {
           bottom: TabBar(
             isScrollable: true,
             tabAlignment: TabAlignment.start,
-            labelColor: AppColors.forest,
-            unselectedLabelColor: AppColors.mutedText,
-            indicatorColor: AppColors.forest,
+            labelColor: Theme.of(context).colorScheme.primary,
+            unselectedLabelColor: Theme.of(context).textTheme.bodySmall?.color,
+            indicatorColor: Theme.of(context).colorScheme.primary,
             indicatorWeight: 3,
             labelStyle:
                 const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5),

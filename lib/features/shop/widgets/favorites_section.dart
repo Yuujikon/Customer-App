@@ -4,7 +4,6 @@ import '../../../shared/models/product.dart';
 import '../../../core/utils/format.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/responsive.dart';
-import '../screens/out_of_stock_dashboard.dart';
 
 class FavoritesSection extends StatelessWidget {
   final List<Product> products;
@@ -32,87 +31,7 @@ class FavoritesSection extends StatelessWidget {
     final bool isTablet = Responsive.isTablet(context);
     final double itemWidth = isTablet ? 180 : 140;
 
-    // Empty State: All favorited items are out of stock
-    if (inStockProducts.isEmpty && oosProducts.isNotEmpty) {
-      return Container(
-        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border:
-              Border.all(color: GdcColors.terracotta.withValues(alpha: 0.2)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.02),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            )
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: GdcColors.terracotta.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.bookmark_border_rounded,
-                      color: GdcColors.terracotta, size: 20),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Your Favorite Items',
-                        style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w900,
-                            color: GdcColors.textPrimary),
-                      ),
-                      Text(
-                        '${oosProducts.length} saved item${oosProducts.length > 1 ? 's' : ''} currently out of stock',
-                        style: const TextStyle(
-                            fontSize: 12, color: GdcColors.textMuted),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const OutOfStockDashboardScreen()),
-                );
-              },
-              icon: const Icon(Icons.notifications_active_rounded,
-                  size: 16, color: GdcColors.orangeCTA),
-              label: const Text('🔔 Set Restock Alerts for Favorites'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: GdcColors.orangeCTA,
-                side: const BorderSide(color: GdcColors.orangeCTA),
-                minimumSize: const Size(double.infinity, 40),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(100)),
-                textStyle:
-                    const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
+    // Empty State
     if (inStockProducts.isEmpty) return const SizedBox.shrink();
 
     return Column(
@@ -151,21 +70,12 @@ class FavoritesSection extends StatelessWidget {
                 ],
               ),
               if (oosProducts.isNotEmpty)
-                GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => const OutOfStockDashboardScreen()),
-                    );
-                  },
-                  child: Text(
-                    '${oosProducts.length} Out of Stock 🔔',
-                    style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: GdcColors.terracotta),
-                  ),
+                Text(
+                  '${oosProducts.length} Out of Stock',
+                  style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: GdcColors.textMuted),
                 ),
             ],
           ),
@@ -217,9 +127,9 @@ class _FavoriteCard extends StatelessWidget {
       child: Container(
         width: width,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFE5EBDD)),
+          border: Border.all(color: Theme.of(context).dividerColor),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.03),

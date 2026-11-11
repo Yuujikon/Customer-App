@@ -5,8 +5,7 @@ import '../../shared/widgets/common/social_media_sheet.dart';
 class StoreLauncher {
   static const String defaultFacebookUrl =
       'https://www.facebook.com/yuujikon.hinampas';
-  static const String defaultMessengerUrl =
-      'https://m.me/yuujikon.hinampas';
+  static const String defaultMessengerUrl = 'https://m.me/yuujikon.hinampas';
 
   static void showSocialMedia(BuildContext context) {
     showSocialMediaSheet(context);
