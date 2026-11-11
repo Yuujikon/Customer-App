@@ -688,7 +688,12 @@ class OrderProvider extends ChangeNotifier {
 
   /// Cancels an active order manually (by the user).
   Future<void> cancelOrder(PreOrder order) async {
-    await _fs.cancelOrder(order.id, order.items);
+    if (order.status == OrderStatus.staging ||
+        order.status == OrderStatus.ready) {
+      await _fs.cancelOrderWithStockRestock(order.id, order.items);
+    } else {
+      await _fs.cancelOrder(order.id, order.items);
+    }
 
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid != null) {
