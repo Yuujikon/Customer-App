@@ -164,8 +164,6 @@ class FirestoreService {
           pendingUpdates.add({
             'ref': productRef,
             'update': {
-              'variants.${item.variantId}.stock':
-                  FieldValue.increment(-item.qty),
               'variants.${item.variantId}.reservedStock':
                   FieldValue.increment(item.qty),
             },
@@ -186,7 +184,6 @@ class FirestoreService {
           pendingUpdates.add({
             'ref': productRef,
             'update': {
-              'stock': FieldValue.increment(-item.qty),
               'reservedStock': FieldValue.increment(item.qty),
             },
           });
@@ -218,13 +215,11 @@ class FirestoreService {
       final docRef = _products.doc(item.productId);
       if (item.variantId != null) {
         batch.update(docRef, {
-          'variants.${item.variantId}.stock': FieldValue.increment(item.qty),
           'variants.${item.variantId}.reservedStock':
               FieldValue.increment(-item.qty),
         });
       } else {
         batch.update(docRef, {
-          'stock': FieldValue.increment(item.qty),
           'reservedStock': FieldValue.increment(-item.qty),
         });
       }
