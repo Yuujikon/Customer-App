@@ -521,7 +521,8 @@ class OrderTicketScreen extends StatelessWidget {
 
             const SizedBox(height: 12),
 
-            if (order.status == OrderStatus.pending) ...[
+            if (order.status != OrderStatus.cancelled &&
+                order.status != OrderStatus.completed) ...[
               OutlinedButton.icon(
                 onPressed: () async {
                   final confirm = await showDialog<bool>(

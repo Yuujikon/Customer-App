@@ -580,7 +580,8 @@ class _OrderDetail extends StatelessWidget {
             ),
           ),
         ],
-        if (order.status == OrderStatus.pending) ...[
+        if (order.status != OrderStatus.cancelled &&
+            order.status != OrderStatus.completed) ...[
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
