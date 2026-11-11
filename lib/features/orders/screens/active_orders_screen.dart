@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import '../widgets/cancel_order_dialog.dart';
 import '../../../shared/models/order.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/order_provider.dart';
@@ -572,6 +573,55 @@ class _OrderDetail extends StatelessWidget {
               style: OutlinedButton.styleFrom(
                 foregroundColor: GdcColors.orangeCTA,
                 side: const BorderSide(color: GdcColors.orangeCTA, width: 1.5),
+                minimumSize: const Size(double.infinity, 44),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(100)),
+              ),
+            ),
+          ),
+        ],
+        if (order.status == OrderStatus.pending) ...[
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () async {
+                HapticFeedback.lightImpact();
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => CancelOrderDialog(orderId: order.orderId),
+                );
+
+                if (confirm == true) {
+                  if (context.mounted) {
+                    final messenger = ScaffoldMessenger.of(context);
+                    try {
+                      await context.read<OrderProvider>().cancelOrder(order);
+                      messenger.showSnackBar(
+                        const SnackBar(
+                          content: Text('Order cancelled successfully.'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    } catch (e) {
+                      messenger.showSnackBar(
+                        SnackBar(
+                          content: Text('Error cancelling order: $e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
+                }
+              },
+              icon: const Icon(Icons.close_rounded, size: 16),
+              label: const Text(
+                'Cancel Order',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFFCE1B3D),
+                side: const BorderSide(color: Color(0xFFCE1B3D), width: 1.5),
                 minimumSize: const Size(double.infinity, 44),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(100)),

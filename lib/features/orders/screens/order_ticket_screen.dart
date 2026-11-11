@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import '../widgets/cancel_order_dialog.dart';
 import '../../../shared/models/order.dart';
 import '../providers/order_provider.dart';
 import '../../../core/utils/format.dart';
@@ -519,6 +520,53 @@ class OrderTicketScreen extends StatelessWidget {
             ),
 
             const SizedBox(height: 12),
+
+            if (order.status == OrderStatus.pending) ...[
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => CancelOrderDialog(orderId: order.orderId),
+                  );
+
+                  if (confirm == true) {
+                    if (context.mounted) {
+                      final messenger = ScaffoldMessenger.of(context);
+                      try {
+                        await context.read<OrderProvider>().cancelOrder(order);
+                        messenger.showSnackBar(
+                          const SnackBar(
+                            content: Text('Order cancelled successfully.'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                        onBackToShop();
+                      } catch (e) {
+                        messenger.showSnackBar(
+                          SnackBar(
+                            content: Text('Error cancelling order: $e'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    }
+                  }
+                },
+                icon: const Icon(Icons.close_rounded, size: 18),
+                label: const Text(
+                  'Cancel Order',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFCE1B3D),
+                  side: const BorderSide(color: Color(0xFFCE1B3D), width: 1.5),
+                  minimumSize: const Size.fromHeight(54),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(100)),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
 
             OutlinedButton(
               onPressed: onBackToShop,
