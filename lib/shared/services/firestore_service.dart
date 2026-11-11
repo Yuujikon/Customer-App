@@ -204,14 +204,13 @@ class FirestoreService {
   }
 
   /// Cancels an active order and releases the reserved stock back to available stock.
-  /// (Use this if the order was STILL PENDING and the main stock wasn't deducted yet).
   Future<void> cancelOrder(String orderId, List<CartItem> items) {
     final batch = _db.batch();
 
     // 1. Mark as cancelled
     batch.update(_orders.doc(orderId), {'status': OrderStatus.cancelled.name});
 
-    // 2. Release reserved stock ONLY
+    // 2. Restock items & release reserved stock
     for (final item in items) {
       final docRef = _products.doc(item.productId);
       if (item.variantId != null) {
@@ -221,33 +220,6 @@ class FirestoreService {
         });
       } else {
         batch.update(docRef, {
-          'reservedStock': FieldValue.increment(-item.qty),
-        });
-      }
-    }
-
-    return batch.commit();
-  }
-
-  /// Cancels an active order, releasing reserved stock AND restocking the main stock.
-  /// (Use this if the order reached Staging/Ready where the Admin app already deducted main stock).
-  Future<void> cancelOrderWithStockRestock(
-      String orderId, List<CartItem> items) {
-    final batch = _db.batch();
-
-    batch.update(_orders.doc(orderId), {'status': OrderStatus.cancelled.name});
-
-    for (final item in items) {
-      final docRef = _products.doc(item.productId);
-      if (item.variantId != null) {
-        batch.update(docRef, {
-          'variants.${item.variantId}.stock': FieldValue.increment(item.qty),
-          'variants.${item.variantId}.reservedStock':
-              FieldValue.increment(-item.qty),
-        });
-      } else {
-        batch.update(docRef, {
-          'stock': FieldValue.increment(item.qty),
           'reservedStock': FieldValue.increment(-item.qty),
         });
       }
