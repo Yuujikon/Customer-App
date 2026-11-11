@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 import 'dart:async';
 import 'dart:math' as math;
+import 'reorder_preview.dart';
 import '../../../shared/models/order.dart';
 import '../../../shared/models/product.dart';
 import '../../../shared/models/refund_request.dart';
@@ -216,69 +217,121 @@ class OrderProvider extends ChangeNotifier {
 
   /// Adds items from a previous order to the cart, validating current stock.
   /// Returns a map with 'added', 'unavailable', and 'partial' counts.
-  Future<Map<String, int>> reorderItems(
-      List<CartItem> items, List<Product> allProducts) async {
-    int addedCount = 0;
-    int unavailableCount = 0;
-    int partialCount = 0;
+  List<ReorderItemPreview> previewReorder(
+      List<CartItem> items, List<Product> allProducts) {
+    List<ReorderItemPreview> previews = [];
 
     for (final item in items) {
+      Product? p;
       try {
-        final p = allProducts.firstWhere((prod) => prod.id == item.productId);
+        p = allProducts.firstWhere((prod) => prod.id == item.productId);
+      } catch (_) {}
 
-        int maxStock = p.maxPurchasableStock;
-        if (item.variantId != null && p.variants != null) {
-          final v = p.variants![item.variantId];
-          if (v == null || v.isOutOfStockForCustomer) {
-            unavailableCount++;
-            continue;
-          }
-          maxStock = v.maxPurchasableStock;
-        } else if (p.isOutOfStockForCustomer) {
-          unavailableCount++;
-          continue;
-        }
-
-        if (maxStock <= 0) {
-          unavailableCount++;
-          continue;
-        }
-
-        final existingIdx = _preCart.indexWhere(
-            (i) => i.productId == p.id && i.variantId == item.variantId);
-        int currentInCart = existingIdx >= 0 ? _preCart[existingIdx].qty : 0;
-
-        int desiredToBatch = item.qty;
-        int availableSpace = maxStock - currentInCart;
-
-        if (availableSpace <= 0) {
-          unavailableCount++;
-          continue;
-        }
-
-        int toAdd = desiredToBatch.clamp(0, availableSpace);
-        if (toAdd < desiredToBatch) {
-          partialCount++;
-        }
-
-        if (existingIdx >= 0) {
-          _preCart[existingIdx] =
-              _preCart[existingIdx].copyWith(qty: currentInCart + toAdd);
-        } else {
-          _preCart.add(item.copyWith(qty: toAdd, price: item.price));
-        }
-        addedCount++;
-      } catch (_) {
-        unavailableCount++;
+      if (p == null) {
+        previews.add(ReorderItemPreview(
+          originalItem: item,
+          product: null,
+          toAddQty: 0,
+          availableStock: 0,
+          isUnavailable: true,
+          isAdjusted: false,
+        ));
+        continue;
       }
+
+      int maxStock = p.maxPurchasableStock;
+      if (item.variantId != null && p.variants != null) {
+        final v = p.variants![item.variantId];
+        if (v == null || v.isOutOfStockForCustomer) {
+          previews.add(ReorderItemPreview(
+            originalItem: item,
+            product: p,
+            toAddQty: 0,
+            availableStock: 0,
+            isUnavailable: true,
+            isAdjusted: false,
+          ));
+          continue;
+        }
+        maxStock = v.maxPurchasableStock;
+      } else if (p.isOutOfStockForCustomer) {
+        previews.add(ReorderItemPreview(
+          originalItem: item,
+          product: p,
+          toAddQty: 0,
+          availableStock: 0,
+          isUnavailable: true,
+          isAdjusted: false,
+        ));
+        continue;
+      }
+
+      if (maxStock <= 0) {
+        previews.add(ReorderItemPreview(
+          originalItem: item,
+          product: p,
+          toAddQty: 0,
+          availableStock: 0,
+          isUnavailable: true,
+          isAdjusted: false,
+        ));
+        continue;
+      }
+
+      final existingIdx = _preCart.indexWhere(
+          (i) => i.productId == p.id && i.variantId == item.variantId);
+      int currentInCart = existingIdx >= 0 ? _preCart[existingIdx].qty : 0;
+
+      int desiredToBatch = item.qty;
+      int availableSpace = maxStock - currentInCart;
+
+      if (availableSpace <= 0) {
+        previews.add(ReorderItemPreview(
+          originalItem: item,
+          product: p,
+          toAddQty: 0,
+          availableStock: availableSpace,
+          isUnavailable: true,
+          isAdjusted: false,
+        ));
+        continue;
+      }
+
+      int toAdd = desiredToBatch.clamp(0, availableSpace);
+      bool isAdjusted = toAdd < desiredToBatch;
+
+      previews.add(ReorderItemPreview(
+        originalItem: item,
+        product: p,
+        toAddQty: toAdd,
+        availableStock: availableSpace,
+        isUnavailable: false,
+        isAdjusted: isAdjusted,
+      ));
     }
 
+    return previews;
+  }
+
+  void applyReorder(List<ReorderItemPreview> previews) {
+    for (final preview in previews) {
+      if (preview.isUnavailable || preview.toAddQty <= 0) continue;
+
+      final existingIdx = _preCart.indexWhere((i) =>
+          i.productId == preview.originalItem.productId &&
+          i.variantId == preview.originalItem.variantId);
+
+      if (existingIdx >= 0) {
+        _preCart[existingIdx] = _preCart[existingIdx]
+            .copyWith(qty: _preCart[existingIdx].qty + preview.toAddQty);
+      } else {
+        _preCart.add(preview.originalItem.copyWith(
+          qty: preview.toAddQty,
+          price: preview.product?.price ?? preview.originalItem.price,
+        ));
+      }
+    }
     notifyListeners();
-    return {
-      'added': addedCount,
-      'unavailable': unavailableCount,
-      'partial': partialCount,
-    };
   }
 
   // ── Pre-order cart ─────────────────────────────────────────────────────────

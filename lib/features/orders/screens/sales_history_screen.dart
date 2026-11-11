@@ -5,6 +5,7 @@ import '../../../shared/models/order.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/order_provider.dart';
 import '../../shop/providers/inventory_provider.dart';
+import '../widgets/reorder_summary_dialog.dart';
 import '../../../shared/widgets/common/status_badge.dart';
 import '../../../core/utils/format.dart';
 import '../../../core/theme/app_theme.dart';
@@ -280,18 +281,51 @@ class _HistoryCard extends StatelessWidget {
                             const SizedBox(width: 8),
                             OutlinedButton.icon(
                               onPressed: () async {
-                                final messenger = ScaffoldMessenger.of(context);
                                 final inventory =
                                     context.read<InventoryProvider>();
-                                final result = await context
-                                    .read<OrderProvider>()
-                                    .reorderItems(
-                                        order.items, inventory.products);
-                                messenger.showSnackBar(SnackBar(
-                                  content: Text(
-                                      'Added ${result['added']} items to basket.'),
-                                  backgroundColor: GdcColors.success,
-                                ));
+                                final orderProvider =
+                                    context.read<OrderProvider>();
+
+                                final previews = orderProvider.previewReorder(
+                                    order.items, inventory.products);
+
+                                final bool hasIssues = previews.any(
+                                    (p) => p.isUnavailable || p.isAdjusted);
+
+                                if (hasIssues) {
+                                  showDialog(
+                                    context: context,
+                                    builder: (ctx) => ReorderSummaryDialog(
+                                      previews: previews,
+                                      onConfirm: () {
+                                        orderProvider.applyReorder(previews);
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          const SnackBar(
+                                            content:
+                                                Text('Items added to basket.'),
+                                            backgroundColor: AppColors.forest,
+                                            behavior: SnackBarBehavior.floating,
+                                          ),
+                                        );
+                                      },
+                                      onBrowseSimilar: (category) {
+                                        // Could trigger navigation here to the catalog with the category applied
+                                        // Using a simple snackbar to acknowledge for now
+                                      },
+                                    ),
+                                  );
+                                } else {
+                                  orderProvider.applyReorder(previews);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content:
+                                          Text('All items added to basket.'),
+                                      backgroundColor: AppColors.forest,
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
+                                }
                               },
                               icon: const Icon(Icons.refresh_rounded, size: 14),
                               label: const Text('Buy Again',

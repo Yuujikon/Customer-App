@@ -9,6 +9,7 @@ import '../../../shared/models/bundle.dart';
 import '../../../shared/widgets/common/status_badge.dart';
 import '../providers/inventory_provider.dart';
 import '../../orders/providers/order_provider.dart';
+import '../../orders/widgets/reorder_summary_dialog.dart';
 import '../../../core/utils/format.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/responsive.dart';
@@ -1589,23 +1590,40 @@ class _RecentOrderSectionState extends State<RecentOrderSection> {
                   OutlinedButton.icon(
                     onPressed: () async {
                       HapticFeedback.lightImpact();
-                      final messenger = ScaffoldMessenger.of(context);
-                      final result = await orderProvider.reorderItems(
+                      final previews = orderProvider.previewReorder(
                           order.items, inventory.products);
+                      final bool hasIssues =
+                          previews.any((p) => p.isUnavailable || p.isAdjusted);
 
-                      if (context.mounted) {
-                        final int added = result['added'] ?? 0;
-                        messenger.hideCurrentSnackBar();
-                        messenger.showSnackBar(
+                      if (hasIssues) {
+                        showDialog(
+                          context: context,
+                          builder: (ctx) => ReorderSummaryDialog(
+                            previews: previews,
+                            onConfirm: () {
+                              orderProvider.applyReorder(previews);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                      'Items from order $orderIdText added to basket.'),
+                                  backgroundColor: AppColors.forest,
+                                  behavior: SnackBarBehavior.floating,
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                            },
+                            onBrowseSimilar: (category) {
+                              // We could trigger a search or category filter. For now, pop to dashboard maybe.
+                            },
+                          ),
+                        );
+                      } else {
+                        orderProvider.applyReorder(previews);
+                        ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
-                              added > 0
-                                  ? 'Added $added item(s) from order $orderIdText to basket.'
-                                  : 'Items out of stock or max limit reached.',
-                            ),
-                            backgroundColor: added > 0
-                                ? AppColors.forest
-                                : AppColors.orangeCTA,
+                                'All items from order $orderIdText added to basket.'),
+                            backgroundColor: AppColors.forest,
                             behavior: SnackBarBehavior.floating,
                             duration: const Duration(seconds: 2),
                           ),
