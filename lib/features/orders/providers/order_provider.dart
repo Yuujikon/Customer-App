@@ -279,7 +279,7 @@ class OrderProvider extends ChangeNotifier {
       }
 
       final existingIdx = _preCart.indexWhere(
-          (i) => i.productId == p.id && i.variantId == item.variantId);
+          (i) => i.productId == p!.id && i.variantId == item.variantId);
       int currentInCart = existingIdx >= 0 ? _preCart[existingIdx].qty : 0;
 
       int desiredToBatch = item.qty;

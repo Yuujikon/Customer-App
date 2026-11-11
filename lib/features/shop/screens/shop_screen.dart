@@ -7,6 +7,7 @@ import '../../../core/utils/format.dart';
 import '../../../shared/models/product.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../orders/providers/order_provider.dart';
+import '../../orders/widgets/reorder_summary_dialog.dart';
 import '../providers/inventory_provider.dart';
 import '../widgets/basket_summary_section.dart';
 import '../widgets/shop_widgets.dart';
@@ -532,22 +533,43 @@ class _ShopScreenState extends State<ShopScreen> {
                                 preCart.any((c) => c.productId == id),
                             onAdd: (p) => _openProductDetails(p),
                             onAddAll: () async {
-                              final messenger = ScaffoldMessenger.of(context);
-                              final itemsToAdd = buyAgain
-                                  .map((b) => inventory.products
-                                      .firstWhere((p) => p.id == b.productId))
-                                  .toList();
-                              final result = await orderProvider.reorderItems(
-                                  buyAgain, itemsToAdd);
+                              final previews = orderProvider.previewReorder(
+                                  buyAgain, inventory.products);
+                              final bool hasIssues = previews
+                                  .any((p) => p.isUnavailable || p.isAdjusted);
 
-                              messenger.showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                      'Added ${result['added']} items to pre-cart.'),
-                                  backgroundColor: AppColors.forest,
-                                  behavior: SnackBarBehavior.floating,
-                                ),
-                              );
+                              if (hasIssues) {
+                                showDialog(
+                                  context: context,
+                                  builder: (ctx) => ReorderSummaryDialog(
+                                    previews: previews,
+                                    onConfirm: () {
+                                      orderProvider.applyReorder(previews);
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                          content:
+                                              Text('Items added to basket.'),
+                                          backgroundColor: AppColors.forest,
+                                          behavior: SnackBarBehavior.floating,
+                                        ),
+                                      );
+                                    },
+                                    onBrowseSimilar: (category) {
+                                      // Ignore for dashboard
+                                    },
+                                  ),
+                                );
+                              } else {
+                                orderProvider.applyReorder(previews);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('All items added to basket.'),
+                                    backgroundColor: AppColors.forest,
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                              }
                             },
                           ),
                         ),
