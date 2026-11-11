@@ -101,6 +101,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen>
               order: o,
               isOpen: isOpen,
               onToggle: () => setState(() => _expanded = isOpen ? null : o.id),
+              onBrowseSimilar: widget.onBrowseSimilar,
             );
           },
         );
@@ -113,8 +114,13 @@ class _HistoryCard extends StatelessWidget {
   final PreOrder order;
   final bool isOpen;
   final VoidCallback onToggle;
+  final Function(String category)? onBrowseSimilar;
+
   const _HistoryCard(
-      {required this.order, required this.isOpen, required this.onToggle});
+      {required this.order,
+      required this.isOpen,
+      required this.onToggle,
+      this.onBrowseSimilar});
 
   @override
   Widget build(BuildContext context) => Card(
@@ -312,8 +318,8 @@ class _HistoryCard extends StatelessWidget {
                                         );
                                       },
                                       onBrowseSimilar: (category) {
-                                        if (widget.onBrowseSimilar != null) {
-                                          widget.onBrowseSimilar!(category);
+                                        if (onBrowseSimilar != null) {
+                                          onBrowseSimilar!(category);
                                         }
                                       },
                                     ),
