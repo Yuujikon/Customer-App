@@ -513,7 +513,7 @@ class OrderTicketScreen extends StatelessWidget {
                 foregroundColor: Colors.white,
                 minimumSize: const Size.fromHeight(54),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(100)),
+                    borderRadius: BorderRadius.circular(10)),
                 textStyle:
                     const TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
               ),
@@ -521,67 +521,83 @@ class OrderTicketScreen extends StatelessWidget {
 
             const SizedBox(height: 12),
 
-            if (order.status != OrderStatus.cancelled &&
-                order.status != OrderStatus.collected) ...[
-              OutlinedButton.icon(
-                onPressed: () async {
-                  final confirm = await showDialog<bool>(
-                    context: context,
-                    builder: (ctx) => CancelOrderDialog(orderId: order.orderId),
-                  );
-
-                  if (confirm == true) {
-                    if (context.mounted) {
-                      final messenger = ScaffoldMessenger.of(context);
-                      try {
-                        await context.read<OrderProvider>().cancelOrder(order);
-                        messenger.showSnackBar(
-                          const SnackBar(
-                            content: Text('Order cancelled successfully.'),
-                            backgroundColor: Colors.green,
-                          ),
+            Row(
+              children: [
+                if (order.status != OrderStatus.cancelled &&
+                    order.status != OrderStatus.collected) ...[
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) =>
+                              CancelOrderDialog(orderId: order.orderId),
                         );
-                        onBackToShop();
-                      } catch (e) {
-                        messenger.showSnackBar(
-                          SnackBar(
-                            content: Text('Error cancelling order: $e'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                      }
-                    }
-                  }
-                },
-                icon: const Icon(Icons.close_rounded, size: 18),
-                label: const Text(
-                  'Cancel Order',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFFCE1B3D),
-                  side: const BorderSide(color: Color(0xFFCE1B3D), width: 1.5),
-                  minimumSize: const Size.fromHeight(54),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(100)),
-                ),
-              ),
-              const SizedBox(height: 12),
-            ],
 
-            OutlinedButton(
-              onPressed: onBackToShop,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: GdcColors.terracotta,
-                side: const BorderSide(color: GdcColors.terracotta, width: 1.5),
-                minimumSize: const Size.fromHeight(54),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(100)),
-              ),
-              child: const Text(
-                'RETURN TO SHOP',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
-              ),
+                        if (confirm == true) {
+                          if (context.mounted) {
+                            final messenger = ScaffoldMessenger.of(context);
+                            try {
+                              await context
+                                  .read<OrderProvider>()
+                                  .cancelOrder(order);
+                              messenger.showSnackBar(
+                                const SnackBar(
+                                  content:
+                                      Text('Order cancelled successfully.'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                              onBackToShop();
+                            } catch (e) {
+                              messenger.showSnackBar(
+                                SnackBar(
+                                  content: Text('Error cancelling order: $e'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
+                        }
+                      },
+                      icon: const Icon(Icons.cancel_outlined, size: 18),
+                      label: const Text(
+                        'Cancel Order',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 13),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFCE1B3D),
+                        side: const BorderSide(
+                            color: Color(0xFFCE1B3D), width: 1.5),
+                        minimumSize: const Size.fromHeight(54),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: onBackToShop,
+                    icon: const Icon(Icons.exit_to_app_rounded, size: 18),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: GdcColors.forest,
+                      side:
+                          const BorderSide(color: GdcColors.forest, width: 1.5),
+                      minimumSize: const Size.fromHeight(54),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                    ),
+                    label: const Text(
+                      'Return to Shop',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                    ),
+                  ),
+                ),
+              ],
             ),
 
             const SizedBox(height: 12),
