@@ -75,21 +75,25 @@ class _AccountScreenState extends State<AccountScreen> {
               const SizedBox(height: 20),
 
               if (isTablet)
-                Column(
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                            child: _buildProfileCard(
-                                context, auth, displayName, email, isTablet)),
-                        const SizedBox(width: 20),
-                        Expanded(child: _buildStoreCard(context)),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    _buildStoreBioCard(context),
-                  ],
+                IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _buildProfileCard(
+                                context, auth, displayName, email, isTablet),
+                            const SizedBox(height: 16),
+                            _buildStoreCard(context),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 20),
+                      Expanded(child: _buildStoreBioCard(context)),
+                    ],
+                  ),
                 )
               else ...[
                 _buildProfileCard(context, auth, displayName, email, isTablet),
@@ -884,30 +888,29 @@ class _AccountScreenState extends State<AccountScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
+              const Text(
                 'STORE BIO & MISSION',
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w800,
-                  color: Theme.of(context).colorScheme.primary,
+                  color: AppColors.sage,
                   letterSpacing: 1.0,
                 ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .primary
-                      .withValues(alpha: 0.15),
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? AppColors.forest.withValues(alpha: 0.25)
+                      : AppColors.border,
                   borderRadius: BorderRadius.circular(100),
                 ),
-                child: Text(
+                child: const Text(
                   'Verified Store',
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w800,
-                    color: Theme.of(context).colorScheme.primary,
+                    color: AppColors.forest,
                   ),
                 ),
               ),
@@ -918,18 +921,17 @@ class _AccountScreenState extends State<AccountScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(9),
                 decoration: BoxDecoration(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .primary
-                      .withValues(alpha: 0.12),
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? AppColors.forest.withValues(alpha: 0.25)
+                      : AppColors.sageTint,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
+                child: const Icon(
                   Icons.storefront_rounded,
-                  color: Theme.of(context).colorScheme.primary,
-                  size: 22,
+                  color: AppColors.forest,
+                  size: 18,
                 ),
               ),
               const SizedBox(width: 14),
@@ -972,6 +974,7 @@ class _AccountScreenState extends State<AccountScreen> {
                   icon: Icons.favorite_rounded, label: 'Community First'),
             ],
           ),
+          const Spacer(), // Pushes the tags to the bottom if stretched
         ],
       ),
     );
@@ -979,12 +982,11 @@ class _AccountScreenState extends State<AccountScreen> {
 
   Widget _buildBioTag(BuildContext context,
       {required IconData icon, required String label}) {
-    final color = Theme.of(context).colorScheme.primary;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 14, color: color),
-        const SizedBox(width: 5),
+        Icon(icon, size: 14, color: AppColors.forest),
+        const SizedBox(width: 6),
         Text(
           label,
           style: TextStyle(
