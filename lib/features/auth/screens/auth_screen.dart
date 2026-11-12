@@ -155,12 +155,10 @@ class _CustomerAuthScreenState extends State<CustomerAuthScreen> {
               OutlinedButton.icon(
                 onPressed: () => _processRegistration(email, true),
                 icon: const Icon(Icons.email_rounded, color: AppColors.forest),
-                label: Flexible(
-                  child: Text(
-                    'Email ($email)',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                label: Text(
+                  'Email ($email)',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.primaryText,
@@ -175,9 +173,11 @@ class _CustomerAuthScreenState extends State<CustomerAuthScreen> {
               OutlinedButton.icon(
                 onPressed: () => _processRegistration(phone, false),
                 icon: const Icon(Icons.sms_rounded, color: AppColors.forest),
-                label: Flexible(
-                  child: Text(
-                    'SMS ($phone)',
+                label: Text(
+                  'SMS ($phone)',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
