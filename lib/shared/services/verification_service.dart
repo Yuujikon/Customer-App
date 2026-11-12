@@ -109,7 +109,7 @@ class VerificationService {
           'content-type': 'application/json',
         },
         body: jsonEncode({
-          "sender": {"name": "GDC Store", "email": "noreply@gdcstore.com"},
+          "sender": {"name": "GDC Store", "email": "markjeo.hinampas@gmail.com"},
           "to": [{"email": toEmail}],
           "subject": "Your GDC Store Verification Code",
           "htmlContent": "<h2>GDC Store</h2><p>Your verification code is: <strong>$otpCode</strong></p><p>This code is valid for 5 minutes. Please do not share this with anyone.</p>"
