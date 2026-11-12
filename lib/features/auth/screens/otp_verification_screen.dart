@@ -153,121 +153,133 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
         ),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // Icon Header
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.sageTint,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  widget.isEmail
-                      ? Icons.mark_email_unread_rounded
-                      : Icons.sms_rounded,
-                  size: 42,
-                  color: AppColors.forest,
-                ),
-              ),
-              const SizedBox(height: 24),
-              
-              const Text(
-                'Verify your account',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w900,
-                  color: AppColors.primaryText,
-                  letterSpacing: -0.5,
-                ),
-              ),
-              const SizedBox(height: 12),
-              
-              Text(
-                'We sent a 6-digit code to',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.mutedText,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                widget.contactMethod,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.forest,
-                ),
-              ),
-
-              const SizedBox(height: 40),
-
-              // OTP Input Field
-              Pinput(
-                length: 6,
-                controller: _otpController,
-                defaultPinTheme: defaultPinTheme,
-                focusedPinTheme: defaultPinTheme.copyWith(
-                  decoration: defaultPinTheme.decoration!.copyWith(
-                    border: Border.all(color: AppColors.forest, width: 2),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Icon Header
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: const BoxDecoration(
+                      color: AppColors.sageTint,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      widget.isEmail
+                          ? Icons.mark_email_unread_rounded
+                          : Icons.sms_rounded,
+                      size: 42,
+                      color: AppColors.forest,
+                    ),
                   ),
-                ),
-                errorPinTheme: defaultPinTheme.copyWith(
-                  decoration: defaultPinTheme.decoration!.copyWith(
-                    border: Border.all(color: AppColors.error, width: 2),
+                  const SizedBox(height: 24),
+                  
+                  const Text(
+                    'Verify your account',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.primaryText,
+                      letterSpacing: -0.5,
+                    ),
                   ),
-                ),
-                onCompleted: _verifyCode,
-                enabled: !_isLoading,
-              ),
-
-              if (_errorMessage != null) ...[
-                const SizedBox(height: 16),
-                Text(
-                  _errorMessage!,
-                  style: const TextStyle(
-                    color: AppColors.error,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
+                  const SizedBox(height: 12),
+                  
+                  const Text(
+                    'We sent a 6-digit code to',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.mutedText,
+                    ),
                   ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
+                  const SizedBox(height: 4),
+                  Text(
+                    widget.contactMethod,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.forest,
+                    ),
+                  ),
 
-              const SizedBox(height: 32),
+                  const SizedBox(height: 40),
 
-              if (_isLoading)
-                const CircularProgressIndicator(color: AppColors.forest)
-              else
-                Column(
-                  children: [
-                    Text(
-                      _canResend
-                          ? "Didn't receive the code?"
-                          : "You can resend the code in \$_secondsRemaining s",
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppColors.mutedText,
-                        fontWeight: FontWeight.w500,
+                  // OTP Input Field
+                  Pinput(
+                    length: 6,
+                    controller: _otpController,
+                    defaultPinTheme: defaultPinTheme,
+                    focusedPinTheme: defaultPinTheme.copyWith(
+                      decoration: defaultPinTheme.decoration!.copyWith(
+                        border: Border.all(color: AppColors.forest, width: 2),
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    TextButton(
-                      onPressed: _canResend ? _resendOtp : null,
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppColors.orangeCTA,
-                        disabledForegroundColor: AppColors.mutedText,
+                    errorPinTheme: defaultPinTheme.copyWith(
+                      decoration: defaultPinTheme.decoration!.copyWith(
+                        border: Border.all(color: AppColors.error, width: 2),
                       ),
-                      child: Text(
-                        'Resend Code',
-                        style: TextStyle(
-                          fontWeight: _canResend ? FontWeight.w800 : FontWeight.w600,
+                    ),
+                    onCompleted: _verifyCode,
+                    enabled: !_isLoading,
+                  ),
+
+                  if (_errorMessage != null) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      _errorMessage!,
+                      style: const TextStyle(
+                        color: AppColors.error,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+
+                  const SizedBox(height: 32),
+
+                  if (_isLoading)
+                    const CircularProgressIndicator(color: AppColors.forest)
+                  else
+                    Column(
+                      children: [
+                        Text(
+                          _canResend
+                              ? "Didn't receive the code?"
+                              : "You can resend the code in $_secondsRemaining seconds",
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: AppColors.mutedText,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                      ),
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: _canResend ? _resendOtp : null,
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppColors.orangeCTA,
+                            disabledForegroundColor: AppColors.mutedText,
+                          ),
+                          child: Text(
+                            'Resend Code',
+                            style: TextStyle(
+                              fontWeight: _canResend ? FontWeight.w800 : FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
                     ),
                   ],
                 ),
