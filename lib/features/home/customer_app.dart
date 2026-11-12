@@ -367,11 +367,20 @@ class _CustomerAppState extends State<CustomerApp> {
                             ),
                           ),
 
-                          const SizedBox(height: 8),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 6),
+                            child: Divider(
+                              height: 1,
+                              color: isDark
+                                  ? Theme.of(context).dividerColor
+                                  : AppColors.border,
+                            ),
+                          ),
 
                           // Bottom Pickup Store Pin Icon Control
                           Padding(
-                            padding: const EdgeInsets.only(bottom: 24),
+                            padding: const EdgeInsets.only(bottom: 20),
                             child: Container(
                               padding: const EdgeInsets.all(10),
                               decoration: const BoxDecoration(

@@ -255,6 +255,18 @@ class _AccountScreenState extends State<AccountScreen> {
                         fontWeight: FontWeight.w500,
                       ),
                     ),
+                    const SizedBox(height: 2),
+                    Text(
+                      (auth.phoneNumber != null &&
+                              auth.phoneNumber!.trim().isNotEmpty)
+                          ? auth.phoneNumber!
+                          : 'No phone number provided',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).textTheme.bodySmall?.color,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ],
                 ),
               ),
