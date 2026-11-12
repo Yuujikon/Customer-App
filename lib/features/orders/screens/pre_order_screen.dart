@@ -323,11 +323,13 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
       dateLabel = DateFormat('EEE, MMM d').format(pickedDate);
     }
 
+    final validTime = currentSelectedTime!;
+
     final startHourNum =
-        pickedTime.hourOfPeriod == 0 ? 12 : pickedTime.hourOfPeriod;
-    final period = pickedTime.period == DayPeriod.am ? 'AM' : 'PM';
-    final minuteStr = pickedTime.minute.toString().padLeft(2, '0');
-    final endHourVal = (pickedTime.hour + 1) % 24;
+        validTime.hourOfPeriod == 0 ? 12 : validTime.hourOfPeriod;
+    final period = validTime.period == DayPeriod.am ? 'AM' : 'PM';
+    final minuteStr = validTime.minute.toString().padLeft(2, '0');
+    final endHourVal = (validTime.hour + 1) % 24;
     final endHourPeriodVal = endHourVal % 12 == 0 ? 12 : endHourVal % 12;
     final endPeriodStr = endHourVal >= 12 ? 'PM' : 'AM';
 
