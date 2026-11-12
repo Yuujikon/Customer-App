@@ -138,6 +138,14 @@ class GlobalTopBar extends StatelessWidget implements PreferredSizeWidget {
                   badgeCount: unreadNotifications,
                   onTap: onOpenNotifications,
                 ),
+                if (onSignOut != null) ...[
+                  const SizedBox(width: 8),
+                  _TopBarIconButton(
+                    icon: Icons.logout_rounded,
+                    iconColor: AppColors.error,
+                    onTap: onSignOut!,
+                  ),
+                ],
               ] else ...[
                 // Tablet Mode Header
                 Column(

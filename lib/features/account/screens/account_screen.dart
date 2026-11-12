@@ -98,9 +98,9 @@ class _AccountScreenState extends State<AccountScreen> {
               else ...[
                 _buildProfileCard(context, auth, displayName, email, isTablet),
                 const SizedBox(height: 16),
-                _buildStoreCard(context),
-                const SizedBox(height: 16),
                 _buildStoreBioCard(context),
+                const SizedBox(height: 16),
+                _buildStoreCard(context),
               ],
 
               const SizedBox(height: 40),
