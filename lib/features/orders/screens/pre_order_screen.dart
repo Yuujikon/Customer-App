@@ -502,6 +502,23 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
       return;
     }
 
+    // Validation: Require Payment Reference Number for GCash / Maya
+    if (_selectedPaymentMethod != 'Cash' &&
+        _refNumCtrl.text.trim().length < 6) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '⚠️ Please enter your $_selectedPaymentMethod Transaction Reference Number before placing the pre-order.',
+          ),
+          backgroundColor: AppColors.error,
+          duration: const Duration(seconds: 4),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     // Rule 3 Expiration Check: Validate that selected slot hasn't passed current live time
     if (_isPickupSlotExpired(_pickupSlot)) {
       ScaffoldMessenger.of(context).showSnackBar(
