@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/common/brand_logo.dart';
 import '../../../shared/widgets/common/global_top_bar.dart';
+import '../../../shared/widgets/common/logout_confirm_dialog.dart';
 import '../account/screens/account_screen.dart';
 import '../auth/providers/auth_provider.dart';
 import '../notifications/providers/notification_provider.dart';
@@ -44,28 +45,7 @@ class _CustomerAppState extends State<CustomerApp> {
 
   void _showLogoutConfirmDialog(BuildContext context) async {
     final auth = context.read<AppAuthProvider>();
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Sign Out?'),
-        content:
-            const Text('You will need to sign in again to place new orders.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red.shade50,
-                foregroundColor: Colors.red,
-                elevation: 0),
-            child: const Text('Sign Out'),
-          ),
-        ],
-      ),
-    );
+    final confirm = await LogoutConfirmDialog.show(context);
 
     if (confirm == true) {
       await auth.signOut();
