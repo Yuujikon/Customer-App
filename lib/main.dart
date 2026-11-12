@@ -3,6 +3,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'app.dart';
 import 'firebase_options.dart';
 import 'shared/services/notification_service.dart';
@@ -31,6 +32,11 @@ Future<void> _bgHandler(RemoteMessage message) async {
 void main() async {
   try {
     WidgetsFlutterBinding.ensureInitialized();
+    try {
+      await dotenv.load(fileName: "assets/.env");
+    } catch (e) {
+      debugPrint('Dotenv load error: $e');
+    }
 
     if (!kIsWeb) {
       await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);

@@ -3,24 +3,29 @@ import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class VerificationService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // ==========================================
-  // 1. BREVO EMAIL VERIFICATION
+  // ENVIRONMENT VARIABLE READERS
   // ==========================================
-  // ⚠️ Important: Replace this with your actual Brevo API Key
-  static const String _brevoApiKey = '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';
+  static String get _brevoApiKey =>
+      dotenv.env['BREVO_API_KEY'] ??
+      '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';
+
+  static String get _senderEmail =>
+      dotenv.env['BREVO_SENDER_EMAIL'] ?? 'gdcstore.ph@gmail.com';
+
   static const String _emailEndpoint = 'https://api.brevo.com/v3/smtp/email';
 
-  // ==========================================
-  // 2. TRACCAR SMS GATEWAY (VIA NGROK PUBLIC TUNNEL)
-  // ==========================================
-  // ⚠️ Free Static ngrok URL claimed from your dashboard:
-  static const String _traccarGatewayUrl = 'https://repaint-ideally-whoopee.ngrok-free.dev/';
-  // ⚠️ Replace this with the token you set in the Traccar app settings
-  static const String _traccarToken = 'c776154d-e29b-458e-ab57-221c7ee7fda2';
+  static String get _traccarGatewayUrl =>
+      dotenv.env['TRACCAR_GATEWAY_URL'] ??
+      'https://repaint-ideally-whoopee.ngrok-free.dev/';
+
+  static String get _traccarToken =>
+      dotenv.env['TRACCAR_TOKEN'] ?? 'c776154d-e29b-458e-ab57-221c7ee7fda2';
 
   /// Generates a random 6-digit OTP code
   static String _generateOtp() {
@@ -109,7 +114,7 @@ class VerificationService {
           'content-type': 'application/json',
         },
         body: jsonEncode({
-          "sender": {"name": "GDC Store", "email": "gdcstore.ph@gmail.com"},
+          "sender": {"name": "GDC Store", "email": _senderEmail},
           "to": [{"email": toEmail}],
           "subject": "Your GDC Store Verification Code",
           "htmlContent": "<h2>GDC Store</h2><p>Your verification code is: <strong>$otpCode</strong></p><p>This code is valid for 5 minutes. Please do not share this with anyone.</p>"
