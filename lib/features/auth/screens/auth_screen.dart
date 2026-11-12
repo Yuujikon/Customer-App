@@ -5,6 +5,8 @@ import '../providers/auth_provider.dart';
 import '../screens/profile_setup_screen.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/name_validator.dart';
+import '../../../shared/services/verification_service.dart';
+import 'otp_verification_screen.dart';
 
 class CustomerAuthScreen extends StatefulWidget {
   final bool isRegister;
@@ -195,19 +197,71 @@ class _CustomerAuthScreenState extends State<CustomerAuthScreen> {
                                   'Password is not strong enough. Please follow the requirements.');
                               return;
                             }
-                          }
 
-                          final navigator = Navigator.of(context);
-                          final authProvider = context.read<AppAuthProvider>();
-                          setState(() {
-                            _loading = true;
-                            _error = '';
-                          });
-                          try {
-                            if (widget.isRegister) {
-                              await authProvider.signUp(
-                                  email, _password.text, _name.text.trim(),
-                                  phone: _phone.text.trim());
+                            // OTP Verification Flow for Registration
+                            setState(() {
+                              _loading = true;
+                              _error = '';
+                            });
+
+                            // Using Email for verification
+                            final contactToVerify = email; 
+                            const isEmailVerification = true;
+
+                            // 1. Send the OTP via Brevo
+                            final otpSent = await VerificationService.sendOtp(
+                              contactMethod: contactToVerify,
+                              isEmail: isEmailVerification,
+                            );
+
+                            setState(() => _loading = false);
+
+                            if (otpSent) {
+                              if (!mounted) return;
+                              
+                              // 2. Open OTP Screen
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => OtpVerificationScreen(
+                                    contactMethod: contactToVerify,
+                                    isEmail: isEmailVerification,
+                                    onSuccess: () async {
+                                      // 3. User successfully verified the code! Create account.
+                                      setState(() => _loading = true);
+                                      Navigator.pop(context); // close OTP screen
+                                      
+                                      try {
+                                        final authProvider = context.read<AppAuthProvider>();
+                                        await authProvider.signUp(
+                                            email, _password.text, _name.text.trim(),
+                                            phone: _phone.text.trim());
+                                        
+                                        if (!mounted) return;
+                                        Navigator.pop(context); // close Auth screen
+                                      } on FirebaseAuthException catch (e) {
+                                        setState(() {
+                                          _error = e.message ?? 'Authentication failed';
+                                          _loading = false;
+                                        });
+                                      }
+                                    },
+                                  ),
+                                ),
+                              );
+                            } else {
+                              setState(() => _error = 'Failed to send verification code. Try again later.');
+                            }
+                          } else {
+                            // Standard Login Flow
+                            final navigator = Navigator.of(context);
+                            final authProvider = context.read<AppAuthProvider>();
+                            setState(() {
+                              _loading = true;
+                              _error = '';
+                            });
+                            try {
+                              await authProvider.signIn(email, _password.text);
                             } else {
                               await authProvider.signIn(email, _password.text);
                             }
@@ -226,6 +280,7 @@ class _CustomerAuthScreenState extends State<CustomerAuthScreen> {
                               _loading = false;
                             });
                           }
+                        },
                         },
                   child: _loading
                       ? const SizedBox(
