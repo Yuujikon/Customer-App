@@ -6,7 +6,6 @@ import '../screens/profile_setup_screen.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/name_validator.dart';
 import '../../../shared/services/verification_service.dart';
-import '../../../shared/widgets/common/store_policies_sheet.dart';
 import 'otp_verification_screen.dart';
 
 class CustomerAuthScreen extends StatefulWidget {
@@ -431,31 +430,6 @@ class _CustomerAuthScreenState extends State<CustomerAuthScreen> {
                     style: const TextStyle(
                       fontWeight: FontWeight.w700,
                       color: GdcColors.terracotta,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                InkWell(
-                  onTap: () => StorePoliciesSheet.show(context),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Text.rich(
-                      TextSpan(
-                        text: 'By continuing, you agree to GDC Store\'s ',
-                        style: const TextStyle(
-                            fontSize: 11.5, color: GdcColors.textSecondary),
-                        children: const [
-                          TextSpan(
-                            text: 'Terms, Privacy & Store Policies.',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: GdcColors.terracotta,
-                              decoration: TextDecoration.underline,
-                            ),
-                          ),
-                        ],
-                      ),
-                      textAlign: TextAlign.center,
                     ),
                   ),
                 ),

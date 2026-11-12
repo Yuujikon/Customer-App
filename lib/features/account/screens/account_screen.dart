@@ -11,7 +11,6 @@ import '../../../core/utils/store_hours.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../widgets/info/store_info_sheet.dart';
 import '../../../shared/widgets/common/logout_confirm_dialog.dart';
-import '../../../shared/widgets/common/store_policies_sheet.dart';
 
 class AccountScreen extends StatefulWidget {
   final VoidCallback onLogout;
@@ -400,16 +399,6 @@ class _AccountScreenState extends State<AccountScreen> {
             primary: 'Social Media & Channels',
             secondary: 'Facebook, Messenger & Hotline',
             onTap: () => StoreLauncher.showSocialMedia(context),
-          ),
-
-          const SizedBox(height: 14),
-
-          // Legal & Store Policies
-          _buildInfoRow(
-            icon: Icons.gavel_rounded,
-            primary: 'Terms, Privacy & Store Policies',
-            secondary: 'View official GDC Store guidelines',
-            onTap: () => StorePoliciesSheet.show(context),
           ),
         ],
       ),
