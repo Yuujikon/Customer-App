@@ -128,56 +128,70 @@ class _CustomerAuthScreenState extends State<CustomerAuthScreen> {
           color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              'How would you like to verify?',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w900,
-                color: AppColors.primaryText,
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'How would you like to verify?',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.primaryText,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Choose where we should send your 6-digit verification code.',
-              style: TextStyle(
-                fontSize: 14,
-                color: AppColors.mutedText,
+              const SizedBox(height: 8),
+              const Text(
+                'Choose where we should send your 6-digit verification code.',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.mutedText,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            OutlinedButton.icon(
-              onPressed: () => _processRegistration(email, true),
-              icon: const Icon(Icons.email_rounded, color: AppColors.forest),
-              label: Text('Send to Email ($email)'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.primaryText,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                side: const BorderSide(color: AppColors.border, width: 1.5),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+              const SizedBox(height: 24),
+              OutlinedButton.icon(
+                onPressed: () => _processRegistration(email, true),
+                icon: const Icon(Icons.email_rounded, color: AppColors.forest),
+                label: Flexible(
+                  child: Text(
+                    'Email ($email)',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primaryText,
+                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                  side: const BorderSide(color: AppColors.border, width: 1.5),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: () => _processRegistration(phone, false),
-              icon: const Icon(Icons.sms_rounded, color: AppColors.forest),
-              label: Text('Send to SMS ($phone)'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.primaryText,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                side: const BorderSide(color: AppColors.border, width: 1.5),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () => _processRegistration(phone, false),
+                icon: const Icon(Icons.sms_rounded, color: AppColors.forest),
+                label: Flexible(
+                  child: Text(
+                    'SMS ($phone)',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primaryText,
+                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                  side: const BorderSide(color: AppColors.border, width: 1.5),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                 ),
               ),
-            ),
+
             const SizedBox(height: 24),
           ],
         ),
