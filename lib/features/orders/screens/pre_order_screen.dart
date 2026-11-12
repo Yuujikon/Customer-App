@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/store_hours.dart';
@@ -32,6 +33,8 @@ class PreOrderScreen extends StatefulWidget {
 class _PreOrderScreenState extends State<PreOrderScreen> {
   late String _pickupSlot;
   final _notesCtrl = TextEditingController();
+  final _refNumCtrl = TextEditingController();
+  String _selectedPaymentMethod = 'Cash'; // 'Cash', 'GCash', 'Maya'
   bool _isSubmitting = false;
   PreOrder? _submittedOrder;
 
@@ -44,6 +47,7 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
   @override
   void dispose() {
     _notesCtrl.dispose();
+    _refNumCtrl.dispose();
     super.dispose();
   }
 
@@ -356,6 +360,132 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
     );
   }
 
+  void _showQrCodeModal(String providerName, String accountNumber) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: Theme.of(context).cardColor,
+        title: Column(
+          children: [
+            Text('$providerName Payment QR',
+                style: const TextStyle(fontWeight: FontWeight.w900)),
+            const SizedBox(height: 4),
+            Text(accountNumber,
+                style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.forest)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Scan this QR code using your $providerName app or send payment to $accountNumber (GDC Sari-Sari Store).',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppColors.border, width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: SizedBox(
+                width: 180,
+                height: 180,
+                child: QrImageView(
+                  data: '00020101021226480016A000000677010111$accountNumber',
+                  version: QrVersions.auto,
+                  size: 180.0,
+                  backgroundColor: Colors.white,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SelectableText(
+              'Account: $accountNumber\nName: GDC Sari-Sari Store',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                  fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.forest),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPaymentChip({
+    required String label,
+    required IconData icon,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? AppColors.forest : Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected ? AppColors.forest : Theme.of(context).dividerColor,
+              width: 1.5,
+            ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: AppColors.forest.withValues(alpha: 0.2),
+                      blurRadius: 6,
+                      offset: const Offset(0, 3),
+                    ),
+                  ]
+                : [],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 20,
+                color: isSelected ? Colors.white : AppColors.forest,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: isSelected ? Colors.white : Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _handleConfirmPreOrder() async {
     final orderProvider = context.read<OrderProvider>();
     final authProvider = context.read<AppAuthProvider>();
@@ -393,6 +523,10 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
         location: 'GDC Store · Main',
         pickupSlot: _pickupSlot,
         allProducts: inventoryProvider.products,
+        paymentMethod: _selectedPaymentMethod,
+        paymentReference: _refNumCtrl.text.trim().isNotEmpty
+            ? _refNumCtrl.text.trim()
+            : null,
       );
 
       if (!mounted) return;
@@ -951,6 +1085,194 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                               contentPadding: const EdgeInsets.all(14),
                             ),
                           ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // Payment Method Card
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).cardColor,
+                        borderRadius: BorderRadius.circular(22),
+                        border:
+                            Border.all(color: Theme.of(context).dividerColor),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.02),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Payment method',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                  color:
+                                      Theme.of(context).colorScheme.onSurface,
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: AppColors.sageTint,
+                                  borderRadius: BorderRadius.circular(100),
+                                ),
+                                child: Text(
+                                  _selectedPaymentMethod == 'Cash'
+                                      ? 'Cash on Pickup'
+                                      : 'Cashless / Digital',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.forest,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+
+                          // Payment Option Chips Row
+                          Row(
+                            children: [
+                              _buildPaymentChip(
+                                label: 'Cash on Pickup',
+                                icon: Icons.payments_rounded,
+                                isSelected: _selectedPaymentMethod == 'Cash',
+                                onTap: () => setState(() {
+                                  _selectedPaymentMethod = 'Cash';
+                                }),
+                              ),
+                              const SizedBox(width: 8),
+                              _buildPaymentChip(
+                                label: 'GCash',
+                                icon: Icons.account_balance_wallet_rounded,
+                                isSelected: _selectedPaymentMethod == 'GCash',
+                                onTap: () => setState(() {
+                                  _selectedPaymentMethod = 'GCash';
+                                }),
+                              ),
+                              const SizedBox(width: 8),
+                              _buildPaymentChip(
+                                label: 'Maya / QR Ph',
+                                icon: Icons.qr_code_2_rounded,
+                                isSelected: _selectedPaymentMethod == 'Maya',
+                                onTap: () => setState(() {
+                                  _selectedPaymentMethod = 'Maya';
+                                }),
+                              ),
+                            ],
+                          ),
+
+                          if (_selectedPaymentMethod != 'Cash') ...[
+                            const SizedBox(height: 16),
+                            Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .surfaceContainerLow,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                    color: Theme.of(context).dividerColor),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.qr_code_scanner_rounded,
+                                          color: AppColors.forest, size: 20),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          'Pay via ${_selectedPaymentMethod == 'GCash' ? 'GCash' : 'Maya / QR Ph'}',
+                                          style: const TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w800),
+                                        ),
+                                      ),
+                                      TextButton.icon(
+                                        onPressed: () => _showQrCodeModal(
+                                          _selectedPaymentMethod == 'GCash'
+                                              ? 'GCash'
+                                              : 'Maya',
+                                          '09558297358',
+                                        ),
+                                        icon: const Icon(
+                                            Icons.qr_code_rounded,
+                                            size: 16),
+                                        label: const Text('View QR',
+                                            style: TextStyle(fontSize: 12)),
+                                        style: TextButton.styleFrom(
+                                          foregroundColor: AppColors.forest,
+                                          padding: EdgeInsets.zero,
+                                          minimumSize: Size.zero,
+                                          tapTargetSize:
+                                              MaterialTapTargetSize.shrinkWrap,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  const Text(
+                                    'Send payment to 0955 829 7358 (GDC Sari-Sari Store) then enter your Reference Number below.',
+                                    style: TextStyle(
+                                        fontSize: 11.5,
+                                        color: AppColors.mutedText,
+                                        height: 1.3),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  TextField(
+                                    controller: _refNumCtrl,
+                                    decoration: InputDecoration(
+                                      labelText:
+                                          '${_selectedPaymentMethod} Ref # (e.g. 1002 9382 1928)',
+                                      hintText: 'Enter 13-digit Ref #',
+                                      filled: true,
+                                      fillColor: Theme.of(context).cardColor,
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                              horizontal: 14, vertical: 12),
+                                      border: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(12),
+                                        borderSide: BorderSide(
+                                            color: Theme.of(context)
+                                                .dividerColor),
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(12),
+                                        borderSide: BorderSide(
+                                            color: Theme.of(context)
+                                                .dividerColor),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(12),
+                                        borderSide: const BorderSide(
+                                            color: AppColors.forest,
+                                            width: 1.5),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),

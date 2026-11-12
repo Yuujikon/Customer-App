@@ -507,6 +507,8 @@ class OrderProvider extends ChangeNotifier {
     required String location,
     required String pickupSlot,
     required List<Product> allProducts,
+    String paymentMethod = 'Cash',
+    String? paymentReference,
   }) async {
     // Determine expiration based on items
     int minWindow = _settings.standardWindowHours;
@@ -557,7 +559,8 @@ class OrderProvider extends ChangeNotifier {
       tax: 0,
       total: breakdown.total,
       status: OrderStatus.pending,
-      paymentMethod: 'Cash',
+      paymentMethod: paymentMethod,
+      paymentReference: paymentReference,
       location: location,
       pickupTime: pickupSlot,
       createdAt: DateTime.now(),
