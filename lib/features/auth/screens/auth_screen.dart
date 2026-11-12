@@ -178,14 +178,13 @@ class _CustomerAuthScreenState extends State<CustomerAuthScreen> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.primaryText,
                   padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
                   side: const BorderSide(color: AppColors.border, width: 1.5),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                 ),
               ),
               const SizedBox(height: 24),
