@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -37,6 +38,9 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
   String _selectedPaymentMethod = 'Cash'; // 'Cash', 'GCash', 'Maya'
   bool _isSubmitting = false;
   PreOrder? _submittedOrder;
+
+  String get _storeGcashNumber =>
+      dotenv.env['STORE_GCASH_NUMBER'] ?? '09558297358';
 
   @override
   void initState() {
@@ -1209,7 +1213,7 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                                           _selectedPaymentMethod == 'GCash'
                                               ? 'GCash'
                                               : 'Maya',
-                                          '09558297358',
+                                          _storeGcashNumber,
                                         ),
                                         icon: const Icon(
                                             Icons.qr_code_rounded,
@@ -1227,9 +1231,9 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                                     ],
                                   ),
                                   const SizedBox(height: 8),
-                                  const Text(
-                                    'Send payment to 0955 829 7358 (GDC Sari-Sari Store) then enter your Reference Number below.',
-                                    style: TextStyle(
+                                  Text(
+                                    'Send payment to $_storeGcashNumber (GDC Sari-Sari Store) then enter your Reference Number below.',
+                                    style: const TextStyle(
                                         fontSize: 11.5,
                                         color: AppColors.mutedText,
                                         height: 1.3),
