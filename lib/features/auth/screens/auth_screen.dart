@@ -205,8 +205,8 @@ class _CustomerAuthScreenState extends State<CustomerAuthScreen> {
                             });
 
                             // Using Email for verification
-                            final contactToVerify = email; 
-                            const isEmailVerification = true;
+                            final contactToVerify = _phone.text.trim();
+                            const isEmailVerification = false;
 
                             // 1. Send the OTP via Brevo
                             final otpSent = await VerificationService.sendOtp(
@@ -262,25 +262,22 @@ class _CustomerAuthScreenState extends State<CustomerAuthScreen> {
                             });
                             try {
                               await authProvider.signIn(email, _password.text);
-                            } else {
-                              await authProvider.signIn(email, _password.text);
+                              if (!mounted) return;
+                              navigator.pop();
+                            } on FirebaseAuthException catch (e) {
+                              if (!mounted) return;
+                              setState(() {
+                                _error = e.message ?? 'Authentication failed';
+                                _loading = false;
+                              });
+                            } catch (e) {
+                              if (!mounted) return;
+                              setState(() {
+                                _error = e.toString();
+                                _loading = false;
+                              });
                             }
-                            if (!mounted) return;
-                            navigator.pop();
-                          } on FirebaseAuthException catch (e) {
-                            if (!mounted) return;
-                            setState(() {
-                              _error = e.message ?? 'Authentication failed';
-                              _loading = false;
-                            });
-                          } catch (e) {
-                            if (!mounted) return;
-                            setState(() {
-                              _error = e.toString();
-                              _loading = false;
-                            });
                           }
-                        },
                         },
                   child: _loading
                       ? const SizedBox(
