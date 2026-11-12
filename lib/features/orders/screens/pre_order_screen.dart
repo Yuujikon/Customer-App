@@ -159,60 +159,154 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
       defaultHour = StoreHours.openHour; // 11:00 AM
     }
 
-    // 2. Show Native Material Time Picker
-    final pickedTime = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay(hour: defaultHour, minute: 0),
-      helpText: 'SELECT PICKUP TIME (11:00 AM – 3:00 PM)',
-      confirmText: 'CONFIRM TIME',
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: AppColors.forest,
-              onPrimary: Colors.white,
-              onSurface: AppColors.primaryText,
+    TimeOfDay? currentSelectedTime = TimeOfDay(hour: defaultHour, minute: 0);
+    bool isValidTime = false;
+
+    // 2. Show Native Material Time Picker with automatic loop on invalid selection
+    while (!isValidTime) {
+      final pickedTime = await showTimePicker(
+        context: context,
+        initialTime: currentSelectedTime ?? TimeOfDay(hour: defaultHour, minute: 0),
+        helpText: 'SELECT PICKUP TIME (11:00 AM – 3:00 PM)',
+        confirmText: 'CONFIRM TIME',
+        builder: (context, child) {
+          return Theme(
+            data: Theme.of(context).copyWith(
+              colorScheme: const ColorScheme.light(
+                primary: AppColors.forest,
+                onPrimary: Colors.white,
+                onSurface: AppColors.primaryText,
+              ),
             ),
+            child: child!,
+          );
+        },
+      );
+
+      if (pickedTime == null || !mounted) return;
+      currentSelectedTime = pickedTime;
+
+      // 3. Enforce Real-Time & Store Hours Constraints
+      final selectedDateTime = DateTime(
+        pickedDate.year,
+        pickedDate.month,
+        pickedDate.day,
+        pickedTime.hour,
+        pickedTime.minute,
+      );
+
+      // Rule 3 Constraint: Real-Time Past Time Check
+      if (selectedDateTime.isBefore(DateTime.now())) {
+        if (!mounted) return;
+        final bool? reselect = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            backgroundColor: Theme.of(context).cardColor,
+            title: const Row(
+              children: [
+                Icon(Icons.alarm_off_rounded,
+                    color: AppColors.orangeCTA, size: 24),
+                SizedBox(width: 10),
+                Text(
+                  'Time Already Passed',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 18,
+                  ),
+                ),
+              ],
+            ),
+            content: Text(
+              'Selected time (${pickedTime.format(context)}) has already passed. Please choose a future pickup time.',
+              style: const TextStyle(fontSize: 13.5, height: 1.4),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.forest,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(100),
+                  ),
+                ),
+                child: const Text('Reselect Time'),
+              ),
+            ],
           ),
-          child: child!,
         );
-      },
-    );
 
-    if (pickedTime == null || !mounted) return;
+        if (reselect == true) {
+          continue; // Re-opens time picker without losing date selection!
+        } else {
+          return;
+        }
+      }
 
-    // 3. Enforce Real-Time & Store Hours Constraints
-    final selectedDateTime = DateTime(
-      pickedDate.year,
-      pickedDate.month,
-      pickedDate.day,
-      pickedTime.hour,
-      pickedTime.minute,
-    );
+      // Designated Pickup Hours Check (11:00 AM – 3:00 PM)
+      if (pickedTime.hour < StoreHours.openHour ||
+          pickedTime.hour >= StoreHours.closeHour) {
+        if (!mounted) return;
+        final bool? reselect = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            backgroundColor: Theme.of(context).cardColor,
+            title: const Row(
+              children: [
+                Icon(Icons.storefront_rounded,
+                    color: AppColors.orangeCTA, size: 24),
+                SizedBox(width: 10),
+                Text(
+                  'Outside Pickup Hours',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 18,
+                  ),
+                ),
+              ],
+            ),
+            content: const Text(
+              'Pickup schedules are limited to store operating hours: 11:00 AM to 3:00 PM.',
+              style: TextStyle(fontSize: 13.5, height: 1.4),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.forest,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(100),
+                  ),
+                ),
+                child: const Text('Reselect Time'),
+              ),
+            ],
+          ),
+        );
 
-    // Rule 3 Constraint: Real-Time Past Time Check
-    if (selectedDateTime.isBefore(DateTime.now())) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-              '⏰ Selected time (${pickedTime.format(context)}) has already passed. Please choose a future pickup time.'),
-          backgroundColor: AppColors.error,
-        ),
-      );
-      return;
-    }
+        if (reselect == true) {
+          continue; // Re-opens time picker!
+        } else {
+          return;
+        }
+      }
 
-    // Designated Pickup Hours Check (11:00 AM – 3:00 PM)
-    if (pickedTime.hour < StoreHours.openHour ||
-        pickedTime.hour >= StoreHours.closeHour) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-              'Pickup schedules are limited to designated hours: 11:00 AM to 3:00 PM.'),
-          backgroundColor: AppColors.error,
-        ),
-      );
-      return;
+      isValidTime = true;
     }
 
     // Format Date Label (Today, Tomorrow, or EEE, MMM d)
@@ -521,13 +615,44 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
 
     // Rule 3 Expiration Check: Validate that selected slot hasn't passed current live time
     if (_isPickupSlotExpired(_pickupSlot)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '⏰ Selected pickup time ($_pickupSlot) has passed. Please select a valid future pickup slot.',
+      await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
           ),
-          backgroundColor: AppColors.error,
-          duration: const Duration(seconds: 4),
+          backgroundColor: Theme.of(context).cardColor,
+          title: const Row(
+            children: [
+              Icon(Icons.alarm_off_rounded,
+                  color: AppColors.orangeCTA, size: 24),
+              SizedBox(width: 10),
+              Text(
+                'Pickup Time Passed',
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 18,
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            'Selected pickup time ($_pickupSlot) has passed. Please select a valid future pickup slot.',
+            style: const TextStyle(fontSize: 13.5, height: 1.4),
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.forest,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(100),
+                ),
+              ),
+              child: const Text('Select Valid Time'),
+            ),
+          ],
         ),
       );
       await _showPickupTimePicker();
