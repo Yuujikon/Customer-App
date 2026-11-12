@@ -166,7 +166,8 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
     while (!isValidTime) {
       final pickedTime = await showTimePicker(
         context: context,
-        initialTime: currentSelectedTime ?? TimeOfDay(hour: defaultHour, minute: 0),
+        initialTime:
+            currentSelectedTime ?? TimeOfDay(hour: defaultHour, minute: 0),
         helpText: 'SELECT PICKUP TIME (11:00 AM – 3:00 PM)',
         confirmText: 'CONFIRM TIME',
         builder: (context, child) {
@@ -198,7 +199,7 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
       // Rule 3 Constraint: Real-Time Past Time Check
       if (selectedDateTime.isBefore(DateTime.now())) {
         if (!mounted) return;
-        final bool? reselect = await _showCustomTimeValidationDialog(
+        final bool? reselect = await _showTimeValidationDialog(
           title: 'Time Already Passed',
           message:
               'Selected time (${pickedTime.format(context)}) has already passed. Please choose a future pickup time.',
@@ -215,7 +216,7 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
       if (pickedTime.hour < StoreHours.openHour ||
           pickedTime.hour >= StoreHours.closeHour) {
         if (!mounted) return;
-        final bool? reselect = await _showCustomTimeValidationDialog(
+        final bool? reselect = await _showTimeValidationDialog(
           title: 'Outside Pickup Hours',
           message:
               'Pickup schedules are limited to store operating hours: 11:00 AM to 3:00 PM.',
@@ -227,26 +228,11 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
           return;
         }
       }
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(100),
-                  ),
-                ),
-                child: const Text('Reselect Time'),
-              ),
-            ],
-          ),
-        );
-
-        if (reselect == true) {
-          continue; // Re-opens time picker!
-        } else {
-          return;
-        }
-      }
 
       isValidTime = true;
     }
+
+    final validTime = currentSelectedTime!;
 
     // Format Date Label (Today, Tomorrow, or EEE, MMM d)
     final tomorrow = today.add(const Duration(days: 1));
@@ -261,8 +247,6 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
     } else {
       dateLabel = DateFormat('EEE, MMM d').format(pickedDate);
     }
-
-    final validTime = currentSelectedTime!;
 
     final startHourNum =
         validTime.hourOfPeriod == 0 ? 12 : validTime.hourOfPeriod;
@@ -525,7 +509,7 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
     );
   }
 
-  Future<bool?> _showCustomTimeValidationDialog({
+  Future<bool?> _showTimeValidationDialog({
     required String title,
     required String message,
   }) {
@@ -549,7 +533,7 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header Row: Soft Orange Alarm Badge + Title + Close X
+                // Top Row: Soft Orange Alarm Badge + Title + Close X
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
@@ -708,41 +692,10 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
 
     // Rule 3 Expiration Check: Validate that selected slot hasn't passed current live time
     if (_isPickupSlotExpired(_pickupSlot)) {
-      await _showCustomTimeValidationDialog(
+      await _showTimeValidationDialog(
         title: 'Time Already Passed',
         message:
             'Selected pickup time ($_pickupSlot) has passed. Please select a valid future pickup slot.',
-      );
-      await _showPickupTimePicker();
-      return;
-    }
-              Text(
-                'Pickup Time Passed',
-                style: TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 18,
-                ),
-              ),
-            ],
-          ),
-          content: Text(
-            'Selected pickup time ($_pickupSlot) has passed. Please select a valid future pickup slot.',
-            style: const TextStyle(fontSize: 13.5, height: 1.4),
-          ),
-          actions: [
-            ElevatedButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.forest,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(100),
-                ),
-              ),
-              child: const Text('Select Valid Time'),
-            ),
-          ],
-        ),
       );
       await _showPickupTimePicker();
       return;
