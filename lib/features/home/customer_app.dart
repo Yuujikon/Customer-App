@@ -42,6 +42,37 @@ class _CustomerAppState extends State<CustomerApp> {
     });
   }
 
+  void _showLogoutConfirmDialog(BuildContext context) async {
+    final auth = context.read<AppAuthProvider>();
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Sign Out?'),
+        content:
+            const Text('You will need to sign in again to place new orders.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red.shade50,
+                foregroundColor: Colors.red,
+                elevation: 0),
+            child: const Text('Sign Out'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await auth.signOut();
+      _navigateToTab(0);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AppAuthProvider>();
@@ -285,6 +316,58 @@ class _CustomerAppState extends State<CustomerApp> {
                               ],
                             ),
                           ),
+
+                          // Sign Out Button (positioned above Pickup Store Pin Icon as in guide)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
+                            child: InkWell(
+                              onTap: () => _showLogoutConfirmDialog(context),
+                              borderRadius: BorderRadius.circular(100),
+                              child: Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: isLargeTablet ? 16 : 10,
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFEF2F2),
+                                  borderRadius: BorderRadius.circular(100),
+                                  border: Border.all(
+                                    color: const Color(0xFFFECDD3),
+                                    width: 1.2,
+                                  ),
+                                ),
+                                child: isLargeTablet
+                                    ? Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: const [
+                                          Icon(
+                                            Icons.logout_rounded,
+                                            color: AppColors.error,
+                                            size: 18,
+                                          ),
+                                          SizedBox(width: 8),
+                                          Text(
+                                            'Sign Out',
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w800,
+                                              color: AppColors.error,
+                                            ),
+                                          ),
+                                        ],
+                                      )
+                                    : const Icon(
+                                        Icons.logout_rounded,
+                                        color: AppColors.error,
+                                        size: 20,
+                                      ),
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(height: 8),
 
                           // Bottom Pickup Store Pin Icon Control
                           Padding(

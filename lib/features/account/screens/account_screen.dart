@@ -82,7 +82,7 @@ class _AccountScreenState extends State<AccountScreen> {
                       children: [
                         Expanded(
                             child: _buildProfileCard(
-                                context, auth, displayName, email)),
+                                context, auth, displayName, email, isTablet)),
                         const SizedBox(width: 20),
                         Expanded(child: _buildStoreCard(context)),
                       ],
@@ -92,7 +92,7 @@ class _AccountScreenState extends State<AccountScreen> {
                   ],
                 )
               else ...[
-                _buildProfileCard(context, auth, displayName, email),
+                _buildProfileCard(context, auth, displayName, email, isTablet),
                 const SizedBox(height: 16),
                 _buildStoreCard(context),
                 const SizedBox(height: 16),
@@ -107,8 +107,8 @@ class _AccountScreenState extends State<AccountScreen> {
     );
   }
 
-  Widget _buildProfileCard(
-      BuildContext context, AppAuthProvider auth, String name, String email) {
+  Widget _buildProfileCard(BuildContext context, AppAuthProvider auth,
+      String name, String email, bool isTablet) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -286,22 +286,24 @@ class _AccountScreenState extends State<AccountScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 10),
-                  OutlinedButton.icon(
-                    onPressed: () => _showLogoutConfirm(context),
-                    icon: const Icon(Icons.logout_rounded,
-                        size: 18, color: AppColors.error),
-                    label: const Text('Sign Out Of Account'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.error,
-                      side: const BorderSide(
-                          color: Color(0xFFE5D8C5), width: 1.2),
-                      minimumSize: const Size(double.infinity, 44),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(100),
+                  if (!isTablet) ...[
+                    const SizedBox(height: 10),
+                    OutlinedButton.icon(
+                      onPressed: () => _showLogoutConfirm(context),
+                      icon: const Icon(Icons.logout_rounded,
+                          size: 18, color: AppColors.error),
+                      label: const Text('Sign Out Of Account'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.error,
+                        side: const BorderSide(
+                            color: Color(0xFFE5D8C5), width: 1.2),
+                        minimumSize: const Size(double.infinity, 44),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(100),
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
