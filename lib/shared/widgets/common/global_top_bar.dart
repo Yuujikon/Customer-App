@@ -56,6 +56,7 @@ class GlobalTopBar extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback onOpenNotifications;
   final VoidCallback? onSearchTap;
   final VoidCallback? onProfileTap;
+  final VoidCallback? onSignOut;
 
   const GlobalTopBar({
     super.key,
@@ -66,6 +67,7 @@ class GlobalTopBar extends StatelessWidget implements PreferredSizeWidget {
     required this.onOpenNotifications,
     this.onSearchTap,
     this.onProfileTap,
+    this.onSignOut,
   });
 
   @override
@@ -220,11 +222,13 @@ class _TopBarIconButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
   final int badgeCount;
+  final Color? iconColor;
 
   const _TopBarIconButton({
     required this.icon,
     required this.onTap,
     this.badgeCount = 0,
+    this.iconColor,
   });
 
   @override
@@ -252,7 +256,7 @@ class _TopBarIconButton extends StatelessWidget {
           backgroundColor: AppColors.orangeCTA,
           child: Icon(
             icon,
-            color: Theme.of(context).colorScheme.onSurface,
+            color: iconColor ?? Theme.of(context).colorScheme.onSurface,
             size: 20,
           ),
         ),
