@@ -302,24 +302,6 @@ class _AccountScreenState extends State<AccountScreen> {
                       ),
                     ),
                   ),
-                  if (!isTablet) ...[
-                    const SizedBox(height: 10),
-                    OutlinedButton.icon(
-                      onPressed: () => _showLogoutConfirm(context),
-                      icon: const Icon(Icons.logout_rounded,
-                          size: 18, color: AppColors.error),
-                      label: const Text('Sign Out Of Account'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.error,
-                        side: const BorderSide(
-                            color: Color(0xFFE5D8C5), width: 1.2),
-                        minimumSize: const Size(double.infinity, 44),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(100),
-                        ),
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),

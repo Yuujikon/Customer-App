@@ -156,6 +156,7 @@ class _CustomerAppState extends State<CustomerApp> {
                             setState(
                                 () => _showNotifications = !_showNotifications);
                           },
+                          onSignOut: () => _showLogoutConfirmDialog(context),
                         ),
                       ),
                       // Main Content Area
