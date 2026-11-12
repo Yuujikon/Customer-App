@@ -884,97 +884,108 @@ class _AccountScreenState extends State<AccountScreen> {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'STORE BIO & MISSION',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.sage,
-                  letterSpacing: 1.0,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).brightness == Brightness.dark
-                      ? AppColors.forest.withValues(alpha: 0.25)
-                      : AppColors.border,
-                  borderRadius: BorderRadius.circular(100),
-                ),
-                child: const Text(
-                  'Verified Store',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.forest,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(9),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).brightness == Brightness.dark
-                      ? AppColors.forest.withValues(alpha: 0.25)
-                      : AppColors.sageTint,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.storefront_rounded,
-                  color: AppColors.forest,
-                  size: 18,
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'GDC Sari-Sari Store',
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'STORE BIO & MISSION',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.sage,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? AppColors.forest.withValues(alpha: 0.25)
+                          : AppColors.border,
+                      borderRadius: BorderRadius.circular(100),
+                    ),
+                    child: const Text(
+                      'Verified Store',
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: 10,
                         fontWeight: FontWeight.w800,
-                        color: Theme.of(context).colorScheme.onSurface,
+                        color: AppColors.forest,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Your friendly neighborhood store in General Douglas MacArthur. Providing daily fresh essentials, pantry goods, cold beverages, and fast local pre-orders.',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        height: 1.45,
-                        color: Theme.of(context).textTheme.bodySmall?.color,
-                        fontWeight: FontWeight.w500,
-                      ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(9),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? AppColors.forest.withValues(alpha: 0.25)
+                          : AppColors.sageTint,
+                      shape: BoxShape.circle,
                     ),
-                  ],
-                ),
+                    child: const Icon(
+                      Icons.storefront_rounded,
+                      color: AppColors.forest,
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'GDC Sari-Sari Store',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Your friendly neighborhood store in General Douglas MacArthur. Providing daily fresh essentials, pantry goods, cold beverages, and fast local pre-orders.',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            height: 1.45,
+                            color: Theme.of(context).textTheme.bodySmall?.color,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Divider(height: 1, color: Theme.of(context).dividerColor),
-          const SizedBox(height: 14),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildBioTag(context,
-                  icon: Icons.verified_rounded, label: 'Fresh Daily'),
-              _buildBioTag(context,
-                  icon: Icons.favorite_rounded, label: 'Community First'),
+              const SizedBox(height: 16),
+              Divider(height: 1, color: Theme.of(context).dividerColor),
+              const SizedBox(height: 14),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildBioTag(context,
+                      icon: Icons.verified_rounded, label: 'Fresh Daily'),
+                  _buildBioTag(context,
+                      icon: Icons.favorite_rounded, label: 'Community First'),
+                ],
+              ),
             ],
           ),
-          const Spacer(), // Pushes the tags to the bottom if stretched
         ],
       ),
     );
