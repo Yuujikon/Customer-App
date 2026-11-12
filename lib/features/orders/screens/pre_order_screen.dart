@@ -198,49 +198,10 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
       // Rule 3 Constraint: Real-Time Past Time Check
       if (selectedDateTime.isBefore(DateTime.now())) {
         if (!mounted) return;
-        final bool? reselect = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
-            ),
-            backgroundColor: Theme.of(context).cardColor,
-            title: const Row(
-              children: [
-                Icon(Icons.alarm_off_rounded,
-                    color: AppColors.orangeCTA, size: 24),
-                SizedBox(width: 10),
-                Text(
-                  'Time Already Passed',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 18,
-                  ),
-                ),
-              ],
-            ),
-            content: Text(
+        final bool? reselect = await _showCustomTimeValidationDialog(
+          title: 'Time Already Passed',
+          message:
               'Selected time (${pickedTime.format(context)}) has already passed. Please choose a future pickup time.',
-              style: const TextStyle(fontSize: 13.5, height: 1.4),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.forest,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(100),
-                  ),
-                ),
-                child: const Text('Reselect Time'),
-              ),
-            ],
-          ),
         );
 
         if (reselect == true) {
@@ -254,40 +215,18 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
       if (pickedTime.hour < StoreHours.openHour ||
           pickedTime.hour >= StoreHours.closeHour) {
         if (!mounted) return;
-        final bool? reselect = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
-            ),
-            backgroundColor: Theme.of(context).cardColor,
-            title: const Row(
-              children: [
-                Icon(Icons.storefront_rounded,
-                    color: AppColors.orangeCTA, size: 24),
-                SizedBox(width: 10),
-                Text(
-                  'Outside Pickup Hours',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 18,
-                  ),
-                ),
-              ],
-            ),
-            content: const Text(
+        final bool? reselect = await _showCustomTimeValidationDialog(
+          title: 'Outside Pickup Hours',
+          message:
               'Pickup schedules are limited to store operating hours: 11:00 AM to 3:00 PM.',
-              style: TextStyle(fontSize: 13.5, height: 1.4),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.forest,
+        );
+
+        if (reselect == true) {
+          continue; // Re-opens time picker!
+        } else {
+          return;
+        }
+      }
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(100),
@@ -586,6 +525,158 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
     );
   }
 
+  Future<bool?> _showCustomTimeValidationDialog({
+    required String title,
+    required String message,
+  }) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(28),
+        ),
+        backgroundColor:
+            isDark ? Theme.of(context).cardColor : const Color(0xFFF3F1EA),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 400),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header Row: Soft Orange Alarm Badge + Title + Close X
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? const Color(0xFF3E2D1D)
+                            : const Color(0xFFFDE8C3),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Center(
+                        child: Icon(
+                          Icons.access_time_filled_rounded,
+                          color: Color(0xFFD97706),
+                          size: 24,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -0.4,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(
+                        Icons.close_rounded,
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withValues(alpha: 0.7),
+                        size: 20,
+                      ),
+                      onPressed: () => Navigator.pop(ctx, false),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Body Message
+                Text(
+                  message,
+                  style: TextStyle(
+                    fontSize: 15,
+                    height: 1.4,
+                    fontWeight: FontWeight.w500,
+                    color: isDark
+                        ? Theme.of(context).textTheme.bodySmall?.color
+                        : const Color(0xFF384A32),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Action Buttons Row (Cancel | Reselect Time)
+                Row(
+                  children: [
+                    // Cancel Button
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.forest,
+                          side: const BorderSide(
+                            color: AppColors.forest,
+                            width: 1.8,
+                          ),
+                          minimumSize: const Size(0, 48),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(100),
+                          ),
+                          backgroundColor: isDark
+                              ? Theme.of(context).cardColor
+                              : Colors.white,
+                        ),
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+
+                    // Reselect Time Button
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.forest,
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size(0, 48),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(100),
+                          ),
+                        ),
+                        child: const Text(
+                          'Reselect Time',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _handleConfirmPreOrder() async {
     final orderProvider = context.read<OrderProvider>();
     final authProvider = context.read<AppAuthProvider>();
@@ -617,18 +708,14 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
 
     // Rule 3 Expiration Check: Validate that selected slot hasn't passed current live time
     if (_isPickupSlotExpired(_pickupSlot)) {
-      await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
-          backgroundColor: Theme.of(context).cardColor,
-          title: const Row(
-            children: [
-              Icon(Icons.alarm_off_rounded,
-                  color: AppColors.orangeCTA, size: 24),
-              SizedBox(width: 10),
+      await _showCustomTimeValidationDialog(
+        title: 'Time Already Passed',
+        message:
+            'Selected pickup time ($_pickupSlot) has passed. Please select a valid future pickup slot.',
+      );
+      await _showPickupTimePicker();
+      return;
+    }
               Text(
                 'Pickup Time Passed',
                 style: TextStyle(
