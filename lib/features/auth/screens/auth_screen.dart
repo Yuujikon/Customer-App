@@ -62,6 +62,129 @@ class _CustomerAuthScreenState extends State<CustomerAuthScreen> {
     return !blockedDomains.contains(domain);
   }
 
+  Future<void> _processRegistration(String contactMethod, bool isEmail) async {
+    Navigator.pop(context); // Close the choice bottom sheet
+    
+    setState(() {
+      _loading = true;
+      _error = '';
+    });
+
+    final otpSent = await VerificationService.sendOtp(
+      contactMethod: contactMethod,
+      isEmail: isEmail,
+    );
+
+    setState(() => _loading = false);
+
+    if (otpSent) {
+      if (!mounted) return;
+      
+      final email = _email.text.trim();
+      final password = _password.text;
+      final name = _name.text.trim();
+      final phone = _phone.text.trim();
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => OtpVerificationScreen(
+            contactMethod: contactMethod,
+            isEmail: isEmail,
+            onSuccess: () async {
+              setState(() => _loading = true);
+              Navigator.pop(context); // close OTP screen
+              
+              try {
+                final authProvider = context.read<AppAuthProvider>();
+                await authProvider.signUp(email, password, name, phone: phone);
+                if (!mounted) return;
+                Navigator.pop(context); // close Auth screen
+              } on FirebaseAuthException catch (e) {
+                setState(() {
+                  _error = e.message ?? 'Authentication failed';
+                  _loading = false;
+                });
+              }
+            },
+          ),
+        ),
+      );
+    } else {
+      setState(() => _error = 'Failed to send verification code. Try again later.');
+    }
+  }
+
+  void _showVerificationChoice() {
+    final email = _email.text.trim();
+    final phone = _phone.text.trim();
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'How would you like to verify?',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+                color: AppColors.primaryText,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Choose where we should send your 6-digit verification code.',
+              style: TextStyle(
+                fontSize: 14,
+                color: AppColors.mutedText,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            OutlinedButton.icon(
+              onPressed: () => _processRegistration(email, true),
+              icon: const Icon(Icons.email_rounded, color: AppColors.forest),
+              label: Text('Send to Email ($email)'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primaryText,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                side: const BorderSide(color: AppColors.border, width: 1.5),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () => _processRegistration(phone, false),
+              icon: const Icon(Icons.sms_rounded, color: AppColors.forest),
+              label: Text('Send to SMS ($phone)'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primaryText,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                side: const BorderSide(color: AppColors.border, width: 1.5),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -198,60 +321,8 @@ class _CustomerAuthScreenState extends State<CustomerAuthScreen> {
                               return;
                             }
 
-                            // OTP Verification Flow for Registration
-                            setState(() {
-                              _loading = true;
-                              _error = '';
-                            });
-
-                            // Using Email for verification
-                            final contactToVerify = _phone.text.trim();
-                            const isEmailVerification = false;
-
-                            // 1. Send the OTP via Brevo
-                            final otpSent = await VerificationService.sendOtp(
-                              contactMethod: contactToVerify,
-                              isEmail: isEmailVerification,
-                            );
-
-                            setState(() => _loading = false);
-
-                            if (otpSent) {
-                              if (!mounted) return;
-                              
-                              // 2. Open OTP Screen
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => OtpVerificationScreen(
-                                    contactMethod: contactToVerify,
-                                    isEmail: isEmailVerification,
-                                    onSuccess: () async {
-                                      // 3. User successfully verified the code! Create account.
-                                      setState(() => _loading = true);
-                                      Navigator.pop(context); // close OTP screen
-                                      
-                                      try {
-                                        final authProvider = context.read<AppAuthProvider>();
-                                        await authProvider.signUp(
-                                            email, _password.text, _name.text.trim(),
-                                            phone: _phone.text.trim());
-                                        
-                                        if (!mounted) return;
-                                        Navigator.pop(context); // close Auth screen
-                                      } on FirebaseAuthException catch (e) {
-                                        setState(() {
-                                          _error = e.message ?? 'Authentication failed';
-                                          _loading = false;
-                                        });
-                                      }
-                                    },
-                                  ),
-                                ),
-                              );
-                            } else {
-                              setState(() => _error = 'Failed to send verification code. Try again later.');
-                            }
+                            // Open bottom sheet so user can choose Email or SMS
+                            _showVerificationChoice();
                           } else {
                             // Standard Login Flow
                             final navigator = Navigator.of(context);
