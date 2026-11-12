@@ -15,13 +15,12 @@ class VerificationService {
   static const String _emailEndpoint = 'https://api.brevo.com/v3/smtp/email';
 
   // ==========================================
-  // 2. TRACCAR SMS GATEWAY (ANDROID)
+  // 2. TRACCAR SMS GATEWAY (VIA NGROK PUBLIC TUNNEL)
   // ==========================================
-  // ⚠️ Important: Replace this with the URL shown on the Traccar app screen 
-  // (e.g., http://192.168.1.15:8082/ )
-  static const String _traccarGatewayUrl = 'http://YOUR_PHONE_IP:8082/';
-  // ⚠️ Important: Replace this with the token you set in the Traccar app settings
-  static const String _traccarToken = 'YOUR_TRACCAR_TOKEN_HERE';
+  // ⚠️ Replace this with your Free Static ngrok URL (e.g. https://gdc-store-sms.ngrok-free.app/)
+  static const String _traccarGatewayUrl = 'https://YOUR-STATIC-DOMAIN.ngrok-free.app/';
+  // ⚠️ Replace this with the token you set in the Traccar app settings
+  static const String _traccarToken = 'c776154d-e29b-458e-ab57-221c7ee7fda2';
 
   /// Generates a random 6-digit OTP code
   static String _generateOtp() {
@@ -139,6 +138,7 @@ class VerificationService {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': _traccarToken, 
+          'ngrok-skip-browser-warning': 'true', // Bypasses ngrok free tier browser splash page
         },
         body: jsonEncode({
           "to": phoneNumber,
