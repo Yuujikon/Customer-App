@@ -17,8 +17,8 @@ class VerificationService {
   // ==========================================
   // 2. TRACCAR SMS GATEWAY (VIA NGROK PUBLIC TUNNEL)
   // ==========================================
-  // ⚠️ Replace this with your Free Static ngrok URL (e.g. https://gdc-store-sms.ngrok-free.app/)
-  static const String _traccarGatewayUrl = 'https://YOUR-STATIC-DOMAIN.ngrok-free.app/';
+  // ⚠️ Free Static ngrok URL claimed from your dashboard:
+  static const String _traccarGatewayUrl = 'https://repaint-ideally-whoopee.ngrok-free.dev/';
   // ⚠️ Replace this with the token you set in the Traccar app settings
   static const String _traccarToken = 'c776154d-e29b-458e-ab57-221c7ee7fda2';
 
