@@ -15,11 +15,13 @@ class VerificationService {
   static const String _emailEndpoint = 'https://api.brevo.com/v3/smtp/email';
 
   // ==========================================
-  // 2. ANDROID SMS GATEWAY
+  // 2. TRACCAR SMS GATEWAY (ANDROID)
   // ==========================================
-  // Replace these with your actual Android SMS Gateway details
-  static const String _smsGatewayUrl = 'https://api.sms-gateway-service.com/send';
-  static const String _smsGatewayKey = 'YOUR_ANDROID_GATEWAY_API_KEY_HERE';
+  // ⚠️ Important: Replace this with the URL shown on the Traccar app screen 
+  // (e.g., http://192.168.1.15:8082/ )
+  static const String _traccarGatewayUrl = 'http://YOUR_PHONE_IP:8082/';
+  // ⚠️ Important: Replace this with the token you set in the Traccar app settings
+  static const String _traccarToken = 'YOUR_TRACCAR_TOKEN_HERE';
 
   /// Generates a random 6-digit OTP code
   static String _generateOtp() {
@@ -127,24 +129,32 @@ class VerificationService {
   }
 
   /// Internal: Sends SMS via Android Gateway
-  /// (Configured for an app like SMS Gateway API)
+  /// Internal: Sends SMS via Traccar SMS Gateway (Android)
   static Future<bool> _sendSms(String phoneNumber, String otpCode) async {
     try {
+      // Ensure phone number starts with +63 for PH numbers if needed, 
+      // though Traccar usually handles local formats fine depending on your telco.
       final response = await http.post(
-        Uri.parse(_smsGatewayUrl),
+        Uri.parse(_traccarGatewayUrl),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': _smsGatewayKey, // Some apps use Bearer, some just use the key. Adjust as needed.
+          'Authorization': _traccarToken, 
         },
         body: jsonEncode({
-          "number": phoneNumber,
+          "to": phoneNumber,
           "message": "GDC Store: Your verification code is $otpCode. Do not share this with anyone."
         }),
       );
 
-      return response.statusCode == 200;
+      // Traccar returns 200 OK on success
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        debugPrint('Traccar Error: ${response.statusCode} - ${response.body}');
+        return false;
+      }
     } catch (e) {
-      debugPrint('Error sending SMS via Android Gateway: $e');
+      debugPrint('Error sending SMS via Traccar Gateway: $e');
       return false;
     }
   }
