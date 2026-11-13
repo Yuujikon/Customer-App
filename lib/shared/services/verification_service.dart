@@ -111,8 +111,8 @@ class VerificationService {
       final smtpServer = SmtpServer(
         'smtp-relay.brevo.com',
         port: 587,
-        username: _senderEmail, // gdcstore.ph@gmail.com
-        password: _brevoApiKey, // SMTP Password is the same as the API key in Brevo
+        username: dotenv.env['BREVO_SMTP_USERNAME'] ?? 'markjeo.hinampas@gmail.com', 
+        password: _brevoApiKey, 
       );
 
       final message = Message()
