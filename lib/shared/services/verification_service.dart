@@ -105,26 +105,31 @@ class VerificationService {
     }
   }
 
-  /// Internal: Sends email via Brevo SMTP (Bypasses IP Tracking & Restrictions)
+  /// Internal: Sends email via Brevo API
   static Future<bool> _sendEmail(String toEmail, String otpCode) async {
     try {
-      final smtpServer = SmtpServer(
-        'smtp-relay.brevo.com',
-        port: 587,
-        username: dotenv.env['BREVO_SMTP_USERNAME'] ?? 'markjeo.hinampas@gmail.com', 
-        password: _brevoApiKey, 
+      final response = await http.post(
+        Uri.parse(_emailEndpoint),
+        headers: {
+          'accept': 'application/json',
+          'api-key': _brevoApiKey,
+          'content-type': 'application/json',
+        },
+        body: jsonEncode({
+          "sender": {"name": "GDC Store", "email": _senderEmail},
+          "to": [{"email": toEmail}],
+          "subject": "Your GDC Store Verification Code",
+          "htmlContent": "<h2>GDC Store</h2><p>Your verification code is: <strong>$otpCode</strong></p><p>This code is valid for 5 minutes. Please do not share this with anyone.</p>"
+        }),
       );
-
-      final message = Message()
-        ..from = Address(_senderEmail, 'GDC Store')
-        ..recipients.add(toEmail)
-        ..subject = 'Your GDC Store Verification Code'
-        ..html = "<h2>GDC Store</h2><p>Your verification code is: <strong>$otpCode</strong></p><p>This code is valid for 5 minutes. Please do not share this with anyone.</p>";
-
-      await send(message, smtpServer);
-      return true;
+      
+      // 201 Created is the success code for Brevo
+      if (response.statusCode == 201) return true;
+      
+      debugPrint('Brevo Error: ${response.body}');
+      return false;
     } catch (e) {
-      debugPrint('SMTP Error sending Email OTP: $e');
+      debugPrint('Error sending Email OTP: $e');
       return false;
     }
   }
