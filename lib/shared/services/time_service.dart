@@ -89,5 +89,3 @@ class TimeService with ChangeNotifier {
     super.dispose();
   }
 }
-  }
-}
