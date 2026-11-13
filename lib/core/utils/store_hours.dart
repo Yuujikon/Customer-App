@@ -1,4 +1,5 @@
 import 'package:intl/intl.dart';
+import '../../shared/services/time_service.dart';
 
 class StoreHours {
   // Designated store pickup hours (11:00 AM to 3:00 PM)
@@ -7,13 +8,13 @@ class StoreHours {
 
   /// Checks if the store is currently within active pickup hours (11:00 AM – 3:00 PM).
   static bool isOpen() {
-    final h = DateTime.now().hour;
+    final h = TimeService.now.hour;
     return h >= openHour && h < closeHour;
   }
 
   /// Returns dynamic initial default pickup slot formatted string within 11:00 AM – 3:00 PM hours.
   static String defaultPickupSlot() {
-    final now = DateTime.now();
+    final now = TimeService.now;
     if (now.hour < closeHour) {
       final startH = now.hour < openHour ? openHour : now.hour;
       final endH = startH + 1;
@@ -31,7 +32,7 @@ class StoreHours {
 
   /// Returns allowed pickup dates starting from today up to maxHours window from now.
   static List<DateTime> getAvailableDates({int maxHours = 72}) {
-    final now = DateTime.now();
+    final now = TimeService.now;
     final windowEnd = now.add(Duration(hours: maxHours));
     final List<DateTime> dates = [];
 
@@ -49,7 +50,7 @@ class StoreHours {
   /// Returns available time slots for a specific date within store hours (9 AM - 10 PM) and maxHours window.
   static List<Map<String, dynamic>> getTimeSlotsForDate(DateTime date,
       {int maxHours = 72}) {
-    final now = DateTime.now();
+    final now = TimeService.now;
     final windowEnd = now.add(Duration(hours: maxHours));
     final List<Map<String, dynamic>> slots = [];
 
@@ -99,12 +100,12 @@ class StoreHours {
 
     for (final date in dates) {
       final daySlots = getTimeSlotsForDate(date, maxHours: maxHours);
-      final isToday = date.year == DateTime.now().year &&
-          date.month == DateTime.now().month &&
-          date.day == DateTime.now().day;
+      final isToday = date.year == TimeService.now.year &&
+          date.month == TimeService.now.month &&
+          date.day == TimeService.now.day;
       final isTomorrow = date
-              .difference(DateTime(DateTime.now().year, DateTime.now().month,
-                  DateTime.now().day))
+              .difference(DateTime(TimeService.now.year, TimeService.now.month,
+                  TimeService.now.day))
               .inDays ==
           1;
       final dayName = isToday

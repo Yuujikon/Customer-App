@@ -11,6 +11,7 @@ import '../../../shared/models/refund_request.dart';
 import '../../../shared/models/store_settings.dart';
 import '../../../shared/services/firestore_service.dart';
 import '../../../shared/services/notification_service.dart';
+import '../../../shared/services/time_service.dart';
 import '../../../core/utils/pricing_engine.dart';
 import '../../../core/utils/format.dart';
 
@@ -433,7 +434,7 @@ class OrderProvider extends ChangeNotifier {
   static int getAvailableExtensionMinutes(DateTime? currentExpiry,
       {bool isExtended = false}) {
     if (currentExpiry == null || isExtended) return 0;
-    final now = DateTime.now();
+    final now = TimeService.now;
 
     // Only allow extension when within 10 minutes before pickup expiration
     final secondsRemaining = currentExpiry.difference(now).inSeconds;
@@ -507,6 +508,8 @@ class OrderProvider extends ChangeNotifier {
     required String location,
     required String pickupSlot,
     required List<Product> allProducts,
+    String paymentMethod = 'Cash',
+    String? paymentReference,
   }) async {
     // Determine expiration based on items
     int minWindow = _settings.standardWindowHours;
@@ -534,7 +537,7 @@ class OrderProvider extends ChangeNotifier {
         minWindow = _settings.mixedWindowHours;
     }
 
-    final expiresAt = DateTime.now().add(Duration(hours: minWindow));
+    final expiresAt = TimeService.now.add(Duration(hours: minWindow));
 
     // Generate a 6-character alphanumeric Order ID (e.g. A8K2M9)
     final sixCharOrderId = _generate6CharAlphanumericId();
@@ -557,10 +560,11 @@ class OrderProvider extends ChangeNotifier {
       tax: 0,
       total: breakdown.total,
       status: OrderStatus.pending,
-      paymentMethod: 'Cash',
+      paymentMethod: paymentMethod,
+      paymentReference: paymentReference,
       location: location,
       pickupTime: pickupSlot,
-      createdAt: DateTime.now(),
+      createdAt: TimeService.now,
       expiresAt: expiresAt,
     );
 

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/theme_provider.dart';
+import '../../services/time_service.dart';
 import 'brand_logo.dart';
+import 'time_travel_sheet.dart';
 
 class StoreStatusPill extends StatelessWidget {
   final bool isOpen;
@@ -74,7 +76,7 @@ class GlobalTopBar extends StatelessWidget implements PreferredSizeWidget {
   Size get preferredSize => const Size.fromHeight(72);
 
   String _getGreeting() {
-    final hour = DateTime.now().hour;
+    final hour = TimeService.now.hour;
     final greeting = (hour >= 5 && hour < 12)
         ? 'Good morning'
         : (hour >= 12 && hour < 18)
@@ -87,6 +89,7 @@ class GlobalTopBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     final double topPadding = MediaQuery.paddingOf(context).top;
     final themeProvider = context.watch<ThemeProvider>();
+    final timeService = context.watch<TimeService>();
     final bool isDark = themeProvider.isDarkMode(context);
 
     return LayoutBuilder(
@@ -124,6 +127,17 @@ class GlobalTopBar extends StatelessWidget implements PreferredSizeWidget {
                       color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
+                ),
+                const SizedBox(width: 8),
+                _TopBarIconButton(
+                  icon: timeService.isSimulated
+                      ? Icons.fast_forward_rounded
+                      : Icons.access_time_rounded,
+                  iconColor: timeService.isSimulated
+                      ? AppColors.orangeCTA
+                      : null,
+                  badgeCount: timeService.isSimulated ? 1 : 0,
+                  onTap: () => TimeTravelSheet.show(context),
                 ),
                 const SizedBox(width: 8),
                 _TopBarIconButton(
@@ -172,6 +186,19 @@ class GlobalTopBar extends StatelessWidget implements PreferredSizeWidget {
                 ),
                 const SizedBox(width: 16),
                 const Spacer(),
+
+                // Time Simulation / Fast-Forward Button
+                _TopBarIconButton(
+                  icon: timeService.isSimulated
+                      ? Icons.fast_forward_rounded
+                      : Icons.access_time_rounded,
+                  iconColor: timeService.isSimulated
+                      ? AppColors.orangeCTA
+                      : null,
+                  badgeCount: timeService.isSimulated ? 1 : 0,
+                  onTap: () => TimeTravelSheet.show(context),
+                ),
+                const SizedBox(width: 8),
 
                 // Theme Toggle Button
                 _TopBarIconButton(

@@ -13,6 +13,7 @@ import 'features/orders/providers/refund_provider.dart';
 import 'features/shop/providers/inventory_provider.dart';
 
 import 'features/notifications/providers/notification_provider.dart';
+import 'shared/services/time_service.dart';
 
 class GdcCustomerApp extends StatelessWidget {
   const GdcCustomerApp({super.key});
@@ -21,6 +22,7 @@ class GdcCustomerApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider.value(value: TimeService.instance),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => AppAuthProvider()..initialize()),
         ChangeNotifierProvider(
