@@ -1,9 +1,10 @@
-import 'dart:convert';
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:mailer/mailer.dart';
+import 'package:mailer/smtp_server.dart';
 
 class VerificationService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -103,31 +104,26 @@ class VerificationService {
     }
   }
 
-  /// Internal: Sends email via Brevo
+  /// Internal: Sends email via Brevo SMTP (Bypasses IP Tracking & Restrictions)
   static Future<bool> _sendEmail(String toEmail, String otpCode) async {
     try {
-      final response = await http.post(
-        Uri.parse(_emailEndpoint),
-        headers: {
-          'accept': 'application/json',
-          'api-key': _brevoApiKey,
-          'content-type': 'application/json',
-        },
-        body: jsonEncode({
-          "sender": {"name": "GDC Store", "email": _senderEmail},
-          "to": [{"email": toEmail}],
-          "subject": "Your GDC Store Verification Code",
-          "htmlContent": "<h2>GDC Store</h2><p>Your verification code is: <strong>$otpCode</strong></p><p>This code is valid for 5 minutes. Please do not share this with anyone.</p>"
-        }),
+      final smtpServer = SmtpServer(
+        'smtp-relay.brevo.com',
+        port: 587,
+        username: _senderEmail, // gdcstore.ph@gmail.com
+        password: _brevoApiKey, // SMTP Password is the same as the API key in Brevo
       );
-      
-      // 201 Created is the success code for Brevo
-      if (response.statusCode == 201) return true;
-      
-      debugPrint('Brevo Error: ${response.body}');
-      return false;
+
+      final message = Message()
+        ..from = Address(_senderEmail, 'GDC Store')
+        ..recipients.add(toEmail)
+        ..subject = 'Your GDC Store Verification Code'
+        ..html = "<h2>GDC Store</h2><p>Your verification code is: <strong>$otpCode</strong></p><p>This code is valid for 5 minutes. Please do not share this with anyone.</p>";
+
+      await send(message, smtpServer);
+      return true;
     } catch (e) {
-      debugPrint('Error sending Email OTP: $e');
+      debugPrint('SMTP Error sending Email OTP: $e');
       return false;
     }
   }
