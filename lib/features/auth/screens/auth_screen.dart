@@ -65,6 +65,8 @@ class _CustomerAuthScreenState extends State<CustomerAuthScreen> {
   Future<void> _processRegistration(String contactMethod, bool isEmail) async {
     Navigator.pop(context); // Close the choice bottom sheet
     
+    if (_loading) return; // Prevent double-clicks
+
     setState(() {
       _loading = true;
       _error = '';
