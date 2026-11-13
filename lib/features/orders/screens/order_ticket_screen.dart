@@ -215,20 +215,13 @@ class OrderTicketScreen extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            // DYNAMIC PAYMENT METHOD BANNER
+            // STRICT CASH ONLY WARNING BANNER
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: order.paymentMethod == 'Cash'
-                    ? const Color(0xFFFFF3E0)
-                    : AppColors.sageTint,
+                color: const Color(0xFFFFF3E0), // Warm warning light orange
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: order.paymentMethod == 'Cash'
-                      ? const Color(0xFFFFB74D)
-                      : AppColors.sage,
-                  width: 1.5,
-                ),
+                border: Border.all(color: const Color(0xFFFFB74D), width: 1.5),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -238,49 +231,35 @@ class OrderTicketScreen extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: order.paymentMethod == 'Cash'
-                              ? const Color(0xFFF57C00)
-                              : AppColors.forest,
+                          color: const Color(0xFFF57C00),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: Icon(
-                          order.paymentMethod == 'Cash'
-                              ? Icons.payments_rounded
-                              : Icons.account_balance_wallet_rounded,
+                        child: const Icon(
+                          Icons.payments_rounded,
                           color: Colors.white,
                           size: 22,
                         ),
                       ),
                       const SizedBox(width: 12),
-                      Expanded(
+                      const Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              order.paymentMethod == 'Cash'
-                                  ? 'CASH ON PICKUP'
-                                  : '${order.paymentMethod.toUpperCase()} CASHLESS PAYMENT',
+                              'CASH ONLY PAYMENT REQUIRED',
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w900,
-                                color: order.paymentMethod == 'Cash'
-                                    ? const Color(0xFFE65100)
-                                    : AppColors.forest,
+                                color: Color(0xFFE65100),
                                 letterSpacing: 0.5,
                               ),
                             ),
                             Text(
-                              order.paymentMethod == 'Cash'
-                                  ? 'Pay at the store counter when collecting your pre-order.'
-                                  : (order.paymentReference != null
-                                      ? 'Ref #: ${order.paymentReference}'
-                                      : 'Digital payment via ${order.paymentMethod}'),
+                              'Digital payments / online transfers are not accepted.',
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
-                                color: order.paymentMethod == 'Cash'
-                                    ? const Color(0xFFBF360C)
-                                    : AppColors.primaryText,
+                                color: Color(0xFFBF360C),
                               ),
                             ),
                           ],
@@ -288,31 +267,35 @@ class OrderTicketScreen extends StatelessWidget {
                       ),
                     ],
                   ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: Divider(
-                        color: order.paymentMethod == 'Cash'
-                            ? const Color(0xFFFFCC80)
-                            : AppColors.border,
-                        height: 1),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    child: Divider(color: Color(0xFFFFCC80), height: 1),
                   ),
                   RichText(
                     text: TextSpan(
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 13,
-                        color: order.paymentMethod == 'Cash'
-                            ? const Color(0xFF4E2700)
-                            : AppColors.primaryText,
+                        color: Color(0xFF4E2700),
                         height: 1.4,
                       ),
                       children: [
-                        TextSpan(
-                            text: order.paymentMethod == 'Cash'
-                                ? 'Please prepare exactly '
-                                : 'Total amount payable: '),
+                        const TextSpan(text: 'Please prepare exactly '),
                         TextSpan(
                           text: formatPeso(order.total),
                           style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                        const TextSpan(
+                            text:
+                                ' upon collecting your pre-order at the store counter.'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
                             fontWeight: FontWeight.w900,
                             color: Color(0xFFD84315),
                             fontSize: 15,
@@ -376,12 +359,10 @@ class OrderTicketScreen extends StatelessWidget {
                           '${order.items.fold(0, (acc, item) => acc + item.qty)} items',
                     ),
                     const SizedBox(height: 8),
-                    _DetailRow(
+                    const _DetailRow(
                       icon: Icons.account_balance_wallet_rounded,
                       label: 'Payment Method',
-                      value: order.paymentReference != null
-                          ? '${order.paymentMethod} (Ref: ${order.paymentReference})'
-                          : order.paymentMethod,
+                      value: 'Cash Only (On Pickup)',
                     ),
                     const Divider(height: 24),
                     const Text(

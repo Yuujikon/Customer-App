@@ -98,8 +98,7 @@ class PreOrder {
   final double tax;
   final double total;
   final OrderStatus status;
-  final String paymentMethod; // 'Cash', 'GCash', 'Maya'
-  final String? paymentReference; // Optional GCash/Maya Ref #
+  final String paymentMethod; // Phase 2 requirement: 'Cash'
   final String location;
   final String pickupTime;
   final DateTime createdAt;
@@ -120,7 +119,6 @@ class PreOrder {
     required this.total,
     required this.status,
     this.paymentMethod = 'Cash',
-    this.paymentReference,
     this.location = '',
     this.pickupTime = '',
     required this.createdAt,
@@ -150,7 +148,6 @@ class PreOrder {
           orElse: () => OrderStatus.pending,
         ),
         paymentMethod: d['paymentMethod']?.toString() ?? 'Cash',
-        paymentReference: d['paymentReference']?.toString(),
         location: d['location']?.toString() ?? '',
         pickupTime: d['pickupTime']?.toString() ?? '',
         createdAt: (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
@@ -186,7 +183,6 @@ class PreOrder {
         'total': total,
         'status': status.name,
         'paymentMethod': paymentMethod,
-        if (paymentReference != null) 'paymentReference': paymentReference,
         'location': location,
         'pickupTime': pickupTime,
         'createdAt': FieldValue.serverTimestamp(),
@@ -207,7 +203,6 @@ class PreOrder {
   PreOrder copyWith({
     OrderStatus? status,
     String? paymentMethod,
-    String? paymentReference,
     DateTime? expiresAt,
     bool? isExtended,
   }) =>
@@ -223,7 +218,6 @@ class PreOrder {
         total: total,
         status: status ?? this.status,
         paymentMethod: paymentMethod ?? this.paymentMethod,
-        paymentReference: paymentReference ?? this.paymentReference,
         location: location,
         pickupTime: pickupTime,
         createdAt: createdAt,
