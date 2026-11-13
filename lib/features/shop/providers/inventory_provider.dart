@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import '../../../shared/models/product.dart';
@@ -7,9 +8,12 @@ import '../../../shared/models/transaction.dart';
 import '../../../shared/models/store_settings.dart';
 export '../../../shared/models/store_settings.dart';
 import '../../../shared/services/firestore_service.dart';
+import '../../../shared/services/time_service.dart';
 
 class InventoryProvider extends ChangeNotifier {
   final _fs = FirestoreService();
+  bool _isDisposed = false;
+  final List<StreamSubscription> _subscriptions = [];
 
   List<Product> _products = [];
   List<StoreTransaction> _transactions = [];
@@ -203,33 +207,54 @@ class InventoryProvider extends ChangeNotifier {
   }
 
   void initialize() {
-    // Firestore streams keep state up-to-date automatically
-    _fs.productsStream().listen((list) {
+    _cancelSubscriptions();
+    _subscriptions.add(_fs.productsStream().listen((list) {
+      if (_isDisposed) return;
       _products = list;
-      _lastProductUpdate = DateTime.now();
+      _lastProductUpdate = TimeService.now;
       notifyListeners();
     }, onError: (e) {
       debugPrint('Error listening to products stream: $e');
-    });
-    _fs.transactionsStream().listen((list) {
+    }));
+
+    _subscriptions.add(_fs.transactionsStream().listen((list) {
+      if (_isDisposed) return;
       list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       _transactions = list;
       notifyListeners();
     }, onError: (e) {
       debugPrint('Error listening to transactions stream: $e');
-    });
-    _fs.bundlesStream().listen((list) {
+    }));
+
+    _subscriptions.add(_fs.bundlesStream().listen((list) {
+      if (_isDisposed) return;
       _bundles = list;
       notifyListeners();
     }, onError: (e) {
       debugPrint('Error listening to bundles stream: $e');
-    });
-    _fs.settingsStream().listen((settings) {
+    }));
+
+    _subscriptions.add(_fs.settingsStream().listen((settings) {
+      if (_isDisposed) return;
       _settings = settings;
       notifyListeners();
     }, onError: (e) {
       debugPrint('Error listening to settings stream: $e');
-    });
+    }));
+  }
+
+  void _cancelSubscriptions() {
+    for (final sub in _subscriptions) {
+      sub.cancel();
+    }
+    _subscriptions.clear();
+  }
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    _cancelSubscriptions();
+    super.dispose();
   }
 
   Future<void> refreshData() async {

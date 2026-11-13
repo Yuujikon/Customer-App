@@ -17,6 +17,7 @@ import '../../../core/utils/format.dart';
 
 class OrderProvider extends ChangeNotifier {
   final _fs = FirestoreService();
+  bool _isDisposed = false;
 
   final List<PreOrder> _orders = [];
   final List<CartItem> _preCart = [];
@@ -43,6 +44,7 @@ class OrderProvider extends ChangeNotifier {
   Stream<List<PreOrder>>? _cachedStream;
   String? _cachedEmail;
   StreamSubscription? _ordersSub;
+  StreamSubscription? _settingsSub;
   Timer? _expirationTimer;
 
   Stream<List<PreOrder>> ordersStreamForEmail(String email, {int limit = 50}) {
@@ -58,6 +60,7 @@ class OrderProvider extends ChangeNotifier {
         .asBroadcastStream();
 
     _ordersSub = _cachedStream!.listen((list) {
+      if (_isDisposed) return;
       for (final order in list) {
         final previousStatus = _lastOrderStatusMap[order.id];
         if (previousStatus != null && previousStatus != order.status) {
@@ -208,7 +211,9 @@ class OrderProvider extends ChangeNotifier {
   }
 
   void initialize() {
-    _fs.settingsStream().listen((s) {
+    _settingsSub?.cancel();
+    _settingsSub = _fs.settingsStream().listen((s) {
+      if (_isDisposed) return;
       _settings = s;
       notifyListeners();
     }, onError: (e) {
@@ -714,7 +719,9 @@ class OrderProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _isDisposed = true;
     _ordersSub?.cancel();
+    _settingsSub?.cancel();
     _expirationTimer?.cancel();
     super.dispose();
   }
