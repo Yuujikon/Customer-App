@@ -63,14 +63,13 @@ class _CustomerAuthScreenState extends State<CustomerAuthScreen> {
   }
 
   Future<void> _processRegistration(String contactMethod, bool isEmail) async {
-    Navigator.pop(context); // Close the choice bottom sheet
-    
-    if (_loading) return; // Prevent double-clicks
-
+    if (_loading) return; // Prevent double-clicks immediately
     setState(() {
       _loading = true;
       _error = '';
     });
+
+    Navigator.pop(context); // Close the choice bottom sheet after state is locked
 
     final otpSent = await VerificationService.sendOtp(
       contactMethod: contactMethod,
