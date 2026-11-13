@@ -250,51 +250,53 @@ class _CustomerAppState extends State<CustomerApp> {
 
                           // Destinations
                           Expanded(
-                            child: Column(
-                              children: [
-                                _SidebarDestinationTile(
-                                  icon: Icons.home_outlined,
-                                  selectedIcon: Icons.home_rounded,
-                                  label: 'Home',
-                                  isSelected: _tab == 0,
-                                  isExpanded: isLargeTablet,
-                                  onTap: () => _navigateToTab(0),
-                                ),
-                                _SidebarDestinationTile(
-                                  icon: Icons.storefront_outlined,
-                                  selectedIcon: Icons.storefront_rounded,
-                                  label: 'Catalog',
-                                  isSelected: _tab == 1,
-                                  isExpanded: isLargeTablet,
-                                  onTap: () => _navigateToTab(1),
-                                ),
-                                _SidebarDestinationTile(
-                                  iconWidget:
-                                      const _CartBadgeIcon(isSelected: false),
-                                  selectedIconWidget:
-                                      const _CartBadgeIcon(isSelected: true),
-                                  label: 'Basket',
-                                  isSelected: _tab == 2,
-                                  isExpanded: isLargeTablet,
-                                  onTap: () => _navigateToTab(2),
-                                ),
-                                _SidebarDestinationTile(
-                                  icon: Icons.receipt_long_outlined,
-                                  selectedIcon: Icons.receipt_long_rounded,
-                                  label: 'Orders',
-                                  isSelected: _tab == 3,
-                                  isExpanded: isLargeTablet,
-                                  onTap: () => _navigateToTab(3),
-                                ),
-                                _SidebarDestinationTile(
-                                  icon: Icons.person_outline_rounded,
-                                  selectedIcon: Icons.person_rounded,
-                                  label: 'Account',
-                                  isSelected: _tab == 4,
-                                  isExpanded: isLargeTablet,
-                                  onTap: () => _navigateToTab(4),
-                                ),
-                              ],
+                            child: SingleChildScrollView(
+                              child: Column(
+                                children: [
+                                  _SidebarDestinationTile(
+                                    icon: Icons.home_outlined,
+                                    selectedIcon: Icons.home_rounded,
+                                    label: 'Home',
+                                    isSelected: _tab == 0,
+                                    isExpanded: isLargeTablet,
+                                    onTap: () => _navigateToTab(0),
+                                  ),
+                                  _SidebarDestinationTile(
+                                    icon: Icons.storefront_outlined,
+                                    selectedIcon: Icons.storefront_rounded,
+                                    label: 'Catalog',
+                                    isSelected: _tab == 1,
+                                    isExpanded: isLargeTablet,
+                                    onTap: () => _navigateToTab(1),
+                                  ),
+                                  _SidebarDestinationTile(
+                                    iconWidget:
+                                        const _CartBadgeIcon(isSelected: false),
+                                    selectedIconWidget:
+                                        const _CartBadgeIcon(isSelected: true),
+                                    label: 'Basket',
+                                    isSelected: _tab == 2,
+                                    isExpanded: isLargeTablet,
+                                    onTap: () => _navigateToTab(2),
+                                  ),
+                                  _SidebarDestinationTile(
+                                    icon: Icons.receipt_long_outlined,
+                                    selectedIcon: Icons.receipt_long_rounded,
+                                    label: 'Orders',
+                                    isSelected: _tab == 3,
+                                    isExpanded: isLargeTablet,
+                                    onTap: () => _navigateToTab(3),
+                                  ),
+                                  _SidebarDestinationTile(
+                                    icon: Icons.person_outline_rounded,
+                                    selectedIcon: Icons.person_rounded,
+                                    label: 'Account',
+                                    isSelected: _tab == 4,
+                                    isExpanded: isLargeTablet,
+                                    onTap: () => _navigateToTab(4),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
 
