@@ -29,6 +29,7 @@ class _CustomerAppState extends State<CustomerApp> {
   String _selectedCatalogCategory = 'All';
 
   void _navigateToTab(int tabIndex) {
+    if (!mounted) return;
     setState(() {
       _tab = tabIndex;
       _showNotifications = false;
@@ -36,6 +37,7 @@ class _CustomerAppState extends State<CustomerApp> {
   }
 
   void _selectCategoryAndNavigateToCatalog(String category) {
+    if (!mounted) return;
     setState(() {
       _selectedCatalogCategory = category;
       _tab = 1;
@@ -49,7 +51,9 @@ class _CustomerAppState extends State<CustomerApp> {
 
     if (confirm == true) {
       await auth.signOut();
-      _navigateToTab(0);
+      if (mounted) {
+        _navigateToTab(0);
+      }
     }
   }
 
