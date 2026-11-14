@@ -35,7 +35,6 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   void initState() {
     super.initState();
     _startResendTimer();
-    _sendInitialOtp();
   }
 
   @override
@@ -59,15 +58,6 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
         timer.cancel();
       }
     });
-  }
-
-  Future<void> _sendInitialOtp() async {
-    // Attempt to send OTP in the background. 
-    // You could also show a loading spinner here if desired.
-    await VerificationService.sendOtp(
-      contactMethod: widget.contactMethod,
-      isEmail: widget.isEmail,
-    );
   }
 
   Future<void> _resendOtp() async {
