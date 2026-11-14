@@ -58,7 +58,12 @@ class _RefundRequestsScreenState extends State<RefundRequestsScreen>
         final displayedReqs = reqs.take(_displayedCount).toList();
 
         return ListView.separated(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.fromLTRB(
+            16,
+            16,
+            16,
+            32 + MediaQuery.paddingOf(context).bottom,
+          ),
           itemCount: displayedReqs.length + (hasMore ? 1 : 0),
           separatorBuilder: (_, __) => const SizedBox(height: 12),
           itemBuilder: (_, i) {

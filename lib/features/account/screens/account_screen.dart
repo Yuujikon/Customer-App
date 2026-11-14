@@ -6,6 +6,7 @@ import 'dart:typed_data';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/launcher.dart';
+import '../../../core/utils/name_validator.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/utils/store_hours.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -525,7 +526,6 @@ class _AccountScreenState extends State<AccountScreen> {
     final initialName = auth.isFullNameSet ? auth.displayName : '';
     final nameCtrl = TextEditingController(text: initialName);
     final phoneCtrl = TextEditingController(text: auth.phoneNumber ?? '');
-    final bioCtrl = TextEditingController(text: auth.bio);
 
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final dialogBg = Theme.of(context).cardColor;
@@ -611,6 +611,7 @@ class _AccountScreenState extends State<AccountScreen> {
                         child: TextField(
                           controller: nameCtrl,
                           autofocus: !auth.isFullNameSet,
+                          textCapitalization: TextCapitalization.words,
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -690,58 +691,6 @@ class _AccountScreenState extends State<AccountScreen> {
                         ),
                       ),
 
-                      const SizedBox(height: 16),
-
-                      // Field 3: Bio
-                      Text(
-                        'Bio',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: textMuted,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: inputBg,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: borderColor),
-                        ),
-                        child: TextField(
-                          controller: bioCtrl,
-                          maxLines: 3,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: textPrimary,
-                          ),
-                          decoration: InputDecoration(
-                            filled: false,
-                            fillColor: Colors.transparent,
-                            hintText: 'Add a short note...',
-                            hintStyle: TextStyle(
-                              fontSize: 13,
-                              color: textMuted.withValues(alpha: 0.7),
-                            ),
-                            prefixIcon: Padding(
-                              padding: const EdgeInsets.only(bottom: 32),
-                              child: Icon(
-                                Icons.mode_edit_outline_rounded,
-                                size: 20,
-                                color: textMuted,
-                              ),
-                            ),
-                            border: InputBorder.none,
-                            enabledBorder: InputBorder.none,
-                            focusedBorder: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 14,
-                            ),
-                          ),
-                        ),
-                      ),
                     ],
                   ),
                 ),
@@ -779,10 +728,11 @@ class _AccountScreenState extends State<AccountScreen> {
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () async {
-                        final trimmedName = nameCtrl.text.trim();
-                        if (trimmedName.isEmpty ||
-                            trimmedName == 'Customer' ||
-                            trimmedName == 'Guest') {
+                        final formattedName = capitalizeName(nameCtrl.text);
+                        if (formattedName.isEmpty ||
+                            formattedName == 'Customer' ||
+                            formattedName == 'Guest' ||
+                            !isValidRealName(formattedName)) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('Please enter a valid full name.'),
@@ -793,8 +743,7 @@ class _AccountScreenState extends State<AccountScreen> {
                         }
 
                         await auth.updateProfile(
-                          name: trimmedName,
-                          bio: bioCtrl.text.trim(),
+                          name: formattedName,
                           phone: phoneCtrl.text.trim(),
                         );
                         if (ctx.mounted) Navigator.pop(ctx);

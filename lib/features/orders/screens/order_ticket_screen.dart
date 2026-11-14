@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../widgets/cancel_order_dialog.dart';
@@ -363,11 +364,19 @@ class OrderTicketScreen extends StatelessWidget {
                     const SizedBox(height: 8),
                     _DetailRow(
                       icon: Icons.schedule_rounded,
-                      label: 'Pickup Window',
+                      label: 'Scheduled Pickup',
                       value: order.pickupTime.isNotEmpty
                           ? order.pickupTime
                           : 'Standard Store Hours',
                     ),
+                    if (order.expiresAt != null) ...[
+                      const SizedBox(height: 8),
+                      _DetailRow(
+                        icon: Icons.timer_outlined,
+                        label: 'Store Hold Expiration',
+                        value: DateFormat('EEE, MMM d • h:mm a').format(order.expiresAt!),
+                      ),
+                    ],
                     const SizedBox(height: 8),
                     _DetailRow(
                       icon: Icons.shopping_bag_rounded,

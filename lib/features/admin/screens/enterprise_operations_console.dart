@@ -149,7 +149,12 @@ class _DashboardOverviewTab extends StatelessWidget {
         return RefreshIndicator(
           onRefresh: () async => inventory.refreshData(),
           child: ListView(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.fromLTRB(
+              16,
+              16,
+              16,
+              32 + MediaQuery.paddingOf(context).bottom,
+            ),
             children: [
               // ── Executive Summary Banner ─────────────────────────────────
               Container(
@@ -582,7 +587,12 @@ class _InventoryAutomationTabState extends State<_InventoryAutomationTab> {
     return RefreshIndicator(
       onRefresh: () async => inv.refreshData(),
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          16,
+          16,
+          32 + MediaQuery.paddingOf(context).bottom,
+        ),
         children: [
           // ── Executive KPI Telemetry Banner ────────────────────────────────
           Container(
@@ -1157,7 +1167,12 @@ class _OrderLogisticsTab extends StatelessWidget {
         }
 
         return ListView.separated(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.fromLTRB(
+            16,
+            16,
+            16,
+            32 + MediaQuery.paddingOf(context).bottom,
+          ),
           itemCount: activeOrders.length,
           separatorBuilder: (_, __) => const SizedBox(height: 12),
           itemBuilder: (context, i) {
@@ -1275,7 +1290,12 @@ class _DisputeGovernanceTab extends StatelessWidget {
         }
 
         return ListView.builder(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.fromLTRB(
+            16,
+            16,
+            16,
+            32 + MediaQuery.paddingOf(context).bottom,
+          ),
           itemCount: refundRequestedOrders.length,
           itemBuilder: (context, i) {
             final order = refundRequestedOrders[i];
@@ -1384,7 +1404,12 @@ class _SystemPolicyTabState extends State<_SystemPolicyTab> {
     final settings = widget.inventory.settings;
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.fromLTRB(
+        16,
+        16,
+        16,
+        32 + MediaQuery.paddingOf(context).bottom,
+      ),
       children: [
         Card(
           shape:

@@ -17,7 +17,6 @@ class AppAuthProvider extends ChangeNotifier {
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
       _profileSubscription;
 
-  String _bio = '';
   String? _phoneNumber;
   String? _base64Photo;
   List<String> _favorites = [];
@@ -46,7 +45,6 @@ class AppAuthProvider extends ChangeNotifier {
 
   String get email => currentUser?.email ?? '';
   String? get photoUrl => _base64Photo;
-  String get bio => _bio;
   String? get phoneNumber => _phoneNumber;
   List<String> get favorites => _favorites;
 
@@ -63,7 +61,6 @@ class AppAuthProvider extends ChangeNotifier {
       } else {
         _profileSubscription?.cancel();
         _profileSubscription = null;
-        _bio = '';
         _phoneNumber = null;
         _base64Photo = null;
         _favorites = [];
@@ -84,7 +81,6 @@ class AppAuthProvider extends ChangeNotifier {
         _db.collection('users').doc(uid).snapshots().listen((snap) {
       if (snap.exists) {
         final d = snap.data() ?? {};
-        _bio = d['bio'] ?? '';
         _phoneNumber = d['phoneNumber'];
         _base64Photo = d['photoBase64'];
         final rawFavs = d['favorites'] as List? ?? [];
@@ -163,12 +159,14 @@ class AppAuthProvider extends ChangeNotifier {
 
       if (user != null) {
         final rawGoogleName = googleUser.displayName ?? user.displayName;
+        final formattedGoogleName =
+            rawGoogleName != null ? capitalizeName(rawGoogleName) : null;
         final doc = await _db.collection('users').doc(user.uid).get();
 
         if (!doc.exists) {
           // New User
-          if (isValidRealName(rawGoogleName)) {
-            final validName = rawGoogleName!.trim();
+          if (isValidRealName(formattedGoogleName)) {
+            final validName = formattedGoogleName!;
             await user.updateDisplayName(validName);
             await _db.collection('users').doc(user.uid).set({
               'email': user.email,
@@ -208,8 +206,8 @@ class AppAuthProvider extends ChangeNotifier {
             _hasEnteredFullName = true;
             _requiresNameSetup = false;
             needsSetup = false;
-          } else if (isValidRealName(rawGoogleName)) {
-            final validName = rawGoogleName!.trim();
+          } else if (isValidRealName(formattedGoogleName)) {
+            final validName = formattedGoogleName!;
             await user.updateDisplayName(validName);
             await _db.collection('users').doc(user.uid).set({
               'displayName': validName,
@@ -251,18 +249,18 @@ class AppAuthProvider extends ChangeNotifier {
     final user = currentUser;
     if (user == null) return;
 
-    final trimmedName = fullName.trim();
-    if (!isValidRealName(trimmedName)) {
-      throw FormatException('Invalid real name provided: $trimmedName');
+    final formattedName = capitalizeName(fullName);
+    if (!isValidRealName(formattedName)) {
+      throw FormatException('Invalid real name provided: $fullName');
     }
 
-    await user.updateDisplayName(trimmedName);
+    await user.updateDisplayName(formattedName);
     _hasEnteredFullName = true;
     _requiresNameSetup = false;
 
     await _db.collection('users').doc(user.uid).set({
-      'displayName': trimmedName,
-      'fullName': trimmedName,
+      'displayName': formattedName,
+      'fullName': formattedName,
       'hasEnteredFullName': true,
       'requiresNameSetup': false,
       if (phone != null && phone.trim().isNotEmpty) 'phoneNumber': phone.trim(),
@@ -275,16 +273,16 @@ class AppAuthProvider extends ChangeNotifier {
       {String? phone}) async {
     final cred = await _auth.createUserWithEmailAndPassword(
         email: email, password: password);
-    final trimmedName = name.trim();
-    if (!isValidRealName(trimmedName)) {
+    final formattedName = capitalizeName(name);
+    if (!isValidRealName(formattedName)) {
       throw FormatException('Please enter a valid First and Last name.');
     }
-    await cred.user?.updateDisplayName(trimmedName);
+    await cred.user?.updateDisplayName(formattedName);
 
     await _db.collection('users').doc(cred.user!.uid).set({
       'email': email,
-      'displayName': trimmedName,
-      'fullName': trimmedName,
+      'displayName': formattedName,
+      'fullName': formattedName,
       'hasEnteredFullName': true,
       'requiresNameSetup': false,
       if (phone != null) 'phoneNumber': phone,
@@ -314,27 +312,27 @@ class AppAuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> updateProfile({String? name, String? bio, String? phone}) async {
+  Future<void> updateProfile({String? name, String? phone}) async {
     final user = currentUser;
     if (user == null) return;
 
-    final trimmedName = name?.trim();
-    final bool isNameProvided = trimmedName != null &&
-        trimmedName.isNotEmpty &&
-        isValidRealName(trimmedName);
+    final formattedName = (name != null && name.trim().isNotEmpty)
+        ? capitalizeName(name)
+        : null;
+    final bool isNameProvided = formattedName != null &&
+        isValidRealName(formattedName);
 
     if (isNameProvided) {
-      await user.updateDisplayName(trimmedName);
+      await user.updateDisplayName(formattedName);
       _hasEnteredFullName = true;
       _requiresNameSetup = false;
     }
 
     await _db.collection('users').doc(user.uid).set({
-      if (isNameProvided) 'displayName': trimmedName,
-      if (isNameProvided) 'fullName': trimmedName,
+      if (isNameProvided) 'displayName': formattedName,
+      if (isNameProvided) 'fullName': formattedName,
       if (isNameProvided) 'hasEnteredFullName': true,
       if (isNameProvided) 'requiresNameSetup': false,
-      if (bio != null) 'bio': bio,
       if (phone != null) 'phoneNumber': phone,
     }, SetOptions(merge: true));
 
@@ -385,7 +383,6 @@ class AppAuthProvider extends ChangeNotifier {
       debugPrint('Firebase Auth signOut error: $e');
     }
 
-    _bio = '';
     _phoneNumber = null;
     _base64Photo = null;
     _favorites = [];

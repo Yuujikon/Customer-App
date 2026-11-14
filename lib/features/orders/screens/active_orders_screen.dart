@@ -88,7 +88,12 @@ class _ActiveOrdersScreenState extends State<ActiveOrdersScreen>
           }
 
           return ListView.separated(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+            padding: EdgeInsets.fromLTRB(
+              16,
+              16,
+              16,
+              32 + MediaQuery.paddingOf(context).bottom,
+            ),
             itemCount: orders.length,
             separatorBuilder: (_, __) =>
                 const Divider(height: 12, color: Colors.transparent),
@@ -508,6 +513,13 @@ class _OrderDetail extends StatelessWidget {
             icon: Icons.access_time_rounded,
             label: 'Pickup Time',
             value: order.pickupTime),
+        if (order.expiresAt != null) ...[
+          const SizedBox(height: 8),
+          _InfoBox(
+              icon: Icons.timer_outlined,
+              label: 'Store Hold Until',
+              value: DateFormat('EEE, MMM d • h:mm a').format(order.expiresAt!)),
+        ],
         const SizedBox(height: 8),
         _InfoBox(
             icon: Icons.location_on_rounded,

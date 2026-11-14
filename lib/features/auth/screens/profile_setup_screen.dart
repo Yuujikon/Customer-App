@@ -42,13 +42,14 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   Future<void> _submitProfile() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final name = _nameController.text.trim();
+    final name = capitalizeName(_nameController.text);
+    _nameController.text = name;
     final phone = _phoneController.text.trim();
 
     if (!isValidRealName(name)) {
       setState(() {
         _errorMessage =
-            'Please enter a valid First and Last name (e.g., Juan Dela Cruz) with proper capitalization and no emojis or numbers.';
+            'Please enter a valid First and Last name (e.g., Juan Dela Cruz) without emojis or numbers.';
       });
       return;
     }
@@ -221,7 +222,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                   return 'Please enter your full name';
                                 }
                                 if (!isValidRealName(val)) {
-                                  return 'Enter first and last name with standard capitalization (e.g. Maria Clara)';
+                                  return 'Enter a valid first and last name (e.g. Maria Clara)';
                                 }
                                 return null;
                               },

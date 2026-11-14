@@ -84,6 +84,7 @@ class _CustomerAppState extends State<CustomerApp> {
     ];
 
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final double statusBarHeight = MediaQuery.paddingOf(context).top;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle(
@@ -106,7 +107,7 @@ class _CustomerAppState extends State<CustomerApp> {
                 children: [
                   Column(
                     children: [
-                      // Top Bar Container
+                      // Top Bar Container with SafeArea top padding for Edge-to-Edge
                       Container(
                         decoration: BoxDecoration(
                           color: isDark
@@ -129,14 +130,18 @@ class _CustomerAppState extends State<CustomerApp> {
                             ),
                           ],
                         ),
-                        child: GlobalTopBar(
-                          userName: auth.displayName.split(' ').first,
-                          unreadNotifications: unreadCount,
-                          onOpenNotifications: () {
-                            setState(
-                                () => _showNotifications = !_showNotifications);
-                          },
-                          onSignOut: () => _showLogoutConfirmDialog(context),
+                        child: SafeArea(
+                          top: true,
+                          bottom: false,
+                          child: GlobalTopBar(
+                            userName: auth.displayName.split(' ').first,
+                            unreadNotifications: unreadCount,
+                            onOpenNotifications: () {
+                              setState(
+                                  () => _showNotifications = !_showNotifications);
+                            },
+                            onSignOut: () => _showLogoutConfirmDialog(context),
+                          ),
                         ),
                       ),
                       // Main Content Area
@@ -152,10 +157,11 @@ class _CustomerAppState extends State<CustomerApp> {
                   // Floating Notification Panel Overlay for Phone
                   if (_showNotifications)
                     Positioned(
-                      top: 76,
+                      top: statusBarHeight + 76,
                       left: 12,
                       right: 12,
                       child: SafeArea(
+                        bottom: false,
                         child: NotificationPanel(
                           onClose: () =>
                               setState(() => _showNotifications = false),
@@ -226,7 +232,7 @@ class _CustomerAppState extends State<CustomerApp> {
               children: [
                 Row(
                   children: [
-                    // Tablet Navigation Sidebar / Rail
+                    // Tablet Navigation Sidebar / Rail wrapped in SafeArea
                     Container(
                       width: sidebarWidth,
                       decoration: BoxDecoration(
@@ -241,143 +247,147 @@ class _CustomerAppState extends State<CustomerApp> {
                           ),
                         ),
                       ),
-                      child: Column(
-                        children: [
-                          const SizedBox(height: 18),
-                          // Top GDC Logo Tile
-                          const GdcLogo(size: 42),
-                          const SizedBox(height: 28),
+                      child: SafeArea(
+                        top: true,
+                        bottom: true,
+                        child: Column(
+                          children: [
+                            const SizedBox(height: 12),
+                            // Top GDC Logo Tile
+                            const GdcLogo(size: 42),
+                            const SizedBox(height: 24),
 
-                          // Destinations
-                          Expanded(
-                            child: SingleChildScrollView(
-                              child: Column(
-                                children: [
-                                  _SidebarDestinationTile(
-                                    icon: Icons.home_outlined,
-                                    selectedIcon: Icons.home_rounded,
-                                    label: 'Home',
-                                    isSelected: _tab == 0,
-                                    isExpanded: isLargeTablet,
-                                    onTap: () => _navigateToTab(0),
-                                  ),
-                                  _SidebarDestinationTile(
-                                    icon: Icons.storefront_outlined,
-                                    selectedIcon: Icons.storefront_rounded,
-                                    label: 'Catalog',
-                                    isSelected: _tab == 1,
-                                    isExpanded: isLargeTablet,
-                                    onTap: () => _navigateToTab(1),
-                                  ),
-                                  _SidebarDestinationTile(
-                                    iconWidget:
-                                        const _CartBadgeIcon(isSelected: false),
-                                    selectedIconWidget:
-                                        const _CartBadgeIcon(isSelected: true),
-                                    label: 'Basket',
-                                    isSelected: _tab == 2,
-                                    isExpanded: isLargeTablet,
-                                    onTap: () => _navigateToTab(2),
-                                  ),
-                                  _SidebarDestinationTile(
-                                    icon: Icons.receipt_long_outlined,
-                                    selectedIcon: Icons.receipt_long_rounded,
-                                    label: 'Orders',
-                                    isSelected: _tab == 3,
-                                    isExpanded: isLargeTablet,
-                                    onTap: () => _navigateToTab(3),
-                                  ),
-                                  _SidebarDestinationTile(
-                                    icon: Icons.person_outline_rounded,
-                                    selectedIcon: Icons.person_rounded,
-                                    label: 'Account',
-                                    isSelected: _tab == 4,
-                                    isExpanded: isLargeTablet,
-                                    onTap: () => _navigateToTab(4),
-                                  ),
-                                ],
+                            // Destinations
+                            Expanded(
+                              child: SingleChildScrollView(
+                                child: Column(
+                                  children: [
+                                    _SidebarDestinationTile(
+                                      icon: Icons.home_outlined,
+                                      selectedIcon: Icons.home_rounded,
+                                      label: 'Home',
+                                      isSelected: _tab == 0,
+                                      isExpanded: isLargeTablet,
+                                      onTap: () => _navigateToTab(0),
+                                    ),
+                                    _SidebarDestinationTile(
+                                      icon: Icons.storefront_outlined,
+                                      selectedIcon: Icons.storefront_rounded,
+                                      label: 'Catalog',
+                                      isSelected: _tab == 1,
+                                      isExpanded: isLargeTablet,
+                                      onTap: () => _navigateToTab(1),
+                                    ),
+                                    _SidebarDestinationTile(
+                                      iconWidget:
+                                          const _CartBadgeIcon(isSelected: false),
+                                      selectedIconWidget:
+                                          const _CartBadgeIcon(isSelected: true),
+                                      label: 'Basket',
+                                      isSelected: _tab == 2,
+                                      isExpanded: isLargeTablet,
+                                      onTap: () => _navigateToTab(2),
+                                    ),
+                                    _SidebarDestinationTile(
+                                      icon: Icons.receipt_long_outlined,
+                                      selectedIcon: Icons.receipt_long_rounded,
+                                      label: 'Orders',
+                                      isSelected: _tab == 3,
+                                      isExpanded: isLargeTablet,
+                                      onTap: () => _navigateToTab(3),
+                                    ),
+                                    _SidebarDestinationTile(
+                                      icon: Icons.person_outline_rounded,
+                                      selectedIcon: Icons.person_rounded,
+                                      label: 'Account',
+                                      isSelected: _tab == 4,
+                                      isExpanded: isLargeTablet,
+                                      onTap: () => _navigateToTab(4),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
 
-                          // Sign Out Button (positioned above Pickup Store Pin Icon as in guide)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 8),
-                            child: InkWell(
-                              onTap: () => _showLogoutConfirmDialog(context),
-                              borderRadius: BorderRadius.circular(100),
-                              child: Container(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: isLargeTablet ? 16 : 10,
-                                  vertical: 10,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFFEF2F2),
-                                  borderRadius: BorderRadius.circular(100),
-                                  border: Border.all(
-                                    color: const Color(0xFFFECDD3),
-                                    width: 1.2,
+                            // Sign Out Button
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 8),
+                              child: InkWell(
+                                onTap: () => _showLogoutConfirmDialog(context),
+                                borderRadius: BorderRadius.circular(100),
+                                child: Container(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: isLargeTablet ? 16 : 10,
+                                    vertical: 10,
                                   ),
-                                ),
-                                child: isLargeTablet
-                                    ? Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: const [
-                                          Icon(
-                                            Icons.logout_rounded,
-                                            color: AppColors.error,
-                                            size: 18,
-                                          ),
-                                          SizedBox(width: 8),
-                                          Text(
-                                            'Sign Out',
-                                            style: TextStyle(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w800,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFEF2F2),
+                                    borderRadius: BorderRadius.circular(100),
+                                    border: Border.all(
+                                      color: const Color(0xFFFECDD3),
+                                      width: 1.2,
+                                    ),
+                                  ),
+                                  child: isLargeTablet
+                                      ? Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: const [
+                                            Icon(
+                                              Icons.logout_rounded,
                                               color: AppColors.error,
+                                              size: 18,
                                             ),
-                                          ),
-                                        ],
-                                      )
-                                    : const Icon(
-                                        Icons.logout_rounded,
-                                        color: AppColors.error,
-                                        size: 20,
-                                      ),
+                                            SizedBox(width: 8),
+                                            Text(
+                                              'Sign Out',
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w800,
+                                                color: AppColors.error,
+                                              ),
+                                            ),
+                                          ],
+                                        )
+                                      : const Icon(
+                                          Icons.logout_rounded,
+                                          color: AppColors.error,
+                                          size: 20,
+                                        ),
+                                ),
                               ),
                             ),
-                          ),
 
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 6),
-                            child: Divider(
-                              height: 1,
-                              color: isDark
-                                  ? Theme.of(context).dividerColor
-                                  : AppColors.border,
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 6),
+                              child: Divider(
+                                height: 1,
+                                color: isDark
+                                    ? Theme.of(context).dividerColor
+                                    : AppColors.border,
+                              ),
                             ),
-                          ),
 
-                          // Bottom Pickup Store Pin Icon Control
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 20),
-                            child: Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: const BoxDecoration(
-                                color: AppColors.sageTint,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.location_on_rounded,
-                                color: AppColors.forest,
-                                size: 22,
+                            // Bottom Pickup Store Pin Icon Control
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: const BoxDecoration(
+                                  color: AppColors.sageTint,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.location_on_rounded,
+                                  color: AppColors.forest,
+                                  size: 22,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
 
@@ -408,19 +418,23 @@ class _CustomerAppState extends State<CustomerApp> {
                                 ),
                               ],
                             ),
-                            child: Center(
-                              child: ConstrainedBox(
-                                constraints:
-                                    const BoxConstraints(maxWidth: 1200),
-                                child: GlobalTopBar(
-                                  userName: auth.displayName.split(' ').first,
-                                  unreadNotifications: unreadCount,
-                                  onOpenNotifications: () {
-                                    setState(() => _showNotifications =
-                                        !_showNotifications);
-                                  },
-                                  onSearchTap: () => _navigateToTab(1),
-                                  onProfileTap: () => _navigateToTab(4),
+                            child: SafeArea(
+                              top: true,
+                              bottom: false,
+                              child: Center(
+                                child: ConstrainedBox(
+                                  constraints:
+                                      const BoxConstraints(maxWidth: 1200),
+                                  child: GlobalTopBar(
+                                    userName: auth.displayName.split(' ').first,
+                                    unreadNotifications: unreadCount,
+                                    onOpenNotifications: () {
+                                      setState(() => _showNotifications =
+                                          !_showNotifications);
+                                    },
+                                    onSearchTap: () => _navigateToTab(1),
+                                    onProfileTap: () => _navigateToTab(4),
+                                  ),
                                 ),
                               ),
                             ),
@@ -446,12 +460,16 @@ class _CustomerAppState extends State<CustomerApp> {
                 // Tablet Anchored Notification Panel Dropdown
                 if (_showNotifications)
                   Positioned(
-                    top: MediaQuery.paddingOf(context).top + 76,
+                    top: statusBarHeight + 76,
                     right: 24,
                     width: 360,
-                    child: NotificationPanel(
-                      onClose: () => setState(() => _showNotifications = false),
-                      onNavigateToTab: _navigateToTab,
+                    child: SafeArea(
+                      bottom: false,
+                      child: NotificationPanel(
+                        onClose: () =>
+                            setState(() => _showNotifications = false),
+                        onNavigateToTab: _navigateToTab,
+                      ),
                     ),
                   ),
               ],

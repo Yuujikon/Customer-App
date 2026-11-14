@@ -34,6 +34,7 @@ class PreOrderScreen extends StatefulWidget {
 
 class _PreOrderScreenState extends State<PreOrderScreen> {
   late String _pickupSlot;
+  String _pickupOption = 'ASAP'; // 'ASAP' or 'Schedule'
   final _notesCtrl = TextEditingController();
   final _refNumCtrl = TextEditingController();
   String _selectedPaymentMethod = 'Cash'; // 'Cash', 'GCash', 'Maya'
@@ -57,56 +58,65 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
   }
 
   bool _isPickupSlotExpired(String slot) {
-    if (!slot.startsWith('Today')) return false;
-
-    final now = TimeService.now;
-    try {
-      final parts = slot.split(',');
-      if (parts.length < 2) return false;
-      final timePart = parts[1].split('–')[0].trim();
-      final timeFormat = DateFormat('h:mm a');
-      final parsedTime = timeFormat.parse(timePart);
-
-      final slotStartTime = DateTime(
-        now.year,
-        now.month,
-        now.day,
-        parsedTime.hour,
-        parsedTime.minute,
-      );
-
-      return now.isAfter(slotStartTime) || now.isAtSameMomentAs(slotStartTime);
-    } catch (_) {
-      return false;
-    }
+    return StoreHours.isSlotExpired(slot);
   }
 
   Future<void> _showPickupTimePicker() async {
     final orderProvider = context.read<OrderProvider>();
+    final inventoryProvider = context.read<InventoryProvider>();
     final cart = orderProvider.preCart;
+    final allProducts = inventoryProvider.products;
+
     final bool hasPerishables = cart.any((item) => item.isPerishable);
-    final bool hasNonPerishables = cart.any((item) => !item.isPerishable);
+    final bool isPrepaid = _selectedPaymentMethod != 'Cash';
+
+    // Calculate earliest batch expiry (FEFO)
+    DateTime? earliestExpiry;
+    for (final cartItem in cart) {
+      final p = allProducts.firstWhere(
+        (prod) => prod.id == cartItem.productId,
+        orElse: () => Product(
+            id: cartItem.productId,
+            name: cartItem.name,
+            category: 'Others',
+            price: cartItem.price,
+            stock: cartItem.qty),
+      );
+      if (p.expiryDate != null) {
+        if (earliestExpiry == null || p.expiryDate!.isBefore(earliestExpiry)) {
+          earliestExpiry = p.expiryDate;
+        }
+      }
+    }
 
     final now = TimeService.now;
     final today = DateTime(now.year, now.month, now.day);
     final firstDate = today;
 
-    // Rule 1: Calendar Max Allowed Date based on Item Composition:
-    // - Perishable ONLY: Present day only (0 days in advance)
-    // - Mixed items: Up to 1 day in advance (Today & Tomorrow)
-    // - Non-Perishable ONLY: Up to 3 days in advance (Today + 3 days)
+    // Calendar Max Allowed Date:
+    // - Perishable or Cash: max 1 day advance
+    // - Non-Perishable + Prepaid (GCash/Maya): max 3 days advance
+    // - Bounded by earliest FEFO expiry date
     DateTime lastDate;
     String itemTypeNotice;
 
-    if (hasPerishables && !hasNonPerishables) {
-      lastDate = today;
-      itemTypeNotice = 'PERISHABLE ONLY: PRESENT DAY PICKUP';
-    } else if (hasPerishables && hasNonPerishables) {
+    if (hasPerishables) {
       lastDate = today.add(const Duration(days: 1));
-      itemTypeNotice = 'MIXED ORDER: UP TO 1 DAY ADVANCE';
-    } else {
+      itemTypeNotice = 'PERISHABLE: UP TO 1 DAY ADVANCE';
+    } else if (isPrepaid) {
       lastDate = today.add(const Duration(days: 3));
-      itemTypeNotice = 'NON-PERISHABLE: UP TO 3 DAYS ADVANCE';
+      itemTypeNotice = 'PREPAID NON-PERISHABLE: UP TO 3 DAYS ADVANCE';
+    } else {
+      lastDate = today.add(const Duration(days: 1));
+      itemTypeNotice = 'CASH ON PICKUP: UP TO 1 DAY ADVANCE';
+    }
+
+    if (earliestExpiry != null) {
+      final expiryDay =
+          DateTime(earliestExpiry.year, earliestExpiry.month, earliestExpiry.day);
+      if (expiryDay.isBefore(lastDate)) {
+        lastDate = expiryDay;
+      }
     }
 
     // If today is past designated pickup closing hour (3:00 PM) and lastDate allows tomorrow
@@ -124,7 +134,7 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
       initialDate: initialCalendarDate,
       firstDate: firstDate,
       lastDate: lastDate,
-      helpText: 'SELECT PICKUP DATE • $itemTypeNotice',
+      helpText: 'SELECT PICKUP TIME (DATE) • $itemTypeNotice',
       confirmText: 'NEXT: PICK TIME',
       builder: (context, child) {
         return Theme(
@@ -142,7 +152,7 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
 
     if (pickedDate == null || !mounted) return;
 
-    // Calculate default initial time within designated pickup hours (11:00 AM - 3:00 PM)
+    // Calculate default initial time within store hours (11:00 AM - 3:00 PM)
     final bool isToday = pickedDate.year == today.year &&
         pickedDate.month == today.month &&
         pickedDate.day == today.day;
@@ -151,19 +161,19 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
     if (isToday) {
       if (now.hour + 1 < StoreHours.openHour) {
         defaultHour = StoreHours.openHour;
-      } else if (now.hour + 1 < StoreHours.closeHour) {
-        defaultHour = now.hour + 1;
+      } else if (now.hour < StoreHours.closeHour) {
+        defaultHour = now.hour;
       } else {
         defaultHour = StoreHours.closeHour - 1;
       }
     } else {
-      defaultHour = StoreHours.openHour; // 11:00 AM
+      defaultHour = StoreHours.openHour;
     }
 
     TimeOfDay? currentSelectedTime = TimeOfDay(hour: defaultHour, minute: 0);
     bool isValidTime = false;
 
-    // 2. Show Native Material Time Picker with automatic loop on invalid selection
+    // 2. Show Native Material Time Picker with loop on invalid selection
     while (!isValidTime) {
       final pickedTime = await showTimePicker(
         context: context,
@@ -188,7 +198,6 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
       if (pickedTime == null || !mounted) return;
       currentSelectedTime = pickedTime;
 
-      // 3. Enforce Real-Time & Store Hours Constraints
       final selectedDateTime = DateTime(
         pickedDate.year,
         pickedDate.month,
@@ -197,23 +206,28 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
         pickedTime.minute,
       );
 
-      // Rule 3 Constraint: Real-Time Past Time Check
-      if (selectedDateTime.isBefore(TimeService.now)) {
+      final slotEndTime = selectedDateTime.add(const Duration(hours: 1));
+
+      // 3. Enforce Prep Buffer & Store Hours Constraints
+      if (isToday &&
+          TimeService.now
+              .add(const Duration(minutes: StoreHours.prepBufferMinutes))
+              .isAfter(slotEndTime)) {
         if (!mounted) return;
         final bool? reselect = await _showTimeValidationDialog(
           title: 'Time Already Passed',
           message:
-              'Selected time (${pickedTime.format(context)}) has already passed. Please choose a future pickup time.',
+              'Selected time (${pickedTime.format(context)}) does not allow sufficient preparation time (${StoreHours.prepBufferMinutes} mins). Please choose a future pickup time.',
         );
 
         if (reselect == true) {
-          continue; // Re-opens time picker without losing date selection!
+          continue;
         } else {
           return;
         }
       }
 
-      // Designated Pickup Hours Check (11:00 AM – 3:00 PM)
+      // Store Operating Hours Check (11:00 AM – 3:00 PM)
       if (pickedTime.hour < StoreHours.openHour ||
           pickedTime.hour >= StoreHours.closeHour) {
         if (!mounted) return;
@@ -224,7 +238,7 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
         );
 
         if (reselect == true) {
-          continue; // Re-opens time picker!
+          continue;
         } else {
           return;
         }
@@ -234,8 +248,6 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
     }
 
     final validTime = currentSelectedTime!;
-
-    // Format Date Label (Today, Tomorrow, or EEE, MMM d)
     final tomorrow = today.add(const Duration(days: 1));
 
     String dateLabel;
@@ -1103,92 +1115,77 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                           ),
                           const SizedBox(height: 14),
 
-                          // Item Type Notice Banner (Perishable 2-Hour / Mixed 1-Day Notice)
+                          // Dynamic Hold Grace Period Banner
                           Builder(builder: (context) {
                             final bool hasPerishables =
                                 cart.any((item) => item.isPerishable);
-                            final bool hasNonPerishables =
-                                cart.any((item) => !item.isPerishable);
+                            final bool isPrepaid = _selectedPaymentMethod != 'Cash';
 
-                            if (hasPerishables && !hasNonPerishables) {
-                              return Container(
-                                margin: const EdgeInsets.only(bottom: 12),
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: AppColors.orangeCTALight,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                      color: AppColors.orangeCTA
-                                          .withValues(alpha: 0.3)),
-                                ),
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.timer_outlined,
-                                        size: 18, color: AppColors.orangeCTA),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        'Perishable Order Notice: Items must be collected within 2 hours of pre-ordering.',
-                                        style: TextStyle(
-                                          fontSize: 11.5,
-                                          fontWeight: FontWeight.w700,
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .onSurface,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            } else if (hasPerishables && hasNonPerishables) {
-                              return Container(
-                                margin: const EdgeInsets.only(bottom: 12),
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: AppColors.sageTint,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                      color: AppColors.forest
-                                          .withValues(alpha: 0.2)),
-                                ),
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.info_outline_rounded,
-                                        size: 18, color: AppColors.forest),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        'Mixed Order Notice: Pickup schedule limited to 1 day advance due to perishables.',
-                                        style: TextStyle(
-                                          fontSize: 11.5,
-                                          fontWeight: FontWeight.w700,
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .onSurface,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
+                            String noticeText;
+                            IconData noticeIcon;
+                            Color bgColor;
+                            Color borderThemeColor;
+
+                            if (hasPerishables) {
+                              noticeText =
+                                  'Perishable Notice: Order is held for 2 hours after your chosen pickup slot before auto-cancellation.';
+                              noticeIcon = Icons.timer_outlined;
+                              bgColor = AppColors.orangeCTALight;
+                              borderThemeColor = AppColors.orangeCTA;
+                            } else if (isPrepaid) {
+                              noticeText =
+                                  'Prepaid Order Notice: Stock reserved and held for 72 hours (3 days) after your pickup slot.';
+                              noticeIcon = Icons.verified_user_outlined;
+                              bgColor = AppColors.sageTint;
+                              borderThemeColor = AppColors.forest;
+                            } else {
+                              noticeText =
+                                  'Cash on Pickup Notice: Non-perishable items held for 24 hours after your pickup slot (Max 1-day advance).';
+                              noticeIcon = Icons.info_outline_rounded;
+                              bgColor = AppColors.sageTint;
+                              borderThemeColor = AppColors.forest;
                             }
-                            return const SizedBox.shrink();
+
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: bgColor,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                    color: borderThemeColor.withValues(alpha: 0.3)),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(noticeIcon, size: 18, color: borderThemeColor),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      noticeText,
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w700,
+                                        color: Theme.of(context).colorScheme.onSurface,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
                           }),
 
-                          // Pickup Schedule Row
+                          // Interactive Pickup Time Slot Button Box
                           InkWell(
                             onTap: _showPickupTimePicker,
                             borderRadius: BorderRadius.circular(14),
                             child: Container(
                               padding: const EdgeInsets.all(14),
                               decoration: BoxDecoration(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .surfaceContainerLow,
+                                color: Theme.of(context).colorScheme.surfaceContainerLow,
                                 borderRadius: BorderRadius.circular(14),
                                 border: Border.all(
-                                    color: Theme.of(context).dividerColor),
+                                  color: Theme.of(context).dividerColor,
+                                ),
                               ),
                               child: Row(
                                 children: [
@@ -1207,8 +1204,7 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           'Pickup time',
@@ -1221,14 +1217,13 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                                                 ?.color,
                                           ),
                                         ),
+                                        const SizedBox(height: 2),
                                         Text(
                                           _pickupSlot,
                                           style: TextStyle(
-                                            fontSize: 13.5,
+                                            fontSize: 14,
                                             fontWeight: FontWeight.w800,
-                                            color: Theme.of(context)
-                                                .colorScheme
-                                                .onSurface,
+                                            color: Theme.of(context).colorScheme.onSurface,
                                           ),
                                         ),
                                       ],

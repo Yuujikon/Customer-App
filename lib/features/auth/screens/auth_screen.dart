@@ -83,7 +83,7 @@ class _CustomerAuthScreenState extends State<CustomerAuthScreen> {
       
       final email = _email.text.trim();
       final password = _password.text;
-      final name = _name.text.trim();
+      final name = capitalizeName(_name.text);
       final phone = _phone.text.trim();
 
       Navigator.push(
@@ -232,6 +232,7 @@ class _CustomerAuthScreenState extends State<CustomerAuthScreen> {
                 if (widget.isRegister) ...[
                   TextField(
                     controller: _name,
+                    textCapitalization: TextCapitalization.words,
                     decoration: const InputDecoration(
                       labelText: 'Full Name (First & Last Name)',
                       prefixIcon: Icon(Icons.person_rounded),
@@ -316,7 +317,9 @@ class _CustomerAuthScreenState extends State<CustomerAuthScreen> {
                             return;
                           }
                           if (widget.isRegister) {
-                            if (!isValidRealName(_name.text.trim())) {
+                            final formattedName = capitalizeName(_name.text);
+                            _name.text = formattedName;
+                            if (!isValidRealName(formattedName)) {
                               setState(() => _error =
                                   'Please enter a valid First and Last name (e.g. Juan Dela Cruz).');
                               return;

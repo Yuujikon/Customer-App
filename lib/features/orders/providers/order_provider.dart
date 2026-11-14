@@ -14,6 +14,7 @@ import '../../../shared/services/notification_service.dart';
 import '../../../shared/services/time_service.dart';
 import '../../../core/utils/pricing_engine.dart';
 import '../../../core/utils/format.dart';
+import '../../../core/utils/store_hours.dart';
 
 class OrderProvider extends ChangeNotifier {
   final _fs = FirestoreService();
@@ -516,33 +517,52 @@ class OrderProvider extends ChangeNotifier {
     String paymentMethod = 'Cash',
     String? paymentReference,
   }) async {
-    // Determine expiration based on items
-    int minWindow = _settings.standardWindowHours;
+    // 1. Target Scheduled Pickup Time
+    final parsedTarget = StoreHours.parseSlotTargetDateTime(pickupSlot);
+    final now = TimeService.now;
+    final targetPickupTime = parsedTarget.isBefore(now) ? now : parsedTarget;
+
+    // 2. Determine Hold Window (Grace Period) starting AFTER scheduled pickup
     bool hasPerishables = false;
+    int minOverrideWindow = 999;
 
     for (final item in _preCart) {
-      final p = allProducts.firstWhere((prod) => prod.id == item.productId);
-      int itemWindow;
-
-      if (p.pickupWindowHours != null) {
-        itemWindow = p.pickupWindowHours!;
-      } else if (p.isPerishable) {
-        itemWindow = _settings.perishableWindowHours;
-      } else {
-        itemWindow = _settings.standardWindowHours;
-      }
+      final p = allProducts.firstWhere(
+        (prod) => prod.id == item.productId,
+        orElse: () => Product(
+          id: item.productId,
+          name: item.name,
+          category: 'Others',
+          price: item.price,
+          stock: item.qty,
+        ),
+      );
 
       if (p.isPerishable) hasPerishables = true;
-      if (itemWindow < minWindow) minWindow = itemWindow;
+      if (p.pickupWindowHours != null && p.pickupWindowHours! < minOverrideWindow) {
+        minOverrideWindow = p.pickupWindowHours!;
+      }
     }
 
-    // Special case for mixed orders if store has a specific mixed window policy
-    if (hasPerishables && _preCart.any((i) => !i.isPerishable)) {
-      if (_settings.mixedWindowHours < minWindow)
-        minWindow = _settings.mixedWindowHours;
+    final isPrepaid = paymentMethod != 'Cash';
+    int holdHours;
+
+    if (hasPerishables) {
+      // Perishable or Mixed basket: Strict 2-hour hold window after scheduled pickup slot
+      holdHours = _settings.perishableWindowHours; // Default: 2
+    } else if (isPrepaid) {
+      // Non-perishable paid via GCash/Maya: Full 3-day (72-hour) hold window
+      holdHours = _settings.standardWindowHours; // Default: 72
+    } else {
+      // Non-perishable Cash on Pickup: 1-day (24-hour) hold window to prevent ghost buyers locking stock
+      holdHours = _settings.mixedWindowHours; // Default: 24
     }
 
-    final expiresAt = TimeService.now.add(Duration(hours: minWindow));
+    if (minOverrideWindow < holdHours) {
+      holdHours = minOverrideWindow;
+    }
+
+    final expiresAt = targetPickupTime.add(Duration(hours: holdHours));
 
     // Generate a 6-character alphanumeric Order ID (e.g. A8K2M9)
     final sixCharOrderId = _generate6CharAlphanumericId();
@@ -592,7 +612,7 @@ class OrderProvider extends ChangeNotifier {
     await NotificationService.schedulePerishableReminder(
       order.id,
       order.orderId,
-      hours: minWindow,
+      hours: holdHours,
     );
 
     _preCart.clear();
