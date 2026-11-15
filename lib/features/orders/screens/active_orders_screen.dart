@@ -11,6 +11,22 @@ import '../widgets/order_stepper.dart';
 import '../../../shared/widgets/common/status_badge.dart';
 import '../../../core/utils/format.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/services/time_service.dart';
+
+String _formatExpiryLabel(DateTime expiresAt) {
+  final now = TimeService.now;
+  final today = DateTime(now.year, now.month, now.day);
+  final expDate = DateTime(expiresAt.year, expiresAt.month, expiresAt.day);
+  final timeStr = DateFormat('h:mm a').format(expiresAt);
+
+  if (expDate == today) {
+    return 'Today, $timeStr';
+  } else if (expDate == today.add(const Duration(days: 1))) {
+    return 'Tomorrow, $timeStr';
+  } else {
+    return DateFormat('MMM d, h:mm a').format(expiresAt);
+  }
+}
 
 class ActiveOrdersScreen extends StatefulWidget {
   const ActiveOrdersScreen({super.key});
@@ -189,7 +205,7 @@ class _OrderCard extends StatelessWidget {
                               size: 14, color: GdcColors.error),
                           const SizedBox(width: 4),
                           Text(
-                              'Exp: ${DateFormat('h:mm a').format(order.expiresAt!)}',
+                              'Exp: ${_formatExpiryLabel(order.expiresAt!)}',
                               style: const TextStyle(
                                   color: GdcColors.error,
                                   fontSize: 11,
@@ -517,6 +533,13 @@ class _OrderDetail extends StatelessWidget {
             icon: Icons.location_on_rounded,
             label: 'Location',
             value: order.location),
+        if (order.notes != null && order.notes!.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          _InfoBox(
+              icon: Icons.note_rounded,
+              label: 'Pickup Notes',
+              value: order.notes!),
+        ],
         if (order.isExtended) ...[
           const SizedBox(height: 16),
           Container(

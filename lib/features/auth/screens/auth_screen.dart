@@ -76,11 +76,10 @@ class _CustomerAuthScreenState extends State<CustomerAuthScreen> {
       isEmail: isEmail,
     );
 
+    if (!mounted) return;
     setState(() => _loading = false);
 
     if (otpSent) {
-      if (!mounted) return;
-      
       final email = _email.text.trim();
       final password = _password.text;
       final name = capitalizeName(_name.text);
@@ -93,17 +92,24 @@ class _CustomerAuthScreenState extends State<CustomerAuthScreen> {
             contactMethod: contactMethod,
             isEmail: isEmail,
             onSuccess: () async {
-              setState(() => _loading = true);
+              if (mounted) setState(() => _loading = true);
               Navigator.pop(context); // close OTP screen
-              
+
               try {
                 final authProvider = context.read<AppAuthProvider>();
                 await authProvider.signUp(email, password, name, phone: phone);
                 if (!mounted) return;
                 Navigator.pop(context); // close Auth screen
               } on FirebaseAuthException catch (e) {
+                if (!mounted) return;
                 setState(() {
                   _error = e.message ?? 'Authentication failed';
+                  _loading = false;
+                });
+              } catch (e) {
+                if (!mounted) return;
+                setState(() {
+                  _error = e.toString();
                   _loading = false;
                 });
               }
@@ -112,7 +118,9 @@ class _CustomerAuthScreenState extends State<CustomerAuthScreen> {
         ),
       );
     } else {
-      setState(() => _error = 'Failed to send verification code. Try again later.');
+      if (!mounted) return;
+      setState(
+          () => _error = 'Failed to send verification code. Try again later.');
     }
   }
 

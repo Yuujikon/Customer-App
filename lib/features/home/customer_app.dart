@@ -27,6 +27,7 @@ class _CustomerAppState extends State<CustomerApp> {
   int _tab = 0;
   bool _showNotifications = false;
   String _selectedCatalogCategory = 'All';
+  DateTime? _lastBackPressTime;
 
   void _navigateToTab(int tabIndex) {
     if (!mounted) return;
@@ -90,7 +91,43 @@ class _CustomerAppState extends State<CustomerApp> {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final double statusBarHeight = MediaQuery.paddingOf(context).top;
 
-    return AnnotatedRegion<SystemUiOverlayStyle>(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, Object? result) async {
+        if (didPop) return;
+
+        if (_showNotifications) {
+          setState(() => _showNotifications = false);
+          return;
+        }
+
+        if (_tab != 0) {
+          _navigateToTab(0);
+          return;
+        }
+
+        final now = DateTime.now();
+        if (_lastBackPressTime == null ||
+            now.difference(_lastBackPressTime!) > const Duration(seconds: 2)) {
+          _lastBackPressTime = now;
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Press back again to exit GDC Store'),
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          );
+          return;
+        }
+
+        await SystemNavigator.pop();
+      },
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
@@ -481,7 +518,8 @@ class _CustomerAppState extends State<CustomerApp> {
           );
         },
       ),
-    );
+    ),
+  );
   }
 }
 

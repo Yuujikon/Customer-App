@@ -20,22 +20,22 @@ class StoreHours {
     return 'ASAP (Ready by ~$timeStr)';
   }
 
-  /// Calculates the earliest valid pickup date for a basket considering operating hours
-  /// (11:00 AM – 3:00 PM). Returns Tomorrow if Today has no remaining future starting slots.
+  /// Calculates the earliest valid pickup date for a basket considering operating hours (11:00 AM – 3:00 PM).
+  /// Returns Tomorrow if Today's store closing (3:00 PM) has passed.
   static DateTime getEarliestPickupDate({DateTime? nowTime}) {
     final now = nowTime ?? TimeService.now;
     final today = DateTime(now.year, now.month, now.day);
-    final lastSlotStart =
-        DateTime(today.year, today.month, today.day, closeHour - 1, 0);
+    final todayClose =
+        DateTime(today.year, today.month, today.day, closeHour, 0);
 
-    if (!now.isBefore(lastSlotStart)) {
+    if (!now.isBefore(todayClose)) {
       return today.add(const Duration(days: 1));
     }
     return today;
   }
 
   /// Returns dynamic initial default pickup slot formatted string within 11:00 AM – 3:00 PM hours.
-  /// Always selects a slot whose start time is in the future.
+  /// Selects the current active slot or next upcoming slot whose END time is in the future.
   static String defaultPickupSlot({DateTime? nowTime}) {
     final now = nowTime ?? TimeService.now;
     final today = DateTime(now.year, now.month, now.day);
@@ -47,8 +47,9 @@ class StoreHours {
 
     if (isTodayAvailable) {
       for (int h = openHour; h < closeHour; h++) {
-        final slotStartTime = DateTime(today.year, today.month, today.day, h);
-        if (now.isBefore(slotStartTime)) {
+        final slotEndTime =
+            DateTime(today.year, today.month, today.day, h + 1);
+        if (now.isBefore(slotEndTime)) {
           final startStr =
               h == 12 ? '12:00 PM' : (h > 12 ? '${h - 12}:00 PM' : '$h:00 AM');
           final endH = h + 1;
@@ -72,7 +73,7 @@ class StoreHours {
   }
 
   /// Checks whether a formatted pickup slot string has passed its usable window.
-  /// A slot is considered expired as soon as current time reaches or passes its start time.
+  /// A slot is considered expired when current time reaches or passes its END time.
   static bool isSlotExpired(String slotStr, {DateTime? nowTime}) {
     if (slotStr.contains('ASAP')) {
       return !isOpen(nowTime: nowTime);
@@ -85,9 +86,10 @@ class StoreHours {
 
       final datePart = parts[0].trim();
       final rangeParts = parts[1].split(RegExp(r'\s*[\-–—]\s*'));
-      final startTimePart = rangeParts[0].trim();
+      final endTimePart =
+          (rangeParts.length > 1 ? rangeParts[1] : rangeParts[0]).trim();
       final timeFormat = DateFormat('h:mm a');
-      final parsedStartTime = timeFormat.parse(startTimePart);
+      final parsedEndTime = timeFormat.parse(endTimePart);
 
       final today = DateTime(now.year, now.month, now.day);
       DateTime baseDate;
@@ -104,21 +106,21 @@ class StoreHours {
         }
       }
 
-      final slotStartTime = DateTime(
+      final slotEndTime = DateTime(
         baseDate.year,
         baseDate.month,
         baseDate.day,
-        parsedStartTime.hour,
-        parsedStartTime.minute,
+        parsedEndTime.hour,
+        parsedEndTime.minute,
       );
 
-      return !now.isBefore(slotStartTime);
+      return !now.isBefore(slotEndTime);
     } catch (_) {
       return false;
     }
   }
 
-  /// Parses a pickup slot string into a target DateTime for scheduling & expiration calculation.
+  /// Parses a pickup slot string into the START DateTime of the slot.
   static DateTime parseSlotTargetDateTime(String slotStr, {DateTime? nowTime}) {
     final now = nowTime ?? TimeService.now;
     if (slotStr.contains('ASAP')) {
@@ -164,6 +166,60 @@ class StoreHours {
       }
 
       return target;
+    } catch (_) {
+      return now.add(const Duration(minutes: prepBufferMinutes));
+    }
+  }
+
+  /// Parses a pickup slot string into the END DateTime of the slot.
+  /// Used for hold window expiration calculations (expiresAt is calculated starting after slot ends).
+  static DateTime parseSlotEndDateTime(String slotStr, {DateTime? nowTime}) {
+    final now = nowTime ?? TimeService.now;
+    if (slotStr.contains('ASAP')) {
+      return now.add(const Duration(minutes: prepBufferMinutes));
+    }
+
+    try {
+      final parts = slotStr.split(',');
+      if (parts.length < 2) {
+        return now.add(const Duration(minutes: prepBufferMinutes));
+      }
+
+      final datePart = parts[0].trim();
+      final rangeParts = parts[1].split(RegExp(r'\s*[\-–—]\s*'));
+      final endTimePart =
+          (rangeParts.length > 1 ? rangeParts[1] : rangeParts[0]).trim();
+      final timeFormat = DateFormat('h:mm a');
+      final parsedEndTime = timeFormat.parse(endTimePart);
+
+      final today = DateTime(now.year, now.month, now.day);
+      DateTime baseDate;
+
+      if (datePart == 'Today') {
+        baseDate = today;
+      } else if (datePart == 'Tomorrow') {
+        baseDate = today.add(const Duration(days: 1));
+      } else {
+        final parsed = DateFormat('EEE, MMM d').parse(datePart);
+        baseDate = DateTime(now.year, parsed.month, parsed.day);
+        if (baseDate.isBefore(today.subtract(const Duration(days: 30)))) {
+          baseDate = DateTime(now.year + 1, parsed.month, parsed.day);
+        }
+      }
+
+      final targetEnd = DateTime(
+        baseDate.year,
+        baseDate.month,
+        baseDate.day,
+        parsedEndTime.hour,
+        parsedEndTime.minute,
+      );
+
+      if (targetEnd.isBefore(now)) {
+        return now.add(const Duration(minutes: prepBufferMinutes));
+      }
+
+      return targetEnd;
     } catch (_) {
       return now.add(const Duration(minutes: prepBufferMinutes));
     }

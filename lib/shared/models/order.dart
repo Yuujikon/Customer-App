@@ -107,6 +107,7 @@ class PreOrder {
   final DateTime createdAt;
   final DateTime? expiresAt;
   final String? rejectionReason;
+  final String? notes;
   final bool isSeniorPWD;
   final bool isExtended;
 
@@ -128,6 +129,7 @@ class PreOrder {
     required this.createdAt,
     this.expiresAt,
     this.rejectionReason,
+    this.notes,
     this.isSeniorPWD = false,
     this.isExtended = false,
   });
@@ -158,6 +160,7 @@ class PreOrder {
         createdAt: (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
         expiresAt: (d['expiresAt'] as Timestamp?)?.toDate(),
         rejectionReason: d['rejectionReason']?.toString(),
+        notes: (d['notes'] ?? d['pickupNotes'] ?? d['customerNotes'])?.toString(),
         isSeniorPWD: d['isSeniorPWD'] ?? false,
         isExtended: d['isExtended'] ?? false,
       );
@@ -196,6 +199,8 @@ class PreOrder {
         'isSeniorPWD': isSeniorPWD,
         'isExtended': isExtended,
         if (rejectionReason != null) 'rejectionReason': rejectionReason,
+        if (notes != null && notes!.trim().isNotEmpty) 'notes': notes!.trim(),
+        if (notes != null && notes!.trim().isNotEmpty) 'pickupNotes': notes!.trim(),
       };
 
   bool get isExpired {
@@ -212,6 +217,7 @@ class PreOrder {
     String? paymentReference,
     DateTime? expiresAt,
     bool? isExtended,
+    String? notes,
   }) =>
       PreOrder(
         id: id,
@@ -231,6 +237,7 @@ class PreOrder {
         createdAt: createdAt,
         expiresAt: expiresAt ?? this.expiresAt,
         rejectionReason: rejectionReason,
+        notes: notes ?? this.notes,
         isSeniorPWD: isSeniorPWD,
         isExtended: isExtended ?? this.isExtended,
       );

@@ -1337,6 +1337,21 @@ class _ActiveOrderCard extends StatelessWidget {
                             color: Theme.of(context).textTheme.bodySmall?.color,
                             fontWeight: FontWeight.w600),
                       ),
+                      if (order.notes != null &&
+                          order.notes!.trim().isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          'Note: "${order.notes!.trim()}"',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontStyle: FontStyle.italic,
+                            color: Theme.of(context).textTheme.bodySmall?.color,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ],

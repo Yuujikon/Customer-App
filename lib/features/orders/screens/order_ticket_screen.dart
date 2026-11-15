@@ -392,6 +392,14 @@ class OrderTicketScreen extends StatelessWidget {
                           ? '${order.paymentMethod} (Ref: ${order.paymentReference})'
                           : order.paymentMethod,
                     ),
+                    if (order.notes != null && order.notes!.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      _DetailRow(
+                        icon: Icons.note_rounded,
+                        label: 'Pickup Notes',
+                        value: order.notes!,
+                      ),
+                    ],
                     const Divider(height: 24),
                     const Text(
                       'ITEM DETAILS',

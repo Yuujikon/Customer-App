@@ -719,6 +719,7 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
     setState(() => _isSubmitting = true);
 
     try {
+      final pickupNotesText = _notesCtrl.text.trim();
       final order = await orderProvider.submitOrder(
         customerName: authProvider.displayName,
         customerEmail: authProvider.email,
@@ -730,7 +731,10 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
         paymentReference: _refNumCtrl.text.trim().isNotEmpty
             ? _refNumCtrl.text.trim()
             : null,
+        notes: pickupNotesText.isNotEmpty ? pickupNotesText : null,
       );
+
+      _notesCtrl.clear();
 
       if (!mounted) return;
       setState(() {
@@ -1143,19 +1147,19 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
 
                             if (hasPerishables) {
                               noticeText =
-                                  'Perishable Notice: Order is held for 2 hours after your chosen pickup slot before auto-cancellation.';
+                                  'Perishable Notice: Stock reserved and held until the end of your chosen pickup slot before auto-cancellation.';
                               noticeIcon = Icons.timer_outlined;
                               bgColor = AppColors.orangeCTALight;
                               borderThemeColor = AppColors.orangeCTA;
                             } else if (isPrepaid) {
                               noticeText =
-                                  'Prepaid Order Notice: Stock reserved and held for 72 hours (3 days) after your pickup slot.';
+                                  'Prepaid Order Notice: Stock reserved and held until the end of your chosen pickup slot.';
                               noticeIcon = Icons.verified_user_outlined;
                               bgColor = AppColors.sageTint;
                               borderThemeColor = AppColors.forest;
                             } else {
                               noticeText =
-                                  'Cash on Pickup Notice: Non-perishable items held for 24 hours after your pickup slot (Max 1-day advance).';
+                                  'Cash on Pickup Notice: Stock reserved and held until the end of your chosen pickup slot.';
                               noticeIcon = Icons.info_outline_rounded;
                               bgColor = AppColors.sageTint;
                               borderThemeColor = AppColors.forest;

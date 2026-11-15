@@ -82,20 +82,34 @@ class OrderProvider extends ChangeNotifier {
     return _cachedStream!;
   }
 
+  OrderProvider() {
+    TimeService.instance.addListener(_onTimeServiceChanged);
+  }
+
+  void _onTimeServiceChanged() {
+    if (_isDisposed) return;
+    _checkAndProcessExpirations();
+    notifyListeners();
+  }
+
+  void _checkAndProcessExpirations() {
+    bool hasExpiredChange = false;
+    for (int i = 0; i < _orders.length; i++) {
+      if (_orders[i].isExpired) {
+        _fs.cancelOrder(_orders[i].id, _orders[i].items);
+        _orders[i] = _orders[i].copyWith(status: OrderStatus.cancelled);
+        hasExpiredChange = true;
+      }
+    }
+    if (hasExpiredChange) {
+      notifyListeners();
+    }
+  }
+
   void _startExpirationTimer() {
     _expirationTimer?.cancel();
     _expirationTimer = Timer.periodic(const Duration(seconds: 15), (_) {
-      bool hasExpiredChange = false;
-      for (int i = 0; i < _orders.length; i++) {
-        if (_orders[i].isExpired) {
-          _fs.cancelOrder(_orders[i].id, _orders[i].items);
-          _orders[i] = _orders[i].copyWith(status: OrderStatus.cancelled);
-          hasExpiredChange = true;
-        }
-      }
-      if (hasExpiredChange) {
-        notifyListeners();
-      }
+      _checkAndProcessExpirations();
     });
   }
 
@@ -516,53 +530,14 @@ class OrderProvider extends ChangeNotifier {
     required List<Product> allProducts,
     String paymentMethod = 'Cash',
     String? paymentReference,
+    String? notes,
   }) async {
-    // 1. Target Scheduled Pickup Time
-    final parsedTarget = StoreHours.parseSlotTargetDateTime(pickupSlot);
+    // 1. Target Scheduled Pickup End Time is the exact expiration time of the order
+    final parsedEnd = StoreHours.parseSlotEndDateTime(pickupSlot);
     final now = TimeService.now;
-    final targetPickupTime = parsedTarget.isBefore(now) ? now : parsedTarget;
-
-    // 2. Determine Hold Window (Grace Period) starting AFTER scheduled pickup
-    bool hasPerishables = false;
-    int minOverrideWindow = 999;
-
-    for (final item in _preCart) {
-      final p = allProducts.firstWhere(
-        (prod) => prod.id == item.productId,
-        orElse: () => Product(
-          id: item.productId,
-          name: item.name,
-          category: 'Others',
-          price: item.price,
-          stock: item.qty,
-        ),
-      );
-
-      if (p.isPerishable) hasPerishables = true;
-      if (p.pickupWindowHours != null && p.pickupWindowHours! < minOverrideWindow) {
-        minOverrideWindow = p.pickupWindowHours!;
-      }
-    }
-
-    final isPrepaid = paymentMethod != 'Cash';
-    int holdHours;
-
-    if (hasPerishables) {
-      // Perishable or Mixed basket: Strict 2-hour hold window after scheduled pickup slot
-      holdHours = _settings.perishableWindowHours; // Default: 2
-    } else if (isPrepaid) {
-      // Non-perishable paid via GCash/Maya: Full 3-day (72-hour) hold window
-      holdHours = _settings.standardWindowHours; // Default: 72
-    } else {
-      // Non-perishable Cash on Pickup: 1-day (24-hour) hold window to prevent ghost buyers locking stock
-      holdHours = _settings.mixedWindowHours; // Default: 24
-    }
-
-    if (minOverrideWindow < holdHours) {
-      holdHours = minOverrideWindow;
-    }
-
-    final expiresAt = targetPickupTime.add(Duration(hours: holdHours));
+    final expiresAt = parsedEnd.isBefore(now)
+        ? now.add(const Duration(minutes: StoreHours.prepBufferMinutes))
+        : parsedEnd;
 
     // Generate a 6-character alphanumeric Order ID (e.g. A8K2M9)
     final sixCharOrderId = _generate6CharAlphanumericId();
@@ -591,6 +566,7 @@ class OrderProvider extends ChangeNotifier {
       pickupTime: pickupSlot,
       createdAt: TimeService.now,
       expiresAt: expiresAt,
+      notes: notes,
     );
 
     // Atomic submission: checks stock and decrements in one transaction
@@ -612,7 +588,6 @@ class OrderProvider extends ChangeNotifier {
     await NotificationService.schedulePerishableReminder(
       order.id,
       order.orderId,
-      hours: holdHours,
     );
 
     _preCart.clear();
@@ -742,6 +717,7 @@ class OrderProvider extends ChangeNotifier {
   @override
   void dispose() {
     _isDisposed = true;
+    TimeService.instance.removeListener(_onTimeServiceChanged);
     _ordersSub?.cancel();
     _settingsSub?.cancel();
     _expirationTimer?.cancel();
