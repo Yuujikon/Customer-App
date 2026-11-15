@@ -91,7 +91,9 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
 
     final now = TimeService.now;
     final today = DateTime(now.year, now.month, now.day);
-    final firstDate = today;
+    final earliestAvailableDate =
+        StoreHours.getEarliestPickupDate(nowTime: now);
+    final firstDate = earliestAvailableDate;
 
     // Calendar Max Allowed Date:
     // - Perishable or Cash: max 1 day advance
@@ -112,18 +114,18 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
     }
 
     if (earliestExpiry != null) {
-      final expiryDay =
-          DateTime(earliestExpiry.year, earliestExpiry.month, earliestExpiry.day);
+      final expiryDay = DateTime(
+          earliestExpiry.year, earliestExpiry.month, earliestExpiry.day);
       if (expiryDay.isBefore(lastDate)) {
         lastDate = expiryDay;
       }
     }
 
-    // If today is past designated pickup closing hour (3:00 PM) and lastDate allows tomorrow
-    final bool isPastTodayClosing = now.hour >= StoreHours.closeHour;
-    DateTime initialCalendarDate =
-        isPastTodayClosing ? today.add(const Duration(days: 1)) : today;
+    if (lastDate.isBefore(firstDate)) {
+      lastDate = firstDate;
+    }
 
+    DateTime initialCalendarDate = earliestAvailableDate;
     if (initialCalendarDate.isAfter(lastDate)) {
       initialCalendarDate = lastDate;
     }
@@ -759,17 +761,30 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
     final cart = orderProvider.preCart;
 
     if (_submittedOrder != null) {
-      return OrderTicketScreen(
-        order: _submittedOrder!,
-        onTrackOrder: () {
-          setState(() => _submittedOrder = null);
-          widget.onSubmitted();
-        },
-        onBackToShop: () {
-          setState(() => _submittedOrder = null);
-          widget.onBrowseMore();
-        },
-      );
+      if (cart.isNotEmpty) {
+        // New items added to basket after an old confirmation:
+        // Remove the old confirmation view and show the active basket transaction process
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) setState(() => _submittedOrder = null);
+        });
+      } else {
+        return OrderTicketScreen(
+          order: _submittedOrder!,
+          onTrackOrder: () {
+            setState(() => _submittedOrder = null);
+            widget.onSubmitted();
+          },
+          onBackToShop: () {
+            setState(() => _submittedOrder = null);
+            widget.onBrowseMore();
+          },
+        );
+      }
+    }
+
+    // Automatically advance pickup slot if current selection has passed
+    if (_isPickupSlotExpired(_pickupSlot)) {
+      _pickupSlot = StoreHours.defaultPickupSlot();
     }
 
     final double subtotal = cart.fold(0.0, (sum, i) => sum + i.price * i.qty);

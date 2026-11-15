@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'dart:convert';
@@ -524,519 +525,10 @@ class _AccountScreenState extends State<AccountScreen> {
     }
   }
 
-  Widget _buildEditChoiceChip({
-    required BuildContext context,
-    required String label,
-    required IconData icon,
-    required bool isSelected,
-    required VoidCallback onSelected,
-  }) {
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    return InkWell(
-      onTap: onSelected,
-      borderRadius: BorderRadius.circular(20),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppColors.forest
-              : (isDark
-                  ? Theme.of(context).colorScheme.surfaceContainerLow
-                  : Colors.grey.shade100),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected
-                ? AppColors.forest
-                : Theme.of(context).dividerColor,
-            width: 1.2,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 14,
-              color: isSelected ? Colors.white : AppColors.mutedText,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                color: isSelected
-                    ? Colors.white
-                    : Theme.of(context).colorScheme.onSurface,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   void _showEditDialog(BuildContext context, AppAuthProvider auth) {
-    final currentName =
-        (auth.displayName != 'Customer' && auth.displayName.isNotEmpty)
-            ? auth.displayName
-            : (auth.currentUser?.displayName ?? '');
-    final currentPhone = auth.phoneNumber ?? '';
-
-    final nameCtrl = TextEditingController(text: currentName);
-    final phoneCtrl = TextEditingController(text: currentPhone);
-
-    String editMode = 'both';
-
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final dialogBg = Theme.of(context).cardColor;
-    final textPrimary = Theme.of(context).colorScheme.onSurface;
-    final textMuted =
-        Theme.of(context).textTheme.bodySmall?.color ?? AppColors.mutedText;
-    final inputBg = isDark
-        ? Theme.of(context).colorScheme.surfaceContainerLow
-        : Colors.white;
-    final disabledInputBg = isDark
-        ? Theme.of(context)
-            .colorScheme
-            .surfaceContainerHighest
-            .withValues(alpha: 0.3)
-        : Colors.grey.shade100;
-    final borderColor = Theme.of(context).dividerColor;
-
     showDialog(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          final bool canEditName = editMode == 'both' || editMode == 'name';
-          final bool canEditPhone = editMode == 'both' || editMode == 'phone';
-
-          return Dialog(
-            backgroundColor: dialogBg,
-            elevation: 12,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-            child: Container(
-              width: 440,
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: dialogBg,
-                borderRadius: BorderRadius.circular(28),
-                border: Border.all(color: borderColor, width: 1.2),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Header Row: Title & Top-Right Close Button
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Edit Personal Information',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w900,
-                            color: textPrimary,
-                            letterSpacing: -0.4,
-                          ),
-                        ),
-                      ),
-                      InkWell(
-                        onTap: () => Navigator.pop(ctx),
-                        borderRadius: BorderRadius.circular(100),
-                        child: Padding(
-                          padding: const EdgeInsets.all(4),
-                          child: Icon(
-                            Icons.close_rounded,
-                            size: 22,
-                            color: textPrimary,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Information Selector: Pick which info to edit
-                  Text(
-                    'SELECT WHICH INFORMATION TO EDIT',
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w800,
-                      color: textMuted,
-                      letterSpacing: 0.8,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        _buildEditChoiceChip(
-                          context: context,
-                          label: 'Edit Both',
-                          icon: Icons.edit_rounded,
-                          isSelected: editMode == 'both',
-                          onSelected: () =>
-                              setDialogState(() => editMode = 'both'),
-                        ),
-                        const SizedBox(width: 8),
-                        _buildEditChoiceChip(
-                          context: context,
-                          label: 'Full Name Only',
-                          icon: Icons.person_rounded,
-                          isSelected: editMode == 'name',
-                          onSelected: () =>
-                              setDialogState(() => editMode = 'name'),
-                        ),
-                        const SizedBox(width: 8),
-                        _buildEditChoiceChip(
-                          context: context,
-                          label: 'Phone Only',
-                          icon: Icons.phone_rounded,
-                          isSelected: editMode == 'phone',
-                          onSelected: () =>
-                              setDialogState(() => editMode = 'phone'),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-
-                  // Form Scroll Area
-                  Flexible(
-                    child: SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Field 1: Full Name
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Full Name',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: canEditName ? textPrimary : textMuted,
-                                ),
-                              ),
-                              if (!canEditName)
-                                Text(
-                                  'Locked',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: textMuted,
-                                  ),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            decoration: BoxDecoration(
-                              color: canEditName ? inputBg : disabledInputBg,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: canEditName
-                                    ? borderColor
-                                    : borderColor.withValues(alpha: 0.4),
-                              ),
-                            ),
-                            child: TextField(
-                              controller: nameCtrl,
-                              enabled: canEditName,
-                              textCapitalization: TextCapitalization.words,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: canEditName ? textPrimary : textMuted,
-                              ),
-                              decoration: InputDecoration(
-                                filled: false,
-                                fillColor: Colors.transparent,
-                                hintText: 'Enter full name...',
-                                hintStyle: TextStyle(
-                                  fontSize: 13,
-                                  color: textMuted.withValues(alpha: 0.7),
-                                ),
-                                prefixIcon: Icon(
-                                  canEditName
-                                      ? Icons.person_outline_rounded
-                                      : Icons.lock_outline_rounded,
-                                  size: 20,
-                                  color: canEditName
-                                      ? AppColors.forest
-                                      : textMuted,
-                                ),
-                                border: InputBorder.none,
-                                enabledBorder: InputBorder.none,
-                                focusedBorder: InputBorder.none,
-                                disabledBorder: InputBorder.none,
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 14,
-                                ),
-                              ),
-                            ),
-                          ),
-
-                          const SizedBox(height: 16),
-
-                          // Field 2: Phone Number
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Phone Number',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: canEditPhone ? textPrimary : textMuted,
-                                ),
-                              ),
-                              if (!canEditPhone)
-                                Text(
-                                  'Locked',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: textMuted,
-                                  ),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            decoration: BoxDecoration(
-                              color: canEditPhone ? inputBg : disabledInputBg,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: canEditPhone
-                                    ? borderColor
-                                    : borderColor.withValues(alpha: 0.4),
-                              ),
-                            ),
-                            child: TextField(
-                              controller: phoneCtrl,
-                              enabled: canEditPhone,
-                              keyboardType: TextInputType.phone,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: canEditPhone ? textPrimary : textMuted,
-                              ),
-                              decoration: InputDecoration(
-                                filled: false,
-                                fillColor: Colors.transparent,
-                                hintText: 'Enter phone number...',
-                                hintStyle: TextStyle(
-                                  fontSize: 13,
-                                  color: textMuted.withValues(alpha: 0.7),
-                                ),
-                                prefixIcon: Icon(
-                                  canEditPhone
-                                      ? Icons.call_outlined
-                                      : Icons.lock_outline_rounded,
-                                  size: 20,
-                                  color: canEditPhone
-                                      ? AppColors.forest
-                                      : textMuted,
-                                ),
-                                border: InputBorder.none,
-                                enabledBorder: InputBorder.none,
-                                focusedBorder: InputBorder.none,
-                                disabledBorder: InputBorder.none,
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 14,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Action Buttons Row: Cancel & Save Changes
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.pop(ctx),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor:
-                                Theme.of(context).colorScheme.primary,
-                            side: BorderSide(
-                              color: Theme.of(context).colorScheme.primary,
-                              width: 1.5,
-                            ),
-                            minimumSize: const Size(0, 48),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(100),
-                            ),
-                          ),
-                          child: const Text(
-                            'Cancel',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () async {
-                            String? updatedName;
-                            String? newPhoneToVerify;
-
-                            if (canEditName) {
-                              final formattedName =
-                                  capitalizeName(nameCtrl.text);
-                              if (formattedName.isEmpty ||
-                                  formattedName == 'Customer' ||
-                                  formattedName == 'Guest' ||
-                                  !isValidRealName(formattedName)) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content:
-                                        Text('Please enter a valid full name.'),
-                                    backgroundColor: AppColors.error,
-                                  ),
-                                );
-                                return;
-                              }
-                              updatedName = formattedName;
-                            }
-
-                            if (canEditPhone) {
-                              final phoneText = phoneCtrl.text.trim();
-                              if (phoneText.isNotEmpty &&
-                                  phoneText.length < 10) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                        'Please enter a valid phone number (min 10 digits).'),
-                                    backgroundColor: AppColors.error,
-                                  ),
-                                );
-                                return;
-                              }
-                              if (phoneText.isNotEmpty &&
-                                  phoneText != currentPhone) {
-                                newPhoneToVerify = phoneText;
-                              }
-                            }
-
-                            // If a new phone number was provided, require SMS verification
-                            if (newPhoneToVerify != null) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                      'Sending SMS verification code to your new phone number...'),
-                                  duration: Duration(seconds: 2),
-                                ),
-                              );
-
-                              final otpSent = await VerificationService.sendOtp(
-                                contactMethod: newPhoneToVerify,
-                                isEmail: false,
-                              );
-
-                              if (!ctx.mounted) return;
-
-                              if (!otpSent) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                        'Failed to send SMS verification code. Please check the number and try again.'),
-                                    backgroundColor: AppColors.error,
-                                  ),
-                                );
-                                return;
-                              }
-
-                              // Close the edit modal
-                              Navigator.pop(ctx);
-
-                              final finalName = updatedName;
-                              final finalPhone = newPhoneToVerify;
-
-                              // Push SMS OTP Verification screen
-                              if (!context.mounted) return;
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => OtpVerificationScreen(
-                                    contactMethod: finalPhone,
-                                    isEmail: false,
-                                    onSuccess: () async {
-                                      Navigator.pop(context); // Close OTP screen
-                                      await auth.updateProfile(
-                                        name: finalName,
-                                        phone: finalPhone,
-                                      );
-                                      if (context.mounted) {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          const SnackBar(
-                                            content: Text(
-                                                'Phone number verified and updated successfully!'),
-                                            backgroundColor: AppColors.forest,
-                                          ),
-                                        );
-                                      }
-                                    },
-                                  ),
-                                ),
-                              );
-                            } else {
-                              // Name-only edit or phone unchanged
-                              await auth.updateProfile(
-                                name: updatedName,
-                                phone: canEditPhone
-                                    ? phoneCtrl.text.trim()
-                                    : null,
-                              );
-                              if (ctx.mounted) Navigator.pop(ctx);
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.orangeCTA,
-                            foregroundColor: Colors.white,
-                            minimumSize: const Size(0, 48),
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(100),
-                            ),
-                          ),
-                          child: const Text(
-                            'Save Changes',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
+      builder: (ctx) => _EditPersonalInformationDialog(auth: auth),
     );
   }
 
@@ -1183,6 +675,604 @@ class _AccountScreenState extends State<AccountScreen> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _EditPersonalInformationDialog extends StatefulWidget {
+  final AppAuthProvider auth;
+
+  const _EditPersonalInformationDialog({required this.auth});
+
+  @override
+  State<_EditPersonalInformationDialog> createState() =>
+      __EditPersonalInformationDialogState();
+}
+
+class __EditPersonalInformationDialogState
+    extends State<_EditPersonalInformationDialog> {
+  late final TextEditingController _nameCtrl;
+  late final TextEditingController _phoneCtrl;
+  final FocusNode _nameFocusNode = FocusNode();
+  final FocusNode _phoneFocusNode = FocusNode();
+
+  late final String _initialName;
+  late final String _initialPhoneDigits;
+  bool _isLoading = false;
+
+  void _onFieldChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final auth = widget.auth;
+    _initialName =
+        (auth.displayName != 'Customer' && auth.displayName.isNotEmpty)
+            ? auth.displayName
+            : (auth.currentUser?.displayName ?? '');
+    _initialPhoneDigits = _extractPhDigits(auth.phoneNumber ?? '');
+
+    _nameCtrl = TextEditingController(text: _initialName);
+    _phoneCtrl = TextEditingController(
+        text: _formatPhDigits(_initialPhoneDigits));
+
+    _nameCtrl.addListener(_onFieldChanged);
+    _phoneCtrl.addListener(_onFieldChanged);
+    _nameFocusNode.addListener(_onFieldChanged);
+    _phoneFocusNode.addListener(_onFieldChanged);
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.removeListener(_onFieldChanged);
+    _phoneCtrl.removeListener(_onFieldChanged);
+    _nameFocusNode.removeListener(_onFieldChanged);
+    _phoneFocusNode.removeListener(_onFieldChanged);
+    _nameCtrl.dispose();
+    _phoneCtrl.dispose();
+    _nameFocusNode.dispose();
+    _phoneFocusNode.dispose();
+    super.dispose();
+  }
+
+  static String _extractPhDigits(String phone) {
+    final digits = phone.replaceAll(RegExp(r'\D'), '');
+    if (digits.startsWith('63') && digits.length >= 12) {
+      return digits.substring(2, 12);
+    }
+    if (digits.startsWith('0') && digits.length >= 11) {
+      return digits.substring(1, 11);
+    }
+    if (digits.length >= 10) {
+      return digits.substring(digits.length - 10);
+    }
+    return digits;
+  }
+
+  static String _formatPhDigits(String digits) {
+    final clean = digits.replaceAll(RegExp(r'\D'), '');
+    final truncated = clean.length > 10 ? clean.substring(0, 10) : clean;
+    final buffer = StringBuffer();
+    for (int i = 0; i < truncated.length; i++) {
+      if (i == 3 || i == 6) {
+        buffer.write(' ');
+      }
+      buffer.write(truncated[i]);
+    }
+    return buffer.toString();
+  }
+
+  String get _currentNameTrimmed => _nameCtrl.text.trim();
+  String get _currentPhoneDigits =>
+      _phoneCtrl.text.replaceAll(RegExp(r'\D'), '');
+
+  bool get _hasNameChanged => _currentNameTrimmed != _initialName;
+  bool get _hasPhoneChanged => _currentPhoneDigits != _initialPhoneDigits;
+  bool get _hasChanges => _hasNameChanged || _hasPhoneChanged;
+
+  Future<void> _handleSave() async {
+    if (!_hasChanges || _isLoading) return;
+
+    String? updatedName;
+    String? newPhoneToVerify;
+
+    if (_hasNameChanged) {
+      final formattedName = capitalizeName(_nameCtrl.text);
+      if (formattedName.isEmpty ||
+          formattedName == 'Customer' ||
+          formattedName == 'Guest' ||
+          !isValidRealName(formattedName)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please enter a valid full name.'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+        return;
+      }
+      updatedName = formattedName;
+    }
+
+    if (_hasPhoneChanged) {
+      final phoneDigits = _currentPhoneDigits;
+      if (phoneDigits.isNotEmpty && phoneDigits.length < 10) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please enter a valid 10-digit phone number.'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+        return;
+      }
+      if (phoneDigits.isNotEmpty) {
+        newPhoneToVerify = '+63$phoneDigits';
+      }
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      if (newPhoneToVerify != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Sending SMS verification code to your new phone number...'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+
+        final otpSent = await VerificationService.sendOtp(
+          contactMethod: newPhoneToVerify,
+          isEmail: false,
+        );
+
+        if (!mounted) return;
+
+        if (!otpSent) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                  'Failed to send SMS verification code. Please check the number and try again.'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+          return;
+        }
+
+        Navigator.pop(context); // Close edit dialog
+
+        final finalName = updatedName;
+        final finalPhone = newPhoneToVerify;
+
+        if (!mounted) return;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => OtpVerificationScreen(
+              contactMethod: finalPhone,
+              isEmail: false,
+              onSuccess: () async {
+                Navigator.pop(context); // Close OTP screen
+                await widget.auth.updateProfile(
+                  name: finalName,
+                  phone: finalPhone,
+                );
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                          'Phone number verified and updated successfully!'),
+                      backgroundColor: AppColors.forest,
+                    ),
+                  );
+                }
+              },
+            ),
+          ),
+        );
+      } else {
+        // Name-only change
+        await widget.auth.updateProfile(
+          name: updatedName,
+          phone: null,
+        );
+        if (mounted) Navigator.pop(context);
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final dialogBg = Theme.of(context).cardColor;
+    final textPrimary = Theme.of(context).colorScheme.onSurface;
+    final textMuted =
+        Theme.of(context).textTheme.bodySmall?.color ?? AppColors.mutedText;
+    final inputBg = isDark
+        ? Theme.of(context).colorScheme.surfaceContainerLow
+        : Colors.white;
+    final borderColor = Theme.of(context).dividerColor;
+
+    return Dialog(
+      backgroundColor: dialogBg,
+      elevation: 12,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      child: Container(
+        width: 440,
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: dialogBg,
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: borderColor, width: 1.2),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header Row: Title & Top-Right Close Button
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    'Edit Personal Information',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                      color: textPrimary,
+                      letterSpacing: -0.4,
+                    ),
+                  ),
+                ),
+                InkWell(
+                  onTap: () => Navigator.pop(context),
+                  borderRadius: BorderRadius.circular(100),
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(
+                      Icons.close_rounded,
+                      size: 22,
+                      color: textPrimary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // Form Content Area
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Field 1: Full Name
+                    Text(
+                      'Full Name',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      decoration: BoxDecoration(
+                        color: inputBg,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: _nameFocusNode.hasFocus
+                              ? const Color(0xFF326234)
+                              : (isDark
+                                  ? borderColor
+                                  : const Color(0xFFCBD2C6)),
+                          width: _nameFocusNode.hasFocus ? 1.5 : 1.0,
+                        ),
+                        boxShadow: _nameFocusNode.hasFocus
+                            ? [
+                                const BoxShadow(
+                                  color: Color(0x26326234),
+                                  blurRadius: 4,
+                                  spreadRadius: 1,
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Row(
+                        children: [
+                          const SizedBox(width: 14),
+                          Icon(
+                            Icons.person_outline_rounded,
+                            size: 20,
+                            color: _nameFocusNode.hasFocus
+                                ? const Color(0xFF326234)
+                                : textMuted,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: TextField(
+                              controller: _nameCtrl,
+                              focusNode: _nameFocusNode,
+                              textCapitalization: TextCapitalization.words,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: textPrimary,
+                              ),
+                              decoration: InputDecoration(
+                                filled: false,
+                                fillColor: Colors.transparent,
+                                hintText: 'Enter full name...',
+                                hintStyle: TextStyle(
+                                  fontSize: 13,
+                                  color: textMuted.withValues(alpha: 0.7),
+                                ),
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                contentPadding:
+                                    const EdgeInsets.symmetric(vertical: 14),
+                                suffixIcon: _nameCtrl.text.isNotEmpty
+                                    ? InkWell(
+                                        borderRadius:
+                                            BorderRadius.circular(100),
+                                        onTap: () => _nameCtrl.clear(),
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(12),
+                                          child: Icon(
+                                            Icons.close_rounded,
+                                            size: 18,
+                                            color: textMuted,
+                                          ),
+                                        ),
+                                      )
+                                    : null,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 18),
+
+                    // Field 2: Phone Number
+                    Text(
+                      'Phone Number',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      decoration: BoxDecoration(
+                        color: inputBg,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: _phoneFocusNode.hasFocus
+                              ? const Color(0xFF326234)
+                              : (isDark
+                                  ? borderColor
+                                  : const Color(0xFFCBD2C6)),
+                          width: _phoneFocusNode.hasFocus ? 1.5 : 1.0,
+                        ),
+                        boxShadow: _phoneFocusNode.hasFocus
+                            ? [
+                                const BoxShadow(
+                                  color: Color(0x26326234),
+                                  blurRadius: 4,
+                                  spreadRadius: 1,
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Row(
+                        children: [
+                          const SizedBox(width: 14),
+                          Icon(
+                            Icons.call_outlined,
+                            size: 20,
+                            color: _phoneFocusNode.hasFocus
+                                ? const Color(0xFF326234)
+                                : textMuted,
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            '+63',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: textPrimary,
+                            ),
+                          ),
+                          Container(
+                            margin:
+                                const EdgeInsets.symmetric(horizontal: 10),
+                            height: 16,
+                            width: 1,
+                            color: isDark
+                                ? borderColor
+                                : const Color(0xFFCBD2C6),
+                          ),
+                          Expanded(
+                            child: TextField(
+                              controller: _phoneCtrl,
+                              focusNode: _phoneFocusNode,
+                              keyboardType: TextInputType.phone,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                                PhPhoneTextInputFormatter(),
+                              ],
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: textPrimary,
+                              ),
+                              decoration: InputDecoration(
+                                filled: false,
+                                fillColor: Colors.transparent,
+                                hintText: '9XX XXX XXXX',
+                                hintStyle: TextStyle(
+                                  fontSize: 13,
+                                  color: textMuted.withValues(alpha: 0.7),
+                                ),
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                contentPadding:
+                                    const EdgeInsets.symmetric(vertical: 14),
+                                suffixIcon: _phoneCtrl.text.isNotEmpty
+                                    ? InkWell(
+                                        borderRadius:
+                                            BorderRadius.circular(100),
+                                        onTap: () => _phoneCtrl.clear(),
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(12),
+                                          child: Icon(
+                                            Icons.close_rounded,
+                                            size: 18,
+                                            color: textMuted,
+                                          ),
+                                        ),
+                                      )
+                                    : null,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // Action Buttons Row: Cancel & Save Changes
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: TextButton.styleFrom(
+                      backgroundColor: isDark
+                          ? Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest
+                          : const Color(0xFFF3F4F6),
+                      foregroundColor: isDark
+                          ? textPrimary
+                          : const Color(0xFF374151),
+                      minimumSize: const Size(0, 48),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(100),
+                      ),
+                    ),
+                    child: const Text(
+                      'Cancel',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _hasChanges && !_isLoading ? _handleSave : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.orangeCTA,
+                      disabledBackgroundColor:
+                          AppColors.orangeCTA.withValues(alpha: 0.4),
+                      foregroundColor: Colors.white,
+                      disabledForegroundColor:
+                          Colors.white.withValues(alpha: 0.7),
+                      minimumSize: const Size(0, 48),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(100),
+                      ),
+                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : const Text(
+                            'Save Changes',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class PhPhoneTextInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final digitsOnly = newValue.text.replaceAll(RegExp(r'\D'), '');
+    final truncated =
+        digitsOnly.length > 10 ? digitsOnly.substring(0, 10) : digitsOnly;
+    final buffer = StringBuffer();
+    for (int i = 0; i < truncated.length; i++) {
+      if (i == 3 || i == 6) {
+        buffer.write(' ');
+      }
+      buffer.write(truncated[i]);
+    }
+    final formatted = buffer.toString();
+
+    int selectionIndex = formatted.length;
+    if (newValue.selection.end < newValue.text.length) {
+      final digitsBeforeCursor = newValue.text
+          .substring(0, newValue.selection.end)
+          .replaceAll(RegExp(r'\D'), '')
+          .length;
+      int digitCount = 0;
+      int newOffset = 0;
+      for (int i = 0; i < formatted.length; i++) {
+        if (formatted[i] != ' ') {
+          digitCount++;
+        }
+        if (digitCount == digitsBeforeCursor) {
+          newOffset = i + 1;
+          break;
+        }
+      }
+      selectionIndex = newOffset.clamp(0, formatted.length);
+    }
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: selectionIndex),
     );
   }
 }
