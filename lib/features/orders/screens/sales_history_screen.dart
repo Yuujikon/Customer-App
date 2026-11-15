@@ -217,14 +217,6 @@ class _HistoryCard extends StatelessWidget {
                                             fontSize: 11,
                                             color: GdcColors.terracotta,
                                             fontWeight: FontWeight.w600)),
-                                  Text(
-                                    'Barcode: ${item.barcode.isNotEmpty ? item.barcode : "N/A"}',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontFamily: 'monospace',
-                                      color: Colors.grey.shade600,
-                                    ),
-                                  ),
                                 ],
                               ),
                             ),

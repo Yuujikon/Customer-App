@@ -420,14 +420,6 @@ class OrderTicketScreen extends StatelessWidget {
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
-                                    Text(
-                                      'Barcode: ${item.barcode.isNotEmpty ? item.barcode : "N/A"}',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontFamily: 'monospace',
-                                        color: Colors.grey.shade600,
-                                      ),
-                                    ),
                                   ],
                                 ),
                               ),

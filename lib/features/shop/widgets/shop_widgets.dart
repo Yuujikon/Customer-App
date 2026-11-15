@@ -1475,12 +1475,6 @@ class _RecentOrderSectionState extends State<RecentOrderSection> {
                       .firstWhere((prod) => prod.id == item.productId);
                 } catch (_) {}
 
-                final String barcodeText = item.barcode.isNotEmpty
-                    ? 'Barcode: ${item.barcode}'
-                    : (p?.barcode != null && p!.barcode!.isNotEmpty
-                        ? 'Barcode: ${p.barcode}'
-                        : 'Item Code: ${item.productId}');
-
                 final String variantNameStr =
                     item.variantName != null ? ' (${item.variantName})' : '';
 
@@ -1500,15 +1494,6 @@ class _RecentOrderSectionState extends State<RecentOrderSection> {
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
                                 color: textPrimary,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              barcodeText,
-                              style: TextStyle(
-                                fontSize: 10.5,
-                                color: textMuted,
-                                fontWeight: FontWeight.w500,
                               ),
                             ),
                           ],
