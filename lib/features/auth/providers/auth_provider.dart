@@ -23,9 +23,45 @@ class AppAuthProvider extends ChangeNotifier {
   bool _hasEnteredFullName = false;
   bool _requiresNameSetup = false;
 
+  int _offenseCount = 0;
+  DateTime? _restrictionUntil;
+  bool _isPermanentlyLocked = false;
+
   User? get currentUser => _auth.currentUser;
   bool get hasEnteredFullName => _hasEnteredFullName;
   bool get requiresNameSetup => _requiresNameSetup;
+
+  int get offenseCount => _offenseCount;
+  DateTime? get restrictionUntil => _restrictionUntil;
+  bool get isPermanentlyLocked => _isPermanentlyLocked;
+
+  bool get isOrderRestricted {
+    if (_isPermanentlyLocked) return true;
+    if (_restrictionUntil != null && _restrictionUntil!.isAfter(DateTime.now())) {
+      return true;
+    }
+    return false;
+  }
+
+  Duration? get remainingRestrictionDuration {
+    if (_isPermanentlyLocked || _restrictionUntil == null) return null;
+    final diff = _restrictionUntil!.difference(DateTime.now());
+    return diff.isNegative ? null : diff;
+  }
+
+  String get restrictionStatusText {
+    if (_isPermanentlyLocked) return 'Permanent Account Lock (4th Offense)';
+    if (_restrictionUntil != null && _restrictionUntil!.isAfter(DateTime.now())) {
+      if (_offenseCount == 1) return '2-Hour Restriction (1st Offense)';
+      if (_offenseCount == 2) return '24-Hour Restriction (2nd Offense)';
+      if (_offenseCount == 3) return '72-Hour Restriction (3rd Offense)';
+      return 'Order Restriction Active ($_offenseCount Offenses)';
+    }
+    if (_offenseCount > 0) {
+      return '$_offenseCount Offense${_offenseCount > 1 ? "s" : ""} (Active Standing)';
+    }
+    return 'Good Standing (0 Offenses)';
+  }
 
   /// Returns true if the user has explicitly entered/confirmed a valid real full name
   bool get isFullNameSet {
@@ -66,6 +102,9 @@ class AppAuthProvider extends ChangeNotifier {
         _favorites = [];
         _hasEnteredFullName = false;
         _requiresNameSetup = false;
+        _offenseCount = 0;
+        _restrictionUntil = null;
+        _isPermanentlyLocked = false;
       }
       notifyListeners();
     }, onError: (e) {
@@ -89,6 +128,20 @@ class AppAuthProvider extends ChangeNotifier {
             .where((id) => id.isNotEmpty)
             .toList();
         _hasEnteredFullName = d['hasEnteredFullName'] == true;
+
+        _offenseCount = (d['offenseCount'] as num? ?? 0).toInt();
+        _isPermanentlyLocked = d['isPermanentlyLocked'] == true;
+
+        final rawUntil = d['restrictedUntil'] ?? d['restrictionUntil'];
+        if (rawUntil != null) {
+          if (rawUntil is Timestamp) {
+            _restrictionUntil = rawUntil.toDate();
+          } else if (rawUntil is String) {
+            _restrictionUntil = DateTime.tryParse(rawUntil);
+          }
+        } else {
+          _restrictionUntil = null;
+        }
 
         final savedName = d['fullName'] ?? d['displayName'];
         final bool isStoredNameValid = isValidRealName(savedName?.toString());
@@ -296,19 +349,26 @@ class AppAuthProvider extends ChangeNotifier {
 
   // Save FCM token and subscribe to user-specific topic
   Future<void> _saveFcmToken() async {
-    final user = _auth.currentUser;
-    final uid = user?.uid;
-    final token = await FirebaseMessaging.instance.getToken();
+    try {
+      final user = _auth.currentUser;
+      final uid = user?.uid;
+      final token = await FirebaseMessaging.instance
+          .getToken()
+          .timeout(const Duration(seconds: 5), onTimeout: () => null);
 
-    if (uid != null && token != null) {
-      await _db.collection('users').doc(uid).set({
-        'email': user?.email,
-        'fcmToken': token,
-      }, SetOptions(merge: true));
-    }
+      if (uid != null && token != null) {
+        await _db.collection('users').doc(uid).set({
+          'email': user?.email,
+          'fcmToken': token,
+        }, SetOptions(merge: true));
+      }
 
-    if (user?.email != null) {
-      await NotificationService.subscribeToCustomerTopic(user!.email!);
+      if (user?.email != null) {
+        await NotificationService.subscribeToCustomerTopic(user!.email!)
+            .timeout(const Duration(seconds: 5), onTimeout: () => null);
+      }
+    } catch (e) {
+      debugPrint('Error saving FCM token: $e');
     }
   }
 

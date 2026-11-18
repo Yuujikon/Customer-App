@@ -95,22 +95,41 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       _errorMessage = null;
     });
 
-    final error = await VerificationService.verifyOtp(
-      contactMethod: widget.contactMethod,
-      enteredCode: code,
-    );
+    try {
+      final error = await VerificationService.verifyOtp(
+        contactMethod: widget.contactMethod,
+        enteredCode: code,
+      ).timeout(
+        const Duration(seconds: 12),
+        onTimeout: () =>
+            'Verification timed out. Please check your internet connection and try again.',
+      );
 
-    setState(() => _isLoading = false);
-
-    if (error == null) {
-      // Success
-      widget.onSuccess();
-    } else {
-      // Error
-      setState(() {
-        _errorMessage = error;
-        _otpController.clear();
-      });
+      if (error == null) {
+        // Success
+        widget.onSuccess();
+      } else {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _errorMessage = error;
+            _otpController.clear();
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage =
+              'An error occurred during verification. Please try again.';
+          _otpController.clear();
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 

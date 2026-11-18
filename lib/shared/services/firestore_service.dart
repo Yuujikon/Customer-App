@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import '../models/product.dart';
 import '../models/order.dart';
 import '../models/transaction.dart';
@@ -6,6 +7,9 @@ import '../models/expense.dart';
 import '../models/refund_request.dart';
 import '../models/bundle.dart';
 import '../models/store_settings.dart';
+import '../models/customer_appeal.dart';
+import './time_service.dart';
+import './notification_service.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db;
@@ -30,6 +34,7 @@ class FirestoreService {
   CollectionReference get _refundQueue => _db.collection('refund_requests');
   CollectionReference get _watches => _db.collection('watched_products');
   CollectionReference get _bundles => _db.collection('bundles');
+  CollectionReference get _appeals => _db.collection('appeals');
   DocumentReference get _settings =>
       _db.collection('settings').doc('store_settings');
 
@@ -422,5 +427,120 @@ class FirestoreService {
       'isRead': false,
       if (relatedId != null) 'relatedId': relatedId,
     });
+  }
+
+  // ── Ghosting Offenses & Appeals ───────────────────────────────────────────
+
+  /// Records a ghosting offense for a customer when an order expires uncollected.
+  /// Penalty ladder:
+  /// - 1st Offense: 2-hour order restriction
+  /// - 2nd Offense: 24-hour order restriction
+  /// - 3rd Offense: 72-hour (3-day) order restriction
+  /// - 4th Offense: Permanent lock
+  Future<void> recordGhostingOffense({
+    String? userId,
+    required String userEmail,
+    required String orderId,
+    required String sixCharOrderId,
+  }) async {
+    DocumentReference? userRef;
+    Map<String, dynamic> userData = {};
+
+    if (userId != null && userId.isNotEmpty) {
+      userRef = _db.collection('users').doc(userId);
+      final snap = await userRef.get();
+      if (snap.exists) {
+        userData = snap.data() as Map<String, dynamic>;
+      } else {
+        userRef = null;
+      }
+    }
+
+    if (userRef == null && userEmail.isNotEmpty) {
+      final query = await _db
+          .collection('users')
+          .where('email', isEqualTo: userEmail)
+          .limit(1)
+          .get();
+      if (query.docs.isNotEmpty) {
+        userRef = query.docs.first.reference;
+        userData = query.docs.first.data();
+      }
+    }
+
+    if (userRef == null) {
+      debugPrint('No user found for ghosting offense (email: $userEmail)');
+      return;
+    }
+
+    final String targetUid = userRef.id;
+
+    final List ghostedOrders = userData['ghostedOrders'] as List? ?? [];
+    if (ghostedOrders.contains(orderId) || ghostedOrders.contains(sixCharOrderId)) {
+      return;
+    }
+
+    final currentOffenses = (userData['offenseCount'] as num? ?? 0).toInt();
+    final newOffenseCount = currentOffenses + 1;
+
+    DateTime? restrictionUntil;
+    bool isPermanentlyLocked = false;
+    String restrictionMsg = '';
+
+    if (newOffenseCount == 1) {
+      restrictionUntil = TimeService.now.add(const Duration(hours: 2));
+      restrictionMsg = '2-hour order restriction';
+    } else if (newOffenseCount == 2) {
+      restrictionUntil = TimeService.now.add(const Duration(hours: 24));
+      restrictionMsg = '24-hour order restriction';
+    } else if (newOffenseCount == 3) {
+      restrictionUntil = TimeService.now.add(const Duration(hours: 72));
+      restrictionMsg = '72-hour (3-day) order restriction';
+    } else {
+      isPermanentlyLocked = true;
+      restrictionMsg = 'Permanent account lock';
+    }
+
+    await userRef.update({
+      'offenseCount': newOffenseCount,
+      'restrictedUntil':
+          restrictionUntil != null ? Timestamp.fromDate(restrictionUntil) : null,
+      'restrictionUntil':
+          restrictionUntil != null ? Timestamp.fromDate(restrictionUntil) : null,
+      'isPermanentlyLocked': isPermanentlyLocked,
+      'lastOffenseAt': FieldValue.serverTimestamp(),
+      'ghostedOrders': FieldValue.arrayUnion([orderId, sixCharOrderId]),
+    });
+
+    final String title = isPermanentlyLocked
+        ? '⛔ Account Permanently Locked'
+        : '⚠️ Ghosted Order Penalty ($newOffenseCount/4 Offenses)';
+    final String body = isPermanentlyLocked
+        ? 'Your order #$sixCharOrderId expired without collection. Your account is permanently locked from placing orders ($newOffenseCount offenses). You may submit an appeal.'
+        : 'Your order #$sixCharOrderId expired without collection. Penalty: $restrictionMsg. You cannot place pre-orders during this period.';
+
+    await addCustomerNotification(
+      userId: targetUid,
+      title: title,
+      body: body,
+      type: 'offense',
+      relatedId: orderId,
+    );
+
+    NotificationService.showSmsNotificationPopUp(
+      title: title,
+      body: body,
+    );
+  }
+
+  Future<void> submitAppeal(CustomerAppeal appeal) {
+    return _appeals.add(appeal.toFirestore());
+  }
+
+  Stream<List<CustomerAppeal>> appealsStreamForUser(String userId) {
+    return _appeals
+        .where('userId', isEqualTo: userId)
+        .snapshots()
+        .map((s) => s.docs.map(CustomerAppeal.fromFirestore).toList());
   }
 }

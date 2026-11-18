@@ -92,11 +92,31 @@ class OrderProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  final Set<String> _processedGhostedOrderIds = {};
+
+  void _handleGhostedOrder(PreOrder order) {
+    if (_processedGhostedOrderIds.contains(order.id) ||
+        _processedGhostedOrderIds.contains(order.orderId)) {
+      return;
+    }
+    _processedGhostedOrderIds.add(order.id);
+    _processedGhostedOrderIds.add(order.orderId);
+
+    _fs.cancelOrder(order.id, order.items);
+    _fs.recordGhostingOffense(
+      userId: order.customerId,
+      userEmail: order.customerEmail,
+      orderId: order.id,
+      sixCharOrderId: order.orderId,
+    );
+    debugPrint('Recorded ghosting offense for order: ${order.orderId}');
+  }
+
   void _checkAndProcessExpirations() {
     bool hasExpiredChange = false;
     for (int i = 0; i < _orders.length; i++) {
-      if (_orders[i].isExpired) {
-        _fs.cancelOrder(_orders[i].id, _orders[i].items);
+      if (_orders[i].isExpired && _orders[i].status != OrderStatus.cancelled) {
+        _handleGhostedOrder(_orders[i]);
         _orders[i] = _orders[i].copyWith(status: OrderStatus.cancelled);
         hasExpiredChange = true;
       }
@@ -141,8 +161,8 @@ class OrderProvider extends ChangeNotifier {
   /// Cancels in Firestore and returns copies with cancelled status for UI consistency.
   List<PreOrder> _processAndCancelExpired(List<PreOrder> list) {
     return list.map((order) {
-      if (order.isExpired) {
-        _fs.cancelOrder(order.id, order.items);
+      if (order.isExpired && order.status != OrderStatus.cancelled) {
+        _handleGhostedOrder(order);
         debugPrint('Auto-cancelled expired order: ${order.orderId}');
         return order.copyWith(status: OrderStatus.cancelled);
       }

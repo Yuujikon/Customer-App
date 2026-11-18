@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -13,6 +14,8 @@ import '../../../core/utils/store_hours.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/screens/otp_verification_screen.dart';
 import '../../../shared/services/verification_service.dart';
+import '../../../shared/services/firestore_service.dart';
+import '../../../shared/models/customer_appeal.dart';
 import '../widgets/info/store_info_sheet.dart';
 import '../../../shared/widgets/common/logout_confirm_dialog.dart';
 
@@ -91,6 +94,8 @@ class _AccountScreenState extends State<AccountScreen> {
                             _buildProfileCard(
                                 context, auth, displayName, email, isTablet),
                             const SizedBox(height: 16),
+                            _buildAccountStandingCard(context, auth),
+                            const SizedBox(height: 16),
                             _buildStoreCard(context),
                           ],
                         ),
@@ -102,6 +107,8 @@ class _AccountScreenState extends State<AccountScreen> {
                 )
               else ...[
                 _buildProfileCard(context, auth, displayName, email, isTablet),
+                const SizedBox(height: 16),
+                _buildAccountStandingCard(context, auth),
                 const SizedBox(height: 16),
                 _buildStoreBioCard(context),
                 const SizedBox(height: 16),
@@ -316,6 +323,424 @@ class _AccountScreenState extends State<AccountScreen> {
     );
   }
 
+  Widget _buildAccountStandingCard(BuildContext context, AppAuthProvider auth) {
+    final isRestricted = auth.isOrderRestricted;
+    final isLocked = auth.isPermanentlyLocked;
+    final offenseCount = auth.offenseCount;
+    final remainingDuration = auth.remainingRestrictionDuration;
+
+    final Color cardColor;
+    final Color badgeColor;
+    final IconData iconData;
+    final String statusTitle;
+    final String statusSubtitle;
+
+    if (isLocked) {
+      cardColor = const Color(0xFFFFEBEE);
+      badgeColor = const Color(0xFFC62828);
+      iconData = Icons.gavel_rounded;
+      statusTitle = '4th Offense · Permanently Locked';
+      statusSubtitle =
+          'Your account is permanently locked from placing pre-orders due to repeated uncollected/ghosted orders. You can submit an appeal below.';
+    } else if (isRestricted) {
+      cardColor = const Color(0xFFFFF3E0);
+      badgeColor = const Color(0xFFE65100);
+      iconData = Icons.warning_amber_rounded;
+
+      final remainingText = remainingDuration != null
+          ? _formatRemainingDuration(remainingDuration)
+          : 'Active restriction';
+
+      if (offenseCount == 1) {
+        statusTitle = '1st Offense · 2-Hour Order Restriction';
+        statusSubtitle =
+            'Restricted from ordering. Try again in $remainingText. Avoid ghosting pre-orders to keep your account in good standing.';
+      } else if (offenseCount == 2) {
+        statusTitle = '2nd Offense · 24-Hour Order Restriction';
+        statusSubtitle =
+            'Restricted from ordering. Try again in $remainingText. Repeated uncollected orders will result in longer penalties.';
+      } else {
+        statusTitle = '3rd Offense · 72-Hour (3-Day) Order Restriction';
+        statusSubtitle =
+            'Restricted from ordering. Try again in $remainingText. Note: Next offense results in permanent account lock.';
+      }
+    } else {
+      cardColor = const Color(0xFFE8F5E9);
+      badgeColor = const Color(0xFF2E7D32);
+      iconData = Icons.verified_user_rounded;
+      statusTitle = offenseCount == 0
+          ? 'Good Standing (0 Offenses)'
+          : 'Active Standing ($offenseCount Offense${offenseCount > 1 ? "s" : ""})';
+      statusSubtitle = offenseCount == 0
+          ? 'Your account has full pre-order privileges and no active restrictions.'
+          : 'Your previous restriction period has expired. Please ensure you pick up all future pre-orders on time.';
+    }
+
+    final userId = auth.currentUser?.uid ?? '';
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: badgeColor.withValues(alpha: 0.3), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: badgeColor.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'ACCOUNT STANDING & PERMISSIONS',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  color: badgeColor,
+                  letterSpacing: 1.0,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: cardColor,
+                  borderRadius: BorderRadius.circular(100),
+                  border: Border.all(color: badgeColor.withValues(alpha: 0.4)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(iconData, size: 12, color: badgeColor),
+                    const SizedBox(width: 4),
+                    Text(
+                      isLocked
+                          ? 'LOCKED'
+                          : (isRestricted ? 'RESTRICTED' : 'NORMAL'),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        color: badgeColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: cardColor,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(iconData, color: badgeColor, size: 22),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      statusTitle,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      statusSubtitle,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).textTheme.bodySmall?.color,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          if (userId.isNotEmpty)
+            StreamBuilder<List<CustomerAppeal>>(
+              stream: FirestoreService().appealsStreamForUser(userId),
+              builder: (context, snapshot) {
+                final appeals = snapshot.data ?? [];
+                appeals.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+                final pendingAppeal =
+                    appeals.where((a) => a.status == AppealStatus.pending).firstOrNull;
+                final latestAppeal = appeals.firstOrNull;
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 16),
+                    const Divider(height: 1),
+                    const SizedBox(height: 14),
+
+                    if (pendingAppeal != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.hourglass_top_rounded,
+                                color: Colors.blue, size: 20),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Appeal Pending Admin Review',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.blue,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Submitted on ${DateFormat('MMM d, h:mm a').format(pendingAppeal.createdAt)}. Store management will review your request.',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.blue[900],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ] else ...[
+                      if (latestAppeal != null && pendingAppeal == null) ...[
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: latestAppeal.status == AppealStatus.approved
+                                ? Colors.green.withValues(alpha: 0.08)
+                                : Colors.red.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: latestAppeal.status == AppealStatus.approved
+                                  ? Colors.green.withValues(alpha: 0.3)
+                                  : Colors.red.withValues(alpha: 0.3),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                latestAppeal.status == AppealStatus.approved
+                                    ? Icons.check_circle_rounded
+                                    : Icons.cancel_rounded,
+                                color: latestAppeal.status == AppealStatus.approved
+                                    ? Colors.green
+                                    : Colors.red,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  latestAppeal.status == AppealStatus.approved
+                                      ? 'Latest Appeal: Approved by Store Admin'
+                                      : 'Latest Appeal: Rejected${latestAppeal.adminNotes != null ? " (${latestAppeal.adminNotes})" : ""}',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: latestAppeal.status == AppealStatus.approved
+                                        ? Colors.green[800]
+                                        : Colors.red[800],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+
+                      if (isRestricted || isLocked || offenseCount > 0)
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () => _showAppealDialog(context, auth),
+                            icon: const Icon(Icons.gavel_rounded, size: 16),
+                            label: const Text('Submit Appeal to Store Admin'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: badgeColor,
+                              side: BorderSide(color: badgeColor, width: 1.2),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ],
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _formatRemainingDuration(Duration d) {
+    if (d.inHours > 0) {
+      final hours = d.inHours;
+      final mins = d.inMinutes % 60;
+      return '$hours hr${hours > 1 ? "s" : ""} ${mins} min${mins > 1 ? "s" : ""}';
+    } else {
+      final mins = d.inMinutes;
+      return '$mins min${mins > 1 ? "s" : ""}';
+    }
+  }
+
+  void _showAppealDialog(BuildContext context, AppAuthProvider auth) {
+    final reasonCtrl = TextEditingController();
+    bool submitting = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: const Row(
+              children: [
+                Icon(Icons.gavel_rounded, color: AppColors.orangeCTA),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text('Submit Restriction Appeal',
+                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Explain why you missed or ghosted your pre-order pick up. Your appeal will be reviewed by store management.',
+                    style: TextStyle(fontSize: 12.5, color: Colors.grey[700]),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: reasonCtrl,
+                    maxLines: 4,
+                    decoration: InputDecoration(
+                      hintText:
+                          'Enter your explanation for missing the order (e.g. medical emergency, technical issue)...',
+                      hintStyle: const TextStyle(fontSize: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: AppColors.forest, width: 2),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: submitting ? null : () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: submitting
+                    ? null
+                    : () async {
+                        final reason = reasonCtrl.text.trim();
+                        if (reason.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please enter an explanation for your appeal.'),
+                              backgroundColor: AppColors.error,
+                            ),
+                          );
+                          return;
+                        }
+
+                        setDialogState(() => submitting = true);
+
+                        try {
+                          final appeal = CustomerAppeal(
+                            id: '',
+                            userId: auth.currentUser?.uid ?? '',
+                            customerEmail: auth.email,
+                            customerName: auth.displayName,
+                            offenseCount: auth.offenseCount,
+                            reason: reason,
+                            status: AppealStatus.pending,
+                            createdAt: DateTime.now(),
+                          );
+
+                          await FirestoreService().submitAppeal(appeal);
+
+                          if (ctx.mounted) Navigator.pop(ctx);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                    '🎉 Your appeal has been submitted to store admins for review.'),
+                                backgroundColor: AppColors.success,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          setDialogState(() => submitting = false);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Failed to submit appeal: $e'),
+                                backgroundColor: AppColors.error,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.forest,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: submitting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Text('Submit Appeal',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildStoreCard(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -525,11 +950,44 @@ class _AccountScreenState extends State<AccountScreen> {
     }
   }
 
-  void _showEditDialog(BuildContext context, AppAuthProvider auth) {
-    showDialog(
+  Future<void> _showEditDialog(BuildContext context, AppAuthProvider auth) async {
+    final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (ctx) => _EditPersonalInformationDialog(auth: auth),
     );
+
+    if (result == null || !mounted) return;
+
+    final String? updatedName = result['updatedName'];
+    final String? newPhoneToVerify = result['newPhoneToVerify'];
+
+    if (newPhoneToVerify != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => OtpVerificationScreen(
+            contactMethod: newPhoneToVerify,
+            isEmail: false,
+            onSuccess: () async {
+              Navigator.pop(context); // Close OTP screen
+              await auth.updateProfile(
+                name: updatedName,
+                phone: newPhoneToVerify,
+              );
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                        'Phone number verified and updated successfully!'),
+                    backgroundColor: AppColors.forest,
+                  ),
+                );
+              }
+            },
+          ),
+        ),
+      );
+    }
   }
 
   Widget _buildStoreBioCard(BuildContext context) {
@@ -842,37 +1300,11 @@ class __EditPersonalInformationDialogState
           return;
         }
 
-        Navigator.pop(context); // Close edit dialog
-
-        final finalName = updatedName;
-        final finalPhone = newPhoneToVerify;
-
-        if (!mounted) return;
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => OtpVerificationScreen(
-              contactMethod: finalPhone,
-              isEmail: false,
-              onSuccess: () async {
-                Navigator.pop(context); // Close OTP screen
-                await widget.auth.updateProfile(
-                  name: finalName,
-                  phone: finalPhone,
-                );
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                          'Phone number verified and updated successfully!'),
-                      backgroundColor: AppColors.forest,
-                    ),
-                  );
-                }
-              },
-            ),
-          ),
-        );
+        // Close edit dialog and return details payload to _AccountScreenState
+        Navigator.pop(context, {
+          'updatedName': updatedName,
+          'newPhoneToVerify': newPhoneToVerify,
+        });
       } else {
         // Name-only change
         await widget.auth.updateProfile(
@@ -880,6 +1312,14 @@ class __EditPersonalInformationDialogState
           phone: null,
         );
         if (mounted) Navigator.pop(context);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Profile name updated successfully!'),
+              backgroundColor: AppColors.forest,
+            ),
+          );
+        }
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);

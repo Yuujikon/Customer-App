@@ -42,21 +42,22 @@ class VerificationService {
     required bool isEmail,
   }) async {
     try {
+      final cleanContact = contactMethod.trim();
       final String otpCode = _generateOtp();
 
       // 1. Save OTP to Firestore (valid for 5 minutes)
-      await _firestore.collection('otp_requests').doc(contactMethod).set({
+      await _firestore.collection('otp_requests').doc(cleanContact).set({
         'code': otpCode,
         'createdAt': FieldValue.serverTimestamp(),
         'expiresAt': DateTime.now().add(const Duration(minutes: 5)),
         'attempts': 0, // Track incorrect attempts
-      });
+      }).timeout(const Duration(seconds: 10));
 
       // 2. Send the OTP
       if (isEmail) {
-        return await _sendEmail(contactMethod, otpCode);
+        return await _sendEmail(cleanContact, otpCode);
       } else {
-        return await _sendSms(contactMethod, otpCode);
+        return await _sendSms(cleanContact, otpCode);
       }
     } catch (e) {
       debugPrint('Error initiating OTP: $e');
@@ -70,8 +71,9 @@ class VerificationService {
     required String enteredCode,
   }) async {
     try {
-      final docRef = _firestore.collection('otp_requests').doc(contactMethod);
-      final doc = await docRef.get();
+      final cleanContact = contactMethod.trim();
+      final docRef = _firestore.collection('otp_requests').doc(cleanContact);
+      final doc = await docRef.get().timeout(const Duration(seconds: 10));
 
       if (!doc.exists) {
         return 'No OTP request found for this contact. Please request a new code.';
@@ -92,16 +94,16 @@ class VerificationService {
 
       if (enteredCode != storedCode) {
         // Increment attempts
-        await docRef.update({'attempts': FieldValue.increment(1)});
+        await docRef.update({'attempts': FieldValue.increment(1)}).timeout(const Duration(seconds: 5));
         return 'Incorrect OTP code. Please try again.';
       }
 
       // Success! Clean up the document
-      await docRef.delete();
+      await docRef.delete().timeout(const Duration(seconds: 5));
       return null; // Null means success (no error string)
     } catch (e) {
       debugPrint('Error verifying OTP: $e');
-      return 'An error occurred during verification. Please try again.';
+      return 'An error occurred during verification. Please check your internet connection and try again.';
     }
   }
 

@@ -9,7 +9,9 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/store_hours.dart';
 import '../../../shared/models/order.dart';
 import '../../../shared/models/product.dart';
+import '../../../shared/models/customer_appeal.dart';
 import '../../../shared/services/time_service.dart';
+import '../../../shared/services/firestore_service.dart';
 import '../../../shared/widgets/common/quantity_selector_dialog.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../shop/providers/inventory_provider.dart';
@@ -62,6 +64,12 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
   }
 
   Future<void> _showPickupTimePicker() async {
+    final authProvider = context.read<AppAuthProvider>();
+    if (authProvider.isOrderRestricted) {
+      _showRestrictionDialog(authProvider);
+      return;
+    }
+
     final orderProvider = context.read<OrderProvider>();
     final inventoryProvider = context.read<InventoryProvider>();
     final cart = orderProvider.preCart;
@@ -683,6 +691,11 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
 
     if (orderProvider.preCart.isEmpty) return;
 
+    if (authProvider.isOrderRestricted) {
+      _showRestrictionDialog(authProvider);
+      return;
+    }
+
     if (!authProvider.isFullNameSet) {
       _showFullNameRequiredDialog();
       return;
@@ -762,6 +775,7 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
   Widget build(BuildContext context) {
     final orderProvider = context.watch<OrderProvider>();
     final inventoryProvider = context.watch<InventoryProvider>();
+    final authProvider = context.watch<AppAuthProvider>();
     final cart = orderProvider.preCart;
 
     if (_submittedOrder != null) {
@@ -888,6 +902,89 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                     ),
 
                     const SizedBox(height: 20),
+
+                    if (authProvider.isOrderRestricted) ...[
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: authProvider.isPermanentlyLocked
+                              ? const Color(0xFFFFEBEE)
+                              : const Color(0xFFFFF3E0),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: authProvider.isPermanentlyLocked
+                                ? Colors.red.withValues(alpha: 0.5)
+                                : Colors.orange.withValues(alpha: 0.5),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  authProvider.isPermanentlyLocked
+                                      ? Icons.gavel_rounded
+                                      : Icons.warning_amber_rounded,
+                                  color: authProvider.isPermanentlyLocked
+                                      ? Colors.red[800]
+                                      : Colors.orange[800],
+                                  size: 22,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    authProvider.isPermanentlyLocked
+                                        ? 'Account Permanently Locked'
+                                        : 'Pre-Order Placement Restricted',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: authProvider.isPermanentlyLocked
+                                          ? Colors.red[900]
+                                          : Colors.orange[900],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              authProvider.isPermanentlyLocked
+                                  ? 'Your account is permanently locked due to 4 ghosted/uncollected orders. You cannot submit pre-orders.'
+                                  : 'You are restricted from placing pre-orders due to uncollected/ghosted orders (${authProvider.restrictionStatusText}).',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: authProvider.isPermanentlyLocked
+                                    ? Colors.red[900]
+                                    : Colors.orange[900],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: () =>
+                                    _showRestrictionDialog(authProvider),
+                                icon: const Icon(Icons.gavel_rounded, size: 16),
+                                label: const Text(
+                                    'View Penalty Details & Submit Appeal'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: authProvider.isPermanentlyLocked
+                                      ? Colors.red[800]
+                                      : Colors.orange[800],
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(100),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
 
                     // Items List
                     ...cart.map((item) {
@@ -1608,6 +1705,212 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                   ],
                 ),
               ),
+      ),
+    );
+  }
+
+  void _showRestrictionDialog(AppAuthProvider authProvider) {
+    final isLocked = authProvider.isPermanentlyLocked;
+    final remaining = authProvider.remainingRestrictionDuration;
+
+    final String title = isLocked
+        ? 'Account Permanently Locked'
+        : 'Order Restriction Active (${authProvider.offenseCount}/4 Offenses)';
+
+    final String message;
+    if (isLocked) {
+      message =
+          'Your account has reached 4 offenses due to ghosting/uncollected pre-orders. Your pre-ordering privileges are permanently locked. You may submit an appeal to store management to request a review.';
+    } else {
+      final remainingStr =
+          remaining != null ? _formatDuration(remaining) : 'active duration';
+      message =
+          'You are currently restricted from placing pre-orders for $remainingStr due to uncollected orders (${authProvider.restrictionStatusText}).\n\nIf you believe this was an error, you can submit an appeal.';
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Icon(
+              isLocked ? Icons.gavel_rounded : Icons.warning_amber_rounded,
+              color: isLocked ? Colors.red : Colors.orange,
+              size: 24,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          message,
+          style: const TextStyle(fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _showAppealDialog(authProvider);
+            },
+            icon: const Icon(Icons.gavel_rounded, size: 16),
+            label: const Text('Submit Appeal'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.forest,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDuration(Duration d) {
+    if (d.inHours > 0) {
+      final hours = d.inHours;
+      final mins = d.inMinutes % 60;
+      return '$hours hr${hours > 1 ? "s" : ""} ${mins} min${mins > 1 ? "s" : ""}';
+    } else {
+      final mins = d.inMinutes;
+      return '$mins min${mins > 1 ? "s" : ""}';
+    }
+  }
+
+  void _showAppealDialog(AppAuthProvider auth) {
+    final reasonCtrl = TextEditingController();
+    bool submitting = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: const Row(
+              children: [
+                Icon(Icons.gavel_rounded, color: AppColors.orangeCTA),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text('Submit Restriction Appeal',
+                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Explain why you missed or ghosted your pre-order pick up. Your appeal will be reviewed by store management.',
+                    style: TextStyle(fontSize: 12.5, color: Colors.grey[700]),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: reasonCtrl,
+                    maxLines: 4,
+                    decoration: InputDecoration(
+                      hintText:
+                          'Enter your explanation for missing the order (e.g. medical emergency, technical issue)...',
+                      hintStyle: const TextStyle(fontSize: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: AppColors.forest, width: 2),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: submitting ? null : () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: submitting
+                    ? null
+                    : () async {
+                        final reason = reasonCtrl.text.trim();
+                        if (reason.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please enter an explanation for your appeal.'),
+                              backgroundColor: AppColors.error,
+                            ),
+                          );
+                          return;
+                        }
+
+                        setDialogState(() => submitting = true);
+
+                        try {
+                          final appeal = CustomerAppeal(
+                            id: '',
+                            userId: auth.currentUser?.uid ?? '',
+                            customerEmail: auth.email,
+                            customerName: auth.displayName,
+                            offenseCount: auth.offenseCount,
+                            reason: reason,
+                            status: AppealStatus.pending,
+                            createdAt: DateTime.now(),
+                          );
+
+                          await FirestoreService().submitAppeal(appeal);
+
+                          if (ctx.mounted) Navigator.pop(ctx);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                    '🎉 Your appeal has been submitted to store admins for review.'),
+                                backgroundColor: AppColors.success,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          setDialogState(() => submitting = false);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Failed to submit appeal: $e'),
+                                backgroundColor: AppColors.error,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.forest,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: submitting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Text('Submit Appeal',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
