@@ -1256,15 +1256,54 @@ class _OrderLogisticsTab extends StatelessWidget {
 
 // ── Tab 3: Dispute Resolution & Capital Restitution Governance ─────────────
 
-class _DisputeGovernanceTab extends StatelessWidget {
+class _DisputeGovernanceTab extends StatefulWidget {
   final OrderProvider orderProvider;
 
   const _DisputeGovernanceTab({required this.orderProvider});
 
   @override
+  State<_DisputeGovernanceTab> createState() => _DisputeGovernanceTabState();
+}
+
+class _DisputeGovernanceTabState extends State<_DisputeGovernanceTab> {
+  @override
+  void initState() {
+    super.initState();
+    // Auto sync any previously approved appeals to lift remaining restrictions
+    FirestoreService().syncApprovedAppeals();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: 2,
+      child: Column(
+        children: [
+          const TabBar(
+            labelColor: GdcColors.peachLight,
+            unselectedLabelColor: Colors.grey,
+            indicatorColor: GdcColors.peachLight,
+            tabs: [
+              Tab(text: 'Refund Claims'),
+              Tab(text: 'Account Appeals'),
+            ],
+          ),
+          Expanded(
+            child: TabBarView(
+              children: [
+                _buildRefundsTab(),
+                _buildAppealsTab(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRefundsTab() {
     return StreamBuilder<List<PreOrder>>(
-      stream: orderProvider.ordersStream,
+      stream: widget.orderProvider.ordersStream,
       builder: (context, snap) {
         if (!snap.hasData)
           return const Center(child: CircularProgressIndicator());
@@ -1290,12 +1329,7 @@ class _DisputeGovernanceTab extends StatelessWidget {
         }
 
         return ListView.builder(
-          padding: EdgeInsets.fromLTRB(
-            16,
-            16,
-            16,
-            32 + MediaQuery.paddingOf(context).bottom,
-          ),
+          padding: const EdgeInsets.all(16),
           itemCount: refundRequestedOrders.length,
           itemBuilder: (context, i) {
             final order = refundRequestedOrders[i];
@@ -1347,6 +1381,128 @@ class _DisputeGovernanceTab extends StatelessWidget {
                             style: ElevatedButton.styleFrom(
                                 backgroundColor: GdcColors.success),
                             child: const Text('APPROVE REFUND',
+                                style: TextStyle(
+                                    fontSize: 11, fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildAppealsTab() {
+    return StreamBuilder<List<CustomerAppeal>>(
+      stream: FirestoreService().allPendingAppealsStream(),
+      builder: (context, snap) {
+        if (!snap.hasData)
+          return const Center(child: CircularProgressIndicator());
+
+        final appeals = snap.data!;
+
+        if (appeals.isEmpty) {
+          return const Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.gavel_rounded, size: 60, color: Colors.grey),
+                SizedBox(height: 12),
+                Text('No Pending Account Appeals',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold, color: Colors.grey)),
+              ],
+            ),
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: appeals.length,
+          itemBuilder: (context, i) {
+            final appeal = appeals[i];
+            return Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: Colors.blue.withValues(alpha: 0.5)),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Appeal from: ${appeal.customerName}',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w900, fontSize: 16)),
+                    Text(
+                        '${appeal.customerEmail} • ${appeal.offenseCount} Offenses',
+                        style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey)),
+                    const Divider(height: 16),
+                    const Text('Reason:',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 12)),
+                    const SizedBox(height: 4),
+                    Text(appeal.reason, style: const TextStyle(fontSize: 14)),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () async {
+                              final adminEmail = Provider.of<AppAuthProvider>(
+                                          context,
+                                          listen: false)
+                                      .currentUser
+                                      ?.email ??
+                                  'admin';
+                              await FirestoreService()
+                                  .approveAppeal(appeal, adminEmail);
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content: Text(
+                                            'Appeal Approved! Offense tier decremented & restriction lifted.')));
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                                backgroundColor: GdcColors.success),
+                            child: const Text('APPROVE',
+                                style: TextStyle(
+                                    fontSize: 11, fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () async {
+                              final adminEmail = Provider.of<AppAuthProvider>(
+                                          context,
+                                          listen: false)
+                                      .currentUser
+                                      ?.email ??
+                                  'admin';
+                              await FirestoreService()
+                                  .rejectAppeal(appeal.id, adminEmail);
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content: Text('Appeal Rejected.')));
+                              }
+                            },
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: GdcColors.warning,
+                              side: const BorderSide(color: GdcColors.warning),
+                            ),
+                            child: const Text('REJECT',
                                 style: TextStyle(
                                     fontSize: 11, fontWeight: FontWeight.bold)),
                           ),

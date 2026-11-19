@@ -388,75 +388,165 @@ class _RefundButton extends StatelessWidget {
   void _showRefundRequestDialog(BuildContext context) async {
     final descCtrl = TextEditingController();
     final List<String> selectedReasons = [];
+    final List<CartItem> selectedItems = [];
 
     final res = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setSt) => AlertDialog(
-          title: const Text('Request Refund'),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          backgroundColor: const Color(0xFFF1F4EB),
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Request Refund', style: TextStyle(fontWeight: FontWeight.w600)),
+              IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.pop(ctx, false),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
+          ),
+          contentPadding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                const Text('Select items to refund:',
+                    style:
+                        TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 12),
+                ...order.items.map((item) {
+                  final isSelected = selectedItems.contains(item);
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: InkWell(
+                      onTap: () {
+                        setSt(() {
+                          if (isSelected) {
+                            selectedItems.remove(item);
+                          } else {
+                            selectedItems.add(item);
+                          }
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: isSelected ? Colors.white : Colors.transparent,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                              color: isSelected ? AppColors.forest : Colors.grey.shade300,
+                              width: isSelected ? 1.5 : 1),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                                isSelected
+                                    ? Icons.check_box_rounded
+                                    : Icons.check_box_outline_blank_rounded,
+                                color: isSelected ? AppColors.forest : Colors.grey),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('${item.qty}x ${item.name}',
+                                      style: const TextStyle(fontSize: 14)),
+                                  Text(formatPeso(item.price * item.qty),
+                                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+                const SizedBox(height: 16),
                 const Text('What is the issue with your items?',
                     style:
-                        TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                        TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 12),
-                CheckboxListTile(
-                  title: const Text('Damaged Item',
-                      style: TextStyle(fontSize: 14)),
-                  value: selectedReasons.contains('Damaged'),
-                  onChanged: (v) => setSt(() => v!
+                _buildCustomCheckbox(
+                  'Damaged Item',
+                  selectedReasons.contains('Damaged'),
+                  (v) => setSt(() => v
                       ? selectedReasons.add('Damaged')
                       : selectedReasons.remove('Damaged')),
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  controlAffinity: ListTileControlAffinity.leading,
                 ),
-                CheckboxListTile(
-                  title: const Text('Expired Item',
-                      style: TextStyle(fontSize: 14)),
-                  value: selectedReasons.contains('Expired'),
-                  onChanged: (v) => setSt(() => v!
+                _buildCustomCheckbox(
+                  'Expired Item',
+                  selectedReasons.contains('Expired'),
+                  (v) => setSt(() => v
                       ? selectedReasons.add('Expired')
                       : selectedReasons.remove('Expired')),
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  controlAffinity: ListTileControlAffinity.leading,
                 ),
-                CheckboxListTile(
-                  title: const Text('Wrong Item Received',
-                      style: TextStyle(fontSize: 14)),
-                  value: selectedReasons.contains('Wrong Item'),
-                  onChanged: (v) => setSt(() => v!
+                _buildCustomCheckbox(
+                  'Wrong Item Received',
+                  selectedReasons.contains('Wrong Item'),
+                  (v) => setSt(() => v
                       ? selectedReasons.add('Wrong Item')
                       : selectedReasons.remove('Wrong Item')),
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  controlAffinity: ListTileControlAffinity.leading,
                 ),
                 const SizedBox(height: 16),
                 TextField(
                   controller: descCtrl,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: 'Provide more details...',
-                    border: OutlineInputBorder(),
+                  maxLines: 1,
+                  decoration: InputDecoration(
+                    hintText: 'Provide more details...',
+                    hintStyle: const TextStyle(fontSize: 14, color: Colors.grey),
+                    prefixIcon: const Icon(Icons.chat_bubble_outline_rounded, size: 20, color: Colors.grey),
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   ),
                 ),
+                const SizedBox(height: 8),
               ],
             ),
           ),
+          actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
           actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('CANCEL')),
-            ElevatedButton(
-              onPressed: selectedReasons.isEmpty
-                  ? null
-                  : () => Navigator.pop(ctx, true),
-              child: const Text('SUBMIT'),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.forest,
+                    ),
+                    child: const Text('CANCEL', style: TextStyle(fontWeight: FontWeight.w600)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: (selectedReasons.isEmpty || selectedItems.isEmpty)
+                        ? null
+                        : () => Navigator.pop(ctx, true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.forest,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: const Text('SUBMIT', style: TextStyle(fontWeight: FontWeight.w600)),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -467,7 +557,7 @@ class _RefundButton extends StatelessWidget {
       final fullReason =
           '${selectedReasons.join(", ")}: ${descCtrl.text.trim()}';
       try {
-        await context.read<OrderProvider>().requestRefund(order.id, fullReason);
+        await context.read<OrderProvider>().requestRefund(order.id, fullReason, selectedItems);
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
               content: Text('Refund request submitted successfully.')));
@@ -479,6 +569,24 @@ class _RefundButton extends StatelessWidget {
         }
       }
     }
+  }
+  Widget _buildCustomCheckbox(String title, bool isSelected, Function(bool) onChanged) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: InkWell(
+        onTap: () => onChanged(!isSelected),
+        child: Row(
+          children: [
+            Icon(
+              isSelected ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
+              color: isSelected ? AppColors.forest : Colors.grey,
+            ),
+            const SizedBox(width: 12),
+            Text(title, style: const TextStyle(fontSize: 14)),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -493,22 +601,47 @@ class _CancelRefundButton extends StatelessWidget {
         final confirm = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
+            backgroundColor: const Color(0xFFF1F4EB),
             shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: const Text('Cancel Refund Request?'),
-            content: Text(
-                'Are you sure you want to cancel your refund request for order ${order.orderId}?'),
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            title: const Column(
+              children: [
+                Icon(Icons.error_outline_rounded, color: GdcColors.terracotta, size: 28),
+                SizedBox(height: 8),
+                Text('Cancel Refund?', style: TextStyle(fontWeight: FontWeight.w600)),
+              ],
+            ),
+            content: const Text(
+                'Are you sure you want to cancel your refund request?',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14)),
+            actionsAlignment: MainAxisAlignment.center,
+            actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
             actions: [
-              TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text('NO, KEEP IT')),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: GdcColors.error,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('YES, CANCEL REFUND'),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.forest,
+                        side: const BorderSide(color: AppColors.forest, width: 1.5),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: const Text('No, Keep It', style: TextStyle(fontWeight: FontWeight.bold))),
+                  const SizedBox(height: 12),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: GdcColors.error,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: const Text('Yes, Cancel Refund', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ],
               ),
             ],
           ),

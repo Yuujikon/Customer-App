@@ -383,7 +383,8 @@ class _AccountScreenState extends State<AccountScreen> {
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: badgeColor.withValues(alpha: 0.3), width: 1.5),
+        border:
+            Border.all(color: badgeColor.withValues(alpha: 0.3), width: 1.5),
         boxShadow: [
           BoxShadow(
             color: badgeColor.withValues(alpha: 0.05),
@@ -472,7 +473,6 @@ class _AccountScreenState extends State<AccountScreen> {
               ),
             ],
           ),
-
           if (userId.isNotEmpty)
             StreamBuilder<List<CustomerAppeal>>(
               stream: FirestoreService().appealsStreamForUser(userId),
@@ -480,8 +480,9 @@ class _AccountScreenState extends State<AccountScreen> {
                 final appeals = snapshot.data ?? [];
                 appeals.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-                final pendingAppeal =
-                    appeals.where((a) => a.status == AppealStatus.pending).firstOrNull;
+                final pendingAppeal = appeals
+                    .where((a) => a.status == AppealStatus.pending)
+                    .firstOrNull;
                 final latestAppeal = appeals.firstOrNull;
 
                 return Column(
@@ -490,14 +491,14 @@ class _AccountScreenState extends State<AccountScreen> {
                     const SizedBox(height: 16),
                     const Divider(height: 1),
                     const SizedBox(height: 14),
-
                     if (pendingAppeal != null) ...[
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: Colors.blue.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+                          border: Border.all(
+                              color: Colors.blue.withValues(alpha: 0.3)),
                         ),
                         child: Row(
                           children: [
@@ -540,9 +541,10 @@ class _AccountScreenState extends State<AccountScreen> {
                                 : Colors.red.withValues(alpha: 0.08),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: latestAppeal.status == AppealStatus.approved
-                                  ? Colors.green.withValues(alpha: 0.3)
-                                  : Colors.red.withValues(alpha: 0.3),
+                              color:
+                                  latestAppeal.status == AppealStatus.approved
+                                      ? Colors.green.withValues(alpha: 0.3)
+                                      : Colors.red.withValues(alpha: 0.3),
                             ),
                           ),
                           child: Row(
@@ -551,9 +553,10 @@ class _AccountScreenState extends State<AccountScreen> {
                                 latestAppeal.status == AppealStatus.approved
                                     ? Icons.check_circle_rounded
                                     : Icons.cancel_rounded,
-                                color: latestAppeal.status == AppealStatus.approved
-                                    ? Colors.green
-                                    : Colors.red,
+                                color:
+                                    latestAppeal.status == AppealStatus.approved
+                                        ? Colors.green
+                                        : Colors.red,
                                 size: 18,
                               ),
                               const SizedBox(width: 8),
@@ -565,7 +568,8 @@ class _AccountScreenState extends State<AccountScreen> {
                                   style: TextStyle(
                                     fontSize: 11.5,
                                     fontWeight: FontWeight.w700,
-                                    color: latestAppeal.status == AppealStatus.approved
+                                    color: latestAppeal.status ==
+                                            AppealStatus.approved
                                         ? Colors.green[800]
                                         : Colors.red[800],
                                   ),
@@ -575,8 +579,26 @@ class _AccountScreenState extends State<AccountScreen> {
                           ),
                         ),
                       ],
-
-                      if (isRestricted || isLocked || offenseCount > 0)
+                      if (isRestricted || isLocked || offenseCount > 0) ...[
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () => _showOffensePolicyDialog(context),
+                            icon: const Icon(Icons.info_outline_rounded,
+                                size: 16),
+                            label: const Text('View Offense Policy & Tiers'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.blueGrey,
+                              side: const BorderSide(
+                                  color: Colors.blueGrey, width: 1.2),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
                         SizedBox(
                           width: double.infinity,
                           child: OutlinedButton.icon(
@@ -593,6 +615,7 @@ class _AccountScreenState extends State<AccountScreen> {
                             ),
                           ),
                         ),
+                      ],
                     ],
                   ],
                 );
@@ -614,6 +637,79 @@ class _AccountScreenState extends State<AccountScreen> {
     }
   }
 
+  void _showOffensePolicyDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.policy_rounded, color: Colors.blueGrey),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text('Offense Policy & Tiers',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+        content: const SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Our pre-order system uses a tier-based penalty system for uncollected (ghosted) orders to ensure fair service for everyone.',
+                style: TextStyle(fontSize: 13, height: 1.4),
+              ),
+              SizedBox(height: 16),
+              _TierItem(
+                tier: '1st Offense',
+                penalty: '2-Hour Order Restriction',
+                description:
+                    'A temporary restriction giving you time to pick up future orders on time.',
+                color: Colors.orange,
+              ),
+              _TierItem(
+                tier: '2nd Offense',
+                penalty: '24-Hour Order Restriction',
+                description: 'A full day restriction for a repeated offense.',
+                color: Colors.deepOrange,
+              ),
+              _TierItem(
+                tier: '3rd Offense',
+                penalty: '72-Hour (3-Day) Restriction',
+                description:
+                    'A strict 3-day restriction. Next offense leads to a permanent lock.',
+                color: Colors.red,
+              ),
+              _TierItem(
+                tier: '4th Offense',
+                penalty: 'Permanent Account Lock',
+                description:
+                    'Your account is permanently locked from placing pre-orders.',
+                color: Colors.redAccent,
+              ),
+              SizedBox(height: 16),
+              Text(
+                'Note: If your appeal is approved by the store admin, your offense tier will be Reduced by 1.',
+                style: TextStyle(
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                    color: Colors.grey),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showAppealDialog(BuildContext context, AppAuthProvider auth) {
     final reasonCtrl = TextEditingController();
     bool submitting = false;
@@ -623,14 +719,16 @@ class _AccountScreenState extends State<AccountScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) {
           return AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             title: const Row(
               children: [
                 Icon(Icons.gavel_rounded, color: AppColors.orangeCTA),
                 SizedBox(width: 10),
                 Expanded(
                   child: Text('Submit Restriction Appeal',
-                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+                      style:
+                          TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
@@ -656,7 +754,8 @@ class _AccountScreenState extends State<AccountScreen> {
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: AppColors.forest, width: 2),
+                        borderSide:
+                            const BorderSide(color: AppColors.forest, width: 2),
                       ),
                     ),
                   ),
@@ -676,7 +775,8 @@ class _AccountScreenState extends State<AccountScreen> {
                         if (reason.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Please enter an explanation for your appeal.'),
+                              content: Text(
+                                  'Please enter an explanation for your appeal.'),
                               backgroundColor: AppColors.error,
                             ),
                           );
@@ -723,16 +823,19 @@ class _AccountScreenState extends State<AccountScreen> {
                       },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.forest,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
                 child: submitting
                     ? const SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
                       )
                     : const Text('Submit Appeal',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        style: TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.bold)),
               ),
             ],
           );
@@ -950,7 +1053,8 @@ class _AccountScreenState extends State<AccountScreen> {
     }
   }
 
-  Future<void> _showEditDialog(BuildContext context, AppAuthProvider auth) async {
+  Future<void> _showEditDialog(
+      BuildContext context, AppAuthProvider auth) async {
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (ctx) => _EditPersonalInformationDialog(auth: auth),
@@ -977,8 +1081,8 @@ class _AccountScreenState extends State<AccountScreen> {
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text(
-                        'Phone number verified and updated successfully!'),
+                    content:
+                        Text('Phone number verified and updated successfully!'),
                     backgroundColor: AppColors.forest,
                   ),
                 );
@@ -1173,8 +1277,8 @@ class __EditPersonalInformationDialogState
     _initialPhoneDigits = _extractPhDigits(auth.phoneNumber ?? '');
 
     _nameCtrl = TextEditingController(text: _initialName);
-    _phoneCtrl = TextEditingController(
-        text: _formatPhDigits(_initialPhoneDigits));
+    _phoneCtrl =
+        TextEditingController(text: _formatPhDigits(_initialPhoneDigits));
 
     _nameCtrl.addListener(_onFieldChanged);
     _phoneCtrl.addListener(_onFieldChanged);
@@ -1535,13 +1639,11 @@ class __EditPersonalInformationDialogState
                             ),
                           ),
                           Container(
-                            margin:
-                                const EdgeInsets.symmetric(horizontal: 10),
+                            margin: const EdgeInsets.symmetric(horizontal: 10),
                             height: 16,
                             width: 1,
-                            color: isDark
-                                ? borderColor
-                                : const Color(0xFFCBD2C6),
+                            color:
+                                isDark ? borderColor : const Color(0xFFCBD2C6),
                           ),
                           Expanded(
                             child: TextField(
@@ -1610,9 +1712,8 @@ class __EditPersonalInformationDialogState
                               .colorScheme
                               .surfaceContainerHighest
                           : const Color(0xFFF3F4F6),
-                      foregroundColor: isDark
-                          ? textPrimary
-                          : const Color(0xFF374151),
+                      foregroundColor:
+                          isDark ? textPrimary : const Color(0xFF374151),
                       minimumSize: const Size(0, 48),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(100),
@@ -1667,6 +1768,61 @@ class __EditPersonalInformationDialogState
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _TierItem extends StatelessWidget {
+  final String tier;
+  final String penalty;
+  final String description;
+  final Color color;
+
+  const _TierItem({
+    required this.tier,
+    required this.penalty,
+    required this.description,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(Icons.warning_amber_rounded, color: color, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$tier: $penalty',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  description,
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

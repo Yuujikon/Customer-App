@@ -476,7 +476,8 @@ class FirestoreService {
     final String targetUid = userRef.id;
 
     final List ghostedOrders = userData['ghostedOrders'] as List? ?? [];
-    if (ghostedOrders.contains(orderId) || ghostedOrders.contains(sixCharOrderId)) {
+    if (ghostedOrders.contains(orderId) ||
+        ghostedOrders.contains(sixCharOrderId)) {
       return;
     }
 
@@ -503,10 +504,12 @@ class FirestoreService {
 
     await userRef.update({
       'offenseCount': newOffenseCount,
-      'restrictedUntil':
-          restrictionUntil != null ? Timestamp.fromDate(restrictionUntil) : null,
-      'restrictionUntil':
-          restrictionUntil != null ? Timestamp.fromDate(restrictionUntil) : null,
+      'restrictedUntil': restrictionUntil != null
+          ? Timestamp.fromDate(restrictionUntil)
+          : null,
+      'restrictionUntil': restrictionUntil != null
+          ? Timestamp.fromDate(restrictionUntil)
+          : null,
       'isPermanentlyLocked': isPermanentlyLocked,
       'lastOffenseAt': FieldValue.serverTimestamp(),
       'ghostedOrders': FieldValue.arrayUnion([orderId, sixCharOrderId]),
@@ -542,5 +545,139 @@ class FirestoreService {
         .where('userId', isEqualTo: userId)
         .snapshots()
         .map((s) => s.docs.map(CustomerAppeal.fromFirestore).toList());
+  }
+
+  Stream<List<CustomerAppeal>> allPendingAppealsStream() {
+    return _appeals
+        .where('status', isEqualTo: 'pending')
+        .snapshots()
+        .map((s) => s.docs.map(CustomerAppeal.fromFirestore).toList());
+  }
+
+  Future<void> approveAppeal(CustomerAppeal appeal, String adminEmail) async {
+    final batch = _db.batch();
+
+    // 1. Update appeal document
+    final appealRef = _appeals.doc(appeal.id);
+    batch.update(appealRef, {
+      'status': 'approved',
+      'reviewedAt': FieldValue.serverTimestamp(),
+      'reviewedByEmail': adminEmail,
+    });
+
+    // 2. Locate user document (try by userId first, then email)
+    DocumentReference? userRef;
+    Map<String, dynamic> userData = {};
+
+    if (appeal.userId.isNotEmpty) {
+      final snap = await _db.collection('users').doc(appeal.userId).get();
+      if (snap.exists) {
+        userRef = snap.reference;
+        userData = snap.data() as Map<String, dynamic>;
+      }
+    }
+
+    if (userRef == null && appeal.customerEmail.isNotEmpty) {
+      final query = await _db
+          .collection('users')
+          .where('email', isEqualTo: appeal.customerEmail)
+          .limit(1)
+          .get();
+      if (query.docs.isNotEmpty) {
+        userRef = query.docs.first.reference;
+        userData = query.docs.first.data();
+      }
+    }
+
+    if (userRef != null) {
+      final currentOffenses =
+          (userData['offenseCount'] as num? ?? appeal.offenseCount).toInt();
+      final newOffenseCount = currentOffenses > 0 ? currentOffenses - 1 : 0;
+
+      // Decrement offense count by 1 AND lift restriction immediately
+      batch.update(userRef, {
+        'offenseCount': newOffenseCount,
+        'restrictedUntil': null,
+        'restrictionUntil': null,
+        'isPermanentlyLocked': false,
+      });
+
+      // Send customer notification
+      await addCustomerNotification(
+        userId: userRef.id,
+        title: '🎉 Appeal Approved & Restriction Lifted',
+        body:
+            'Your appeal has been approved by store management. Your offense tier has been reduced to $newOffenseCount and your restriction has been lifted!',
+        type: 'appeal_approved',
+      );
+    }
+
+    await batch.commit();
+  }
+
+  /// Fixes/syncs any existing approved appeals where the user's restriction was not cleared yet.
+  Future<void> syncApprovedAppeals() async {
+    try {
+      final approvedDocs =
+          await _appeals.where('status', isEqualTo: 'approved').get();
+      for (final doc in approvedDocs.docs) {
+        final appeal = CustomerAppeal.fromFirestore(doc);
+        DocumentReference? userRef;
+        Map<String, dynamic> userData = {};
+
+        if (appeal.userId.isNotEmpty) {
+          final snap = await _db.collection('users').doc(appeal.userId).get();
+          if (snap.exists) {
+            userRef = snap.reference;
+            userData = snap.data() as Map<String, dynamic>;
+          }
+        }
+
+        if (userRef == null && appeal.customerEmail.isNotEmpty) {
+          final query = await _db
+              .collection('users')
+              .where('email', isEqualTo: appeal.customerEmail)
+              .limit(1)
+              .get();
+          if (query.docs.isNotEmpty) {
+            userRef = query.docs.first.reference;
+            userData = query.docs.first.data();
+          }
+        }
+
+        if (userRef != null) {
+          final rawUntil =
+              userData['restrictedUntil'] ?? userData['restrictionUntil'];
+          final isLocked = userData['isPermanentlyLocked'] == true;
+
+          if (rawUntil != null || isLocked) {
+            final currentOffenses =
+                (userData['offenseCount'] as num? ?? appeal.offenseCount)
+                    .toInt();
+            final newOffenseCount =
+                currentOffenses > 0 ? currentOffenses - 1 : 0;
+
+            await userRef.update({
+              'offenseCount': newOffenseCount,
+              'restrictedUntil': null,
+              'restrictionUntil': null,
+              'isPermanentlyLocked': false,
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error syncing approved appeals: $e');
+    }
+  }
+
+  Future<void> rejectAppeal(String appealId, String adminEmail,
+      {String? adminNotes}) {
+    return _appeals.doc(appealId).update({
+      'status': 'rejected',
+      'reviewedAt': FieldValue.serverTimestamp(),
+      'reviewedByEmail': adminEmail,
+      if (adminNotes != null) 'adminNotes': adminNotes,
+    });
   }
 }

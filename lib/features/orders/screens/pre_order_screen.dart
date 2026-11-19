@@ -7,12 +7,15 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/store_hours.dart';
+import '../../../core/utils/pricing_engine.dart';
 import '../../../shared/models/order.dart';
 import '../../../shared/models/product.dart';
 import '../../../shared/models/customer_appeal.dart';
 import '../../../shared/services/time_service.dart';
 import '../../../shared/services/firestore_service.dart';
+import '../../../shared/services/xendit_service.dart';
 import '../../../shared/widgets/common/quantity_selector_dialog.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../shop/providers/inventory_provider.dart';
 import '../providers/order_provider.dart';
@@ -430,7 +433,8 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
             Text(
               'Scan this QR code using your $providerName app or send payment to $accountNumber (GDC Sari-Sari Store).',
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500),
+              style:
+                  const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500),
             ),
             const SizedBox(height: 16),
             Container(
@@ -463,7 +467,9 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
               'Account: $accountNumber\nName: GDC Sari-Sari Store',
               textAlign: TextAlign.center,
               style: const TextStyle(
-                  fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.forest),
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.forest),
             ),
           ],
         ),
@@ -494,7 +500,9 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
             color: isSelected ? AppColors.forest : Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: isSelected ? AppColors.forest : Theme.of(context).dividerColor,
+              color: isSelected
+                  ? AppColors.forest
+                  : Theme.of(context).dividerColor,
               width: 1.5,
             ),
             boxShadow: isSelected
@@ -522,7 +530,9 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
-                  color: isSelected ? Colors.white : Theme.of(context).colorScheme.onSurface,
+                  color: isSelected
+                      ? Colors.white
+                      : Theme.of(context).colorScheme.onSurface,
                 ),
               ),
             ],
@@ -702,21 +712,7 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
     }
 
     // Validation: Require Payment Reference Number for GCash / Maya
-    if (_selectedPaymentMethod != 'Cash' &&
-        _refNumCtrl.text.trim().length < 6) {
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '⚠️ Please enter your $_selectedPaymentMethod Transaction Reference Number before placing the pre-order.',
-          ),
-          backgroundColor: AppColors.error,
-          duration: const Duration(seconds: 4),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
+    // This is now handled by Xendit, so no reference number input is needed.
 
     // Rule 3 Expiration Check: Validate that selected slot hasn't passed current live time
     if (_isPickupSlotExpired(_pickupSlot)) {
@@ -731,7 +727,43 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
 
     setState(() => _isSubmitting = true);
 
+    String? paymentReference;
+
     try {
+      if (_selectedPaymentMethod != 'Cash') {
+        final breakdown = PricingEngine.calculate(
+          items: orderProvider.preCart,
+          allProducts: inventoryProvider.products,
+        );
+
+        final checkout = await XenditService.createInvoice(
+          amount: breakdown.total,
+          description: 'GDC Store Order',
+          customerName: authProvider.displayName,
+          customerEmail: authProvider.email,
+          customerPhone: authProvider.phoneNumber ?? '+63 912 345 6789',
+          paymentMethods: [
+            _selectedPaymentMethod == 'GCash' ? 'GCASH' : 'PAYMAYA'
+          ],
+        );
+
+        final checkoutUrl = checkout['url']!;
+        final sessionId = checkout['id']!;
+
+        final uri = Uri.parse(checkoutUrl);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        }
+
+        final isPaid = await _showPaymentAwaitingDialog(sessionId);
+
+        if (isPaid == null) {
+          setState(() => _isSubmitting = false);
+          return;
+        }
+        paymentReference = isPaid;
+      }
+
       final pickupNotesText = _notesCtrl.text.trim();
       final order = await orderProvider.submitOrder(
         customerName: authProvider.displayName,
@@ -741,9 +773,7 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
         pickupSlot: _pickupSlot,
         allProducts: inventoryProvider.products,
         paymentMethod: _selectedPaymentMethod,
-        paymentReference: _refNumCtrl.text.trim().isNotEmpty
-            ? _refNumCtrl.text.trim()
-            : null,
+        paymentReference: paymentReference,
         notes: pickupNotesText.isNotEmpty ? pickupNotesText : null,
       );
 
@@ -769,6 +799,80 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
         ),
       );
     }
+  }
+
+  Future<String?> _showPaymentAwaitingDialog(String sessionId) async {
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(builder: (context, setSt) {
+        bool isChecking = false;
+        String? errorMsg;
+
+        return AlertDialog(
+          title: const Text('Complete Payment'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (isChecking)
+                const CircularProgressIndicator()
+              else
+                const Icon(Icons.payment_rounded,
+                    size: 48, color: AppColors.forest),
+              const SizedBox(height: 16),
+              const Text(
+                'Please complete the payment in the browser that just opened. Once done, press the button below.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13),
+              ),
+              if (errorMsg != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  errorMsg!,
+                  style: const TextStyle(color: Colors.red, fontSize: 12),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: isChecking ? null : () => Navigator.pop(ctx, null),
+              child: const Text('CANCEL'),
+            ),
+            ElevatedButton(
+              onPressed: isChecking
+                  ? null
+                  : () async {
+                      setSt(() {
+                        isChecking = true;
+                        errorMsg = null;
+                      });
+                      try {
+                        final ref =
+                            await XenditService.checkPaymentStatus(sessionId);
+                        if (ref != null) {
+                          if (context.mounted) Navigator.pop(ctx, ref);
+                        } else {
+                          setSt(() {
+                            isChecking = false;
+                            errorMsg =
+                                'Payment not yet received. Please complete it or wait a moment.';
+                          });
+                        }
+                      } catch (e) {
+                        setSt(() {
+                          isChecking = false;
+                          errorMsg = 'Error verifying payment. Try again.';
+                        });
+                      }
+                    },
+              child: const Text('I HAVE PAID'),
+            ),
+          ],
+        );
+      }),
+    );
   }
 
   @override
@@ -971,9 +1075,10 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                                 label: const Text(
                                     'View Penalty Details & Submit Appeal'),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: authProvider.isPermanentlyLocked
-                                      ? Colors.red[800]
-                                      : Colors.orange[800],
+                                  backgroundColor:
+                                      authProvider.isPermanentlyLocked
+                                          ? Colors.red[800]
+                                          : Colors.orange[800],
                                   foregroundColor: Colors.white,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(100),
@@ -1235,7 +1340,8 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                           Builder(builder: (context) {
                             final bool hasPerishables =
                                 cart.any((item) => item.isPerishable);
-                            final bool isPrepaid = _selectedPaymentMethod != 'Cash';
+                            final bool isPrepaid =
+                                _selectedPaymentMethod != 'Cash';
 
                             String noticeText;
                             IconData noticeIcon;
@@ -1269,11 +1375,13 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                                 color: bgColor,
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                    color: borderThemeColor.withValues(alpha: 0.3)),
+                                    color: borderThemeColor.withValues(
+                                        alpha: 0.3)),
                               ),
                               child: Row(
                                 children: [
-                                  Icon(noticeIcon, size: 18, color: borderThemeColor),
+                                  Icon(noticeIcon,
+                                      size: 18, color: borderThemeColor),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
@@ -1281,7 +1389,9 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                                       style: TextStyle(
                                         fontSize: 11.5,
                                         fontWeight: FontWeight.w700,
-                                        color: Theme.of(context).colorScheme.onSurface,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurface,
                                       ),
                                     ),
                                   ),
@@ -1297,7 +1407,9 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                             child: Container(
                               padding: const EdgeInsets.all(14),
                               decoration: BoxDecoration(
-                                color: Theme.of(context).colorScheme.surfaceContainerLow,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .surfaceContainerLow,
                                 borderRadius: BorderRadius.circular(14),
                                 border: Border.all(
                                   color: Theme.of(context).dividerColor,
@@ -1320,7 +1432,8 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           'Pickup time',
@@ -1339,7 +1452,9 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                                           style: TextStyle(
                                             fontSize: 14,
                                             fontWeight: FontWeight.w800,
-                                            color: Theme.of(context).colorScheme.onSurface,
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .onSurface,
                                           ),
                                         ),
                                       ],
@@ -1493,81 +1608,26 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                                 children: [
                                   Row(
                                     children: [
-                                      const Icon(Icons.qr_code_scanner_rounded,
+                                      const Icon(Icons.security_rounded,
                                           color: AppColors.forest, size: 20),
                                       const SizedBox(width: 8),
                                       Expanded(
                                         child: Text(
-                                          'Pay via ${_selectedPaymentMethod == 'GCash' ? 'GCash' : 'Maya / QR Ph'}',
+                                          'Secure Payment via Xendit',
                                           style: const TextStyle(
                                               fontSize: 13,
                                               fontWeight: FontWeight.w800),
-                                        ),
-                                      ),
-                                      TextButton.icon(
-                                        onPressed: () => _showQrCodeModal(
-                                          _selectedPaymentMethod == 'GCash'
-                                              ? 'GCash'
-                                              : 'Maya',
-                                          _storeGcashNumber,
-                                        ),
-                                        icon: const Icon(
-                                            Icons.qr_code_rounded,
-                                            size: 16),
-                                        label: const Text('View QR',
-                                            style: TextStyle(fontSize: 12)),
-                                        style: TextButton.styleFrom(
-                                          foregroundColor: AppColors.forest,
-                                          padding: EdgeInsets.zero,
-                                          minimumSize: Size.zero,
-                                          tapTargetSize:
-                                              MaterialTapTargetSize.shrinkWrap,
                                         ),
                                       ),
                                     ],
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
-                                    'Send payment to $_storeGcashNumber (GDC Sari-Sari Store) then enter your Reference Number below.',
+                                    'You will be redirected to a secure Xendit page to complete your ${_selectedPaymentMethod} payment. Please do not close the app.',
                                     style: const TextStyle(
                                         fontSize: 11.5,
                                         color: AppColors.mutedText,
                                         height: 1.3),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  TextField(
-                                    controller: _refNumCtrl,
-                                    decoration: InputDecoration(
-                                      labelText:
-                                          '${_selectedPaymentMethod} Ref # (e.g. 1002 9382 1928)',
-                                      hintText: 'Enter 13-digit Ref #',
-                                      filled: true,
-                                      fillColor: Theme.of(context).cardColor,
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                              horizontal: 14, vertical: 12),
-                                      border: OutlineInputBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(12),
-                                        borderSide: BorderSide(
-                                            color: Theme.of(context)
-                                                .dividerColor),
-                                      ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(12),
-                                        borderSide: BorderSide(
-                                            color: Theme.of(context)
-                                                .dividerColor),
-                                      ),
-                                      focusedBorder: OutlineInputBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(12),
-                                        borderSide: const BorderSide(
-                                            color: AppColors.forest,
-                                            width: 1.5),
-                                      ),
-                                    ),
                                   ),
                                 ],
                               ),
@@ -1743,14 +1803,41 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
             Expanded(
               child: Text(
                 title,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style:
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ),
           ],
         ),
-        content: Text(
-          message,
-          style: const TextStyle(fontSize: 13),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                message,
+                style: const TextStyle(fontSize: 13, height: 1.4),
+              ),
+              const SizedBox(height: 16),
+              const Text('Offense Policy Tiers:',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              const SizedBox(height: 8),
+              _buildTierItem(
+                  '1st Offense', '2-Hour Restriction', Colors.orange),
+              _buildTierItem(
+                  '2nd Offense', '24-Hour Restriction', Colors.deepOrange),
+              _buildTierItem('3rd Offense', '72-Hour Restriction', Colors.red),
+              _buildTierItem('4th Offense', 'Permanent Lock', Colors.redAccent),
+              const SizedBox(height: 12),
+              const Text(
+                'Note: If your appeal is approved by the store admin, your offense tier will be decremented by 1.',
+                style: TextStyle(
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                    color: Colors.grey),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -1788,6 +1875,29 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
     }
   }
 
+  Widget _buildTierItem(String tier, String penalty, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.circle, size: 6, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '$tier: $penalty',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: color,
+                fontSize: 12,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showAppealDialog(AppAuthProvider auth) {
     final reasonCtrl = TextEditingController();
     bool submitting = false;
@@ -1797,14 +1907,16 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) {
           return AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             title: const Row(
               children: [
                 Icon(Icons.gavel_rounded, color: AppColors.orangeCTA),
                 SizedBox(width: 10),
                 Expanded(
                   child: Text('Submit Restriction Appeal',
-                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+                      style:
+                          TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
@@ -1830,7 +1942,8 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: AppColors.forest, width: 2),
+                        borderSide:
+                            const BorderSide(color: AppColors.forest, width: 2),
                       ),
                     ),
                   ),
@@ -1850,7 +1963,8 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                         if (reason.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Please enter an explanation for your appeal.'),
+                              content: Text(
+                                  'Please enter an explanation for your appeal.'),
                               backgroundColor: AppColors.error,
                             ),
                           );
@@ -1897,16 +2011,19 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                       },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.forest,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
                 child: submitting
                     ? const SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
                       )
                     : const Text('Submit Appeal',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        style: TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.bold)),
               ),
             ],
           );

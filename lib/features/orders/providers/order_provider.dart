@@ -642,7 +642,7 @@ class OrderProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> requestRefund(String orderId, String reason) async {
+  Future<void> requestRefund(String orderId, String reason, List<CartItem> itemsToRefund) async {
     final order = _orders.firstWhere((o) => o.id == orderId);
 
     // 1. Avoid Duplication
@@ -652,13 +652,15 @@ class OrderProvider extends ChangeNotifier {
       throw 'A refund request for this order is already being processed.';
     }
 
+    final refundTotal = itemsToRefund.fold(0.0, (sum, item) => sum + (item.price * item.qty));
+
     final req = RefundRequest(
       id: '',
       transactionId: order.orderId,
       customerEmail: order.customerEmail,
       customerName: order.customerName,
-      items: order.items,
-      total: order.total,
+      items: itemsToRefund,
+      total: refundTotal,
       reason: reason,
       status: RefundStatus.pending,
       createdAt: DateTime.now(),
