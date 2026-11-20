@@ -26,6 +26,12 @@ jobs:
         run: |
           flutter pub get
 
+      - name: CocoaPods Repo Update
+        run: |
+          cd ios
+          pod install --repo-update || true
+          cd ..
+
       - name: Build iOS App (Unsigned)
         run: |
           flutter build ipa --release --no-codesign
