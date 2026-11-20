@@ -1,6 +1,9 @@
 # Global platform definition for iOS
 platform :ios, '15.0'
 
+# Lock Firebase SDK Version to prevent CocoaPods dependency resolution conflicts
+$FirebaseSDKVersion = '10.25.0'
+
 # Disable CocoaPods analytics
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
@@ -28,7 +31,7 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  use_frameworks! :linkage => :static
+  use_frameworks!
   use_modular_headers!
 
   flutter_install_ios_engine_pod File.dirname(File.realpath(__FILE__))

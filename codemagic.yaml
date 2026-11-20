@@ -16,12 +16,6 @@ workflows:
         script: |
           flutter pub get
 
-      - name: CocoaPods Repo Update
-        script: |
-          cd ios
-          pod install --repo-update || true
-          cd ..
-
       - name: Build iOS App (Unsigned)
         script: |
           flutter build ipa --release --no-codesign
