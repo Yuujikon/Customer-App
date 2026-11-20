@@ -22,14 +22,10 @@ workflows:
 
       - name: Create IPA Package for Sideloadly
         script: |
-          mkdir -p build/ios/ipa
-          if [ -d "build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app" ]; then
-            echo "Packaging Runner.app into Payload IPA..."
-            cd build/ios/archive/Runner.xcarchive/Products/Applications
-            mkdir -p Payload
-            cp -r Runner.app Payload/
-            zip -r ../../../../../build/ios/ipa/gdc_customer_app_sideload.ipa Payload
-          fi
+          mkdir -p build/ios/ipa/Payload
+          cp -r build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app build/ios/ipa/Payload/
+          cd build/ios/ipa
+          zip -r gdc_customer_app_sideload.ipa Payload
 
     artifacts:
       - build/ios/ipa/*.ipa
