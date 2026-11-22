@@ -208,27 +208,12 @@ class FirestoreService {
     });
   }
 
-  /// Cancels an active order and releases the reserved stock back to available stock.
+  /// Cancels an active order without restoring or incrementing available stock.
   Future<void> cancelOrder(String orderId, List<CartItem> items) {
     final batch = _db.batch();
 
-    // 1. Mark as cancelled
+    // Mark as cancelled (do not alter stock or reservedStock)
     batch.update(_orders.doc(orderId), {'status': OrderStatus.cancelled.name});
-
-    // 2. Restock items & release reserved stock
-    for (final item in items) {
-      final docRef = _products.doc(item.productId);
-      if (item.variantId != null) {
-        batch.update(docRef, {
-          'variants.${item.variantId}.reservedStock':
-              FieldValue.increment(-item.qty),
-        });
-      } else {
-        batch.update(docRef, {
-          'reservedStock': FieldValue.increment(-item.qty),
-        });
-      }
-    }
 
     return batch.commit();
   }
@@ -561,7 +546,7 @@ class FirestoreService {
     final appealRef = _appeals.doc(appeal.id);
     batch.update(appealRef, {
       'status': 'approved',
-      'reviewedAt': FieldValue.serverTimestamp(),
+      'reviewedAt': Timestamp.fromDate(TimeService.now),
       'reviewedByEmail': adminEmail,
     });
 
@@ -675,7 +660,7 @@ class FirestoreService {
       {String? adminNotes}) {
     return _appeals.doc(appealId).update({
       'status': 'rejected',
-      'reviewedAt': FieldValue.serverTimestamp(),
+      'reviewedAt': Timestamp.fromDate(TimeService.now),
       'reviewedByEmail': adminEmail,
       if (adminNotes != null) 'adminNotes': adminNotes,
     });

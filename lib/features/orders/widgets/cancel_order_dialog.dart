@@ -99,7 +99,7 @@ class _CancelOrderDialogState extends State<CancelOrderDialog> {
 
               // Subtitle
               Text(
-                'Are you sure you want to cancel? Reserved items will be returned to store inventory.',
+                'Are you sure you want to cancel this order?',
                 style: TextStyle(
                   fontSize: 13.5,
                   height: 1.35,
