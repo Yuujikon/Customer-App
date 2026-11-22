@@ -100,7 +100,7 @@ class PreOrder {
   final double tax;
   final double total;
   final OrderStatus status;
-  final String paymentMethod; // 'Cash', 'GCash', 'Maya'
+  final String paymentMethod; // 'GCash', 'Maya'
   final String? paymentReference; // Optional GCash/Maya Ref #
   final String location;
   final String pickupTime;
@@ -122,7 +122,7 @@ class PreOrder {
     this.tax = 0,
     required this.total,
     required this.status,
-    this.paymentMethod = 'Cash',
+    this.paymentMethod = 'GCash',
     this.paymentReference,
     this.location = '',
     this.pickupTime = '',
@@ -153,7 +153,7 @@ class PreOrder {
           (e) => e.name == (d['status'] ?? 'pending'),
           orElse: () => OrderStatus.pending,
         ),
-        paymentMethod: d['paymentMethod']?.toString() ?? 'Cash',
+        paymentMethod: d['paymentMethod']?.toString() ?? 'GCash',
         paymentReference: d['paymentReference']?.toString(),
         location: d['location']?.toString() ?? '',
         pickupTime: d['pickupTime']?.toString() ?? '',
@@ -175,7 +175,7 @@ class PreOrder {
           items: [],
           total: 0,
           status: OrderStatus.cancelled,
-          paymentMethod: 'Cash',
+          paymentMethod: 'GCash',
           createdAt: DateTime.now());
     }
   }

@@ -42,7 +42,7 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
   String _pickupOption = 'ASAP'; // 'ASAP' or 'Schedule'
   final _notesCtrl = TextEditingController();
   final _refNumCtrl = TextEditingController();
-  String _selectedPaymentMethod = 'Cash'; // 'Cash', 'GCash', 'Maya'
+  String _selectedPaymentMethod = 'GCash'; // 'GCash', 'Maya'
   bool _isSubmitting = false;
   PreOrder? _submittedOrder;
 
@@ -79,7 +79,7 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
     final allProducts = inventoryProvider.products;
 
     final bool hasPerishables = cart.any((item) => item.isPerishable);
-    final bool isPrepaid = _selectedPaymentMethod != 'Cash';
+    final bool isPrepaid = true;
 
     // Calculate earliest batch expiry (FEFO)
     DateTime? earliestExpiry;
@@ -730,39 +730,37 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
     String? paymentReference;
 
     try {
-      if (_selectedPaymentMethod != 'Cash') {
-        final breakdown = PricingEngine.calculate(
-          items: orderProvider.preCart,
-          allProducts: inventoryProvider.products,
-        );
+      final breakdown = PricingEngine.calculate(
+        items: orderProvider.preCart,
+        allProducts: inventoryProvider.products,
+      );
 
-        final checkout = await XenditService.createInvoice(
-          amount: breakdown.total,
-          description: 'GDC Store Order',
-          customerName: authProvider.displayName,
-          customerEmail: authProvider.email,
-          customerPhone: authProvider.phoneNumber ?? '+63 912 345 6789',
-          paymentMethods: [
-            _selectedPaymentMethod == 'GCash' ? 'GCASH' : 'PAYMAYA'
-          ],
-        );
+      final checkout = await XenditService.createInvoice(
+        amount: breakdown.total,
+        description: 'GDC Store Order',
+        customerName: authProvider.displayName,
+        customerEmail: authProvider.email,
+        customerPhone: authProvider.phoneNumber ?? '+63 912 345 6789',
+        paymentMethods: [
+          _selectedPaymentMethod == 'GCash' ? 'GCASH' : 'PAYMAYA'
+        ],
+      );
 
-        final checkoutUrl = checkout['url']!;
-        final sessionId = checkout['id']!;
+      final checkoutUrl = checkout['url']!;
+      final sessionId = checkout['id']!;
 
-        final uri = Uri.parse(checkoutUrl);
-        if (await canLaunchUrl(uri)) {
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
-        }
-
-        final isPaid = await _showPaymentAwaitingDialog(sessionId);
-
-        if (isPaid == null) {
-          setState(() => _isSubmitting = false);
-          return;
-        }
-        paymentReference = isPaid;
+      final uri = Uri.parse(checkoutUrl);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
       }
+
+      final isPaid = await _showPaymentAwaitingDialog(sessionId);
+
+      if (isPaid == null) {
+        setState(() => _isSubmitting = false);
+        return;
+      }
+      paymentReference = isPaid;
 
       final pickupNotesText = _notesCtrl.text.trim();
       final order = await orderProvider.submitOrder(
@@ -1340,8 +1338,6 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                           Builder(builder: (context) {
                             final bool hasPerishables =
                                 cart.any((item) => item.isPerishable);
-                            final bool isPrepaid =
-                                _selectedPaymentMethod != 'Cash';
 
                             String noticeText;
                             IconData noticeIcon;
@@ -1354,17 +1350,13 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                               noticeIcon = Icons.timer_outlined;
                               bgColor = AppColors.orangeCTALight;
                               borderThemeColor = AppColors.orangeCTA;
-                            } else if (isPrepaid) {
+                            } else {
                               noticeText =
                                   'Prepaid Order Notice: Stock reserved and held until the end of your chosen pickup slot.';
                               noticeIcon = Icons.verified_user_outlined;
                               bgColor = AppColors.sageTint;
                               borderThemeColor = AppColors.forest;
-                            } else {
-                              noticeText =
-                                  'Cash on Pickup Notice: Stock reserved and held until the end of your chosen pickup slot.';
-                              noticeIcon = Icons.info_outline_rounded;
-                              bgColor = AppColors.sageTint;
+                            }
                               borderThemeColor = AppColors.forest;
                             }
 
@@ -1544,11 +1536,9 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                                   color: AppColors.sageTint,
                                   borderRadius: BorderRadius.circular(100),
                                 ),
-                                child: Text(
-                                  _selectedPaymentMethod == 'Cash'
-                                      ? 'Cash on Pickup'
-                                      : 'Cashless / Digital',
-                                  style: const TextStyle(
+                                child: const Text(
+                                  'Cashless / Digital',
+                                  style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w800,
                                     color: AppColors.forest,
@@ -1559,18 +1549,9 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                           ),
                           const SizedBox(height: 14),
 
-                          // Payment Option Chips Row
+                          // Payment Option Chips Row (GCash and Maya only)
                           Row(
                             children: [
-                              _buildPaymentChip(
-                                label: 'Cash on Pickup',
-                                icon: Icons.payments_rounded,
-                                isSelected: _selectedPaymentMethod == 'Cash',
-                                onTap: () => setState(() {
-                                  _selectedPaymentMethod = 'Cash';
-                                }),
-                              ),
-                              const SizedBox(width: 8),
                               _buildPaymentChip(
                                 label: 'GCash',
                                 icon: Icons.account_balance_wallet_rounded,
@@ -1591,9 +1572,8 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                             ],
                           ),
 
-                          if (_selectedPaymentMethod != 'Cash') ...[
-                            const SizedBox(height: 16),
-                            Container(
+                          const SizedBox(height: 16),
+                          Container(
                               padding: const EdgeInsets.all(14),
                               decoration: BoxDecoration(
                                 color: Theme.of(context)
@@ -1982,7 +1962,7 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                             offenseCount: auth.offenseCount,
                             reason: reason,
                             status: AppealStatus.pending,
-                            createdAt: DateTime.now(),
+                            createdAt: TimeService.now,
                           );
 
                           await FirestoreService().submitAppeal(appeal);

@@ -548,7 +548,7 @@ class OrderProvider extends ChangeNotifier {
     required String location,
     required String pickupSlot,
     required List<Product> allProducts,
-    String paymentMethod = 'Cash',
+    String paymentMethod = 'GCash',
     String? paymentReference,
     String? notes,
   }) async {
