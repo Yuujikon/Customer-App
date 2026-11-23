@@ -1,13 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'order.dart';
 
-enum RefundStatus { pending, approved, rejected }
+enum RefundStatus { pending, approved, rejected, cancelled }
 
-enum RefundCondition { good, expired, damaged }
+enum RefundCondition { good, restockable, expired, damaged }
 
 class RefundRequest {
   final String id;
   final String transactionId;
+  final String? customerId;
   final String customerEmail;
   final String customerName;
   final List<CartItem> items;
@@ -23,6 +25,7 @@ class RefundRequest {
   const RefundRequest({
     required this.id,
     required this.transactionId,
+    this.customerId,
     required this.customerEmail,
     required this.customerName,
     required this.items,
@@ -46,9 +49,14 @@ class RefundRequest {
 
     RefundCondition? condition;
     if (d['condition'] != null) {
-      try {
-        condition = RefundCondition.values.byName(d['condition']);
-      } catch (_) {}
+      final rawCond = d['condition'].toString();
+      if (rawCond == 'restockable' || rawCond == 'good') {
+        condition = RefundCondition.restockable;
+      } else {
+        try {
+          condition = RefundCondition.values.byName(rawCond);
+        } catch (_) {}
+      }
     }
 
     final txId =
@@ -57,6 +65,7 @@ class RefundRequest {
     return RefundRequest(
       id: doc.id,
       transactionId: txId,
+      customerId: d['customerId']?.toString(),
       customerEmail: d['customerEmail']?.toString() ?? '',
       customerName: d['customerName']?.toString() ?? '',
       items:
@@ -72,19 +81,23 @@ class RefundRequest {
     );
   }
 
-  Map<String, dynamic> toFirestore() => {
-        'orderId': transactionId,
-        'transactionId': transactionId,
-        'customerEmail': customerEmail,
-        'customerName': customerName,
-        'items': items.map((i) => i.toMap()).toList(),
-        'total': total,
-        'reason': reason,
-        if (rejectionReason != null) 'rejectionReason': rejectionReason,
-        if (adminNotes != null) 'adminNotes': adminNotes,
-        'status': status.name,
-        if (condition != null) 'condition': condition!.name,
-        'createdAt': FieldValue.serverTimestamp(),
-        if (processedByEmail != null) 'processedByEmail': processedByEmail,
-      };
+  Map<String, dynamic> toFirestore() {
+    final uid = customerId ?? FirebaseAuth.instance.currentUser?.uid;
+    return {
+      'orderId': transactionId,
+      'transactionId': transactionId,
+      if (uid != null && uid.isNotEmpty) 'customerId': uid,
+      'customerEmail': customerEmail,
+      'customerName': customerName,
+      'items': items.map((i) => i.toMap()).toList(),
+      'total': total,
+      'reason': reason,
+      if (rejectionReason != null) 'rejectionReason': rejectionReason,
+      if (adminNotes != null) 'adminNotes': adminNotes,
+      'status': status.name,
+      if (condition != null) 'condition': condition!.name,
+      'createdAt': FieldValue.serverTimestamp(),
+      if (processedByEmail != null) 'processedByEmail': processedByEmail,
+    };
+  }
 }

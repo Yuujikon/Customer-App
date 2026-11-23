@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../services/time_service.dart';
 
 enum OrderStatus {
+  awaitingPayment,
   pending,
   staging,
   ready,
@@ -101,15 +102,21 @@ class PreOrder {
   final double total;
   final OrderStatus status;
   final String paymentMethod; // 'GCash', 'Maya'
+  final String paymentStatus; // 'unpaid', 'paid'
+  final bool isPaid;
   final String? paymentReference; // Optional GCash/Maya Ref #
   final String location;
   final String pickupTime;
+  final DateTime? pickupStart;
+  final DateTime? pickupEnd;
   final DateTime createdAt;
   final DateTime? expiresAt;
   final String? rejectionReason;
   final String? notes;
   final bool isSeniorPWD;
   final bool isExtended;
+  final int extensionCount;
+  final bool reservationReleased;
 
   const PreOrder({
     required this.id,
@@ -123,20 +130,40 @@ class PreOrder {
     required this.total,
     required this.status,
     this.paymentMethod = 'GCash',
+    this.paymentStatus = 'unpaid',
+    this.isPaid = false,
     this.paymentReference,
     this.location = '',
     this.pickupTime = '',
+    this.pickupStart,
+    this.pickupEnd,
     required this.createdAt,
     this.expiresAt,
     this.rejectionReason,
     this.notes,
     this.isSeniorPWD = false,
     this.isExtended = false,
+    this.extensionCount = 0,
+    this.reservationReleased = false,
   });
+
+  static OrderStatus _parseStatus(dynamic rawStatus) {
+    final s = rawStatus?.toString() ?? 'pending';
+    if (s == 'refund_requested') return OrderStatus.refundRequested;
+    if (s == 'awaiting_payment') return OrderStatus.awaitingPayment;
+    return OrderStatus.values.firstWhere(
+      (e) => e.name == s,
+      orElse: () => OrderStatus.pending,
+    );
+  }
 
   factory PreOrder.fromFirestore(DocumentSnapshot doc) {
     try {
       final d = doc.data() as Map<String, dynamic>? ?? {};
+      final paymentStatusStr = d['paymentStatus']?.toString() ?? 'unpaid';
+      final isPaidVal = d['isPaid'] == true ||
+          paymentStatusStr.toLowerCase() == 'paid';
+
       return PreOrder(
         id: doc.id,
         orderId: d['orderId']?.toString() ?? 'GDC-????',
@@ -149,20 +176,24 @@ class PreOrder {
             .toList(),
         tax: (d['tax'] as num? ?? 0).toDouble(),
         total: (d['total'] as num? ?? 0).toDouble(),
-        status: OrderStatus.values.firstWhere(
-          (e) => e.name == (d['status'] ?? 'pending'),
-          orElse: () => OrderStatus.pending,
-        ),
+        status: _parseStatus(d['status']),
         paymentMethod: d['paymentMethod']?.toString() ?? 'GCash',
+        paymentStatus: paymentStatusStr,
+        isPaid: isPaidVal,
         paymentReference: d['paymentReference']?.toString(),
         location: d['location']?.toString() ?? '',
         pickupTime: d['pickupTime']?.toString() ?? '',
+        pickupStart: (d['pickupStart'] as Timestamp?)?.toDate(),
+        pickupEnd: (d['pickupEnd'] as Timestamp?)?.toDate(),
         createdAt: (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
         expiresAt: (d['expiresAt'] as Timestamp?)?.toDate(),
         rejectionReason: d['rejectionReason']?.toString(),
-        notes: (d['notes'] ?? d['pickupNotes'] ?? d['customerNotes'])?.toString(),
+        notes:
+            (d['notes'] ?? d['pickupNotes'] ?? d['customerNotes'])?.toString(),
         isSeniorPWD: d['isSeniorPWD'] ?? false,
         isExtended: d['isExtended'] ?? false,
+        extensionCount: (d['extensionCount'] as num? ?? 0).toInt(),
+        reservationReleased: d['reservationReleased'] == true,
       );
     } catch (e) {
       debugPrint('Error parsing PreOrder ${doc.id}: $e');
@@ -191,21 +222,29 @@ class PreOrder {
         'total': total,
         'status': status.name,
         'paymentMethod': paymentMethod,
+        'paymentStatus': paymentStatus,
+        'isPaid': isPaid,
         if (paymentReference != null) 'paymentReference': paymentReference,
         'location': location,
         'pickupTime': pickupTime,
+        if (pickupStart != null) 'pickupStart': Timestamp.fromDate(pickupStart!),
+        if (pickupEnd != null) 'pickupEnd': Timestamp.fromDate(pickupEnd!),
         'createdAt': FieldValue.serverTimestamp(),
         'expiresAt': expiresAt != null ? Timestamp.fromDate(expiresAt!) : null,
         'isSeniorPWD': isSeniorPWD,
         'isExtended': isExtended,
+        'extensionCount': extensionCount,
+        'reservationReleased': reservationReleased,
         if (rejectionReason != null) 'rejectionReason': rejectionReason,
         if (notes != null && notes!.trim().isNotEmpty) 'notes': notes!.trim(),
-        if (notes != null && notes!.trim().isNotEmpty) 'pickupNotes': notes!.trim(),
+        if (notes != null && notes!.trim().isNotEmpty)
+          'pickupNotes': notes!.trim(),
       };
 
   bool get isExpired {
     if (expiresAt == null) return false;
-    final isActive = status == OrderStatus.pending ||
+    final isActive = status == OrderStatus.awaitingPayment ||
+        status == OrderStatus.pending ||
         status == OrderStatus.staging ||
         status == OrderStatus.ready;
     return isActive && TimeService.now.isAfter(expiresAt!);
@@ -214,9 +253,15 @@ class PreOrder {
   PreOrder copyWith({
     OrderStatus? status,
     String? paymentMethod,
+    String? paymentStatus,
+    bool? isPaid,
     String? paymentReference,
+    DateTime? pickupStart,
+    DateTime? pickupEnd,
     DateTime? expiresAt,
     bool? isExtended,
+    int? extensionCount,
+    bool? reservationReleased,
     String? notes,
   }) =>
       PreOrder(
@@ -231,14 +276,20 @@ class PreOrder {
         total: total,
         status: status ?? this.status,
         paymentMethod: paymentMethod ?? this.paymentMethod,
+        paymentStatus: paymentStatus ?? this.paymentStatus,
+        isPaid: isPaid ?? this.isPaid,
         paymentReference: paymentReference ?? this.paymentReference,
         location: location,
         pickupTime: pickupTime,
+        pickupStart: pickupStart ?? this.pickupStart,
+        pickupEnd: pickupEnd ?? this.pickupEnd,
         createdAt: createdAt,
         expiresAt: expiresAt ?? this.expiresAt,
         rejectionReason: rejectionReason,
         notes: notes ?? this.notes,
         isSeniorPWD: isSeniorPWD,
         isExtended: isExtended ?? this.isExtended,
+        extensionCount: extensionCount ?? this.extensionCount,
+        reservationReleased: reservationReleased ?? this.reservationReleased,
       );
 }

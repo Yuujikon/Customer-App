@@ -92,32 +92,29 @@ class OrderProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  final Set<String> _processedGhostedOrderIds = {};
+  final Set<String> _processedExpiredOrderIds = {};
 
-  void _handleGhostedOrder(PreOrder order) {
-    if (_processedGhostedOrderIds.contains(order.id) ||
-        _processedGhostedOrderIds.contains(order.orderId)) {
-      return;
-    }
-    _processedGhostedOrderIds.add(order.id);
-    _processedGhostedOrderIds.add(order.orderId);
+  void _handleExpiredAwaitingPayment(PreOrder order) {
+    if (order.status != OrderStatus.awaitingPayment) return;
+    if (_processedExpiredOrderIds.contains(order.id)) return;
+    _processedExpiredOrderIds.add(order.id);
 
-    _fs.cancelOrder(order.id, order.items);
-    _fs.recordGhostingOffense(
-      userId: order.customerId,
-      userEmail: order.customerEmail,
-      orderId: order.id,
-      sixCharOrderId: order.orderId,
-    );
-    debugPrint('Recorded ghosting offense for order: ${order.orderId}');
+    _fs.cancelOrder(order.id, order.items).catchError((e) {
+      debugPrint(
+          'Failed to auto-release expired awaitingPayment order ${order.orderId}: $e');
+    });
   }
 
   void _checkAndProcessExpirations() {
     bool hasExpiredChange = false;
     for (int i = 0; i < _orders.length; i++) {
-      if (_orders[i].isExpired && _orders[i].status != OrderStatus.cancelled) {
-        _handleGhostedOrder(_orders[i]);
-        _orders[i] = _orders[i].copyWith(status: OrderStatus.cancelled);
+      final order = _orders[i];
+      if (order.isExpired && order.status == OrderStatus.awaitingPayment) {
+        _handleExpiredAwaitingPayment(order);
+        _orders[i] = order.copyWith(
+          status: OrderStatus.cancelled,
+          reservationReleased: true,
+        );
         hasExpiredChange = true;
       }
     }
@@ -157,14 +154,18 @@ class OrderProvider extends ChangeNotifier {
     }
   }
 
-  /// Automatically cancels orders that have passed their expiresAt timestamp.
-  /// Cancels in Firestore and returns copies with cancelled status for UI consistency.
+  /// Automatically cancels expired `awaitingPayment` reservations from the client side.
+  /// Uncollected pickup orders (`pending`/`staging`/`ready`) are expired & penalized by Admin-App.
   List<PreOrder> _processAndCancelExpired(List<PreOrder> list) {
     return list.map((order) {
-      if (order.isExpired && order.status != OrderStatus.cancelled) {
-        _handleGhostedOrder(order);
-        debugPrint('Auto-cancelled expired order: ${order.orderId}');
-        return order.copyWith(status: OrderStatus.cancelled);
+      if (order.isExpired && order.status == OrderStatus.awaitingPayment) {
+        _handleExpiredAwaitingPayment(order);
+        debugPrint(
+            'Auto-cancelled unpaid awaitingPayment order: ${order.orderId}');
+        return order.copyWith(
+          status: OrderStatus.cancelled,
+          reservationReleased: true,
+        );
       }
       return order;
     }).toList();
@@ -358,17 +359,29 @@ class OrderProvider extends ChangeNotifier {
     for (final preview in previews) {
       if (preview.isUnavailable || preview.toAddQty <= 0) continue;
 
+      final variantId = preview.originalItem.variantId;
+      double currentPrice = preview.originalItem.price;
+      if (preview.product != null) {
+        if (variantId != null && preview.product!.variants?[variantId] != null) {
+          currentPrice = preview.product!.variants![variantId]!.price;
+        } else {
+          currentPrice = preview.product!.price;
+        }
+      }
+
       final existingIdx = _preCart.indexWhere((i) =>
           i.productId == preview.originalItem.productId &&
-          i.variantId == preview.originalItem.variantId);
+          i.variantId == variantId);
 
       if (existingIdx >= 0) {
-        _preCart[existingIdx] = _preCart[existingIdx]
-            .copyWith(qty: _preCart[existingIdx].qty + preview.toAddQty);
+        _preCart[existingIdx] = _preCart[existingIdx].copyWith(
+          qty: _preCart[existingIdx].qty + preview.toAddQty,
+          price: currentPrice,
+        );
       } else {
         _preCart.add(preview.originalItem.copyWith(
           qty: preview.toAddQty,
-          price: preview.product?.price ?? preview.originalItem.price,
+          price: currentPrice,
         ));
       }
     }
@@ -470,9 +483,9 @@ class OrderProvider extends ChangeNotifier {
 
   /// Calculates available extension minutes up to 20 minutes max.
   /// Only available during the final 10 minutes before the order's allocated expiration time.
-  /// Disabled (returns 0) if order was already extended once, or if current time/expiration is at/past 3:00 PM (15:00).
+  /// Disabled (returns 0) if order was already extended once, or if current time/expiration is at/past closing cutoff.
   static int getAvailableExtensionMinutes(DateTime? currentExpiry,
-      {bool isExtended = false}) {
+      {bool isExtended = false, StoreSettings? settings}) {
     if (currentExpiry == null || isExtended) return 0;
     final now = TimeService.now;
 
@@ -482,25 +495,25 @@ class OrderProvider extends ChangeNotifier {
       return 0;
     }
 
-    final cutoff3PM = DateTime(now.year, now.month, now.day, 15, 0);
+    final closeH = StoreHours.effectiveCloseHour(settings);
+    final cutoff = DateTime(now.year, now.month, now.day, closeH, 0);
 
-    if (now.isAfter(cutoff3PM) || now.isAtSameMomentAs(cutoff3PM)) {
+    if (!now.isBefore(cutoff)) {
       return 0;
     }
 
-    if (currentExpiry.isAfter(cutoff3PM) ||
-        currentExpiry.isAtSameMomentAs(cutoff3PM)) {
+    if (!currentExpiry.isBefore(cutoff)) {
       return 0;
     }
 
-    final minutesToCutoff = cutoff3PM.difference(currentExpiry).inMinutes;
+    final minutesToCutoff = cutoff.difference(currentExpiry).inMinutes;
     if (minutesToCutoff <= 0) return 0;
 
     return minutesToCutoff.clamp(0, 20);
   }
 
   /// Extends an active order's pickup expiration time by up to 20 minutes max (1-time extension allowed per order).
-  /// Strictly capped so that pickup time NEVER exceeds 3:00 PM (15:00).
+  /// Strictly persists to Firestore before updating local state and surfaces any failure to the caller.
   Future<int> extendOrderPickupTime(String orderId) async {
     final idx =
         _orders.indexWhere((o) => o.id == orderId || o.orderId == orderId);
@@ -509,26 +522,29 @@ class OrderProvider extends ChangeNotifier {
     final order = _orders[idx];
     if (order.expiresAt == null || order.isExtended) return 0;
 
-    final availableMinutes = getAvailableExtensionMinutes(order.expiresAt!,
-        isExtended: order.isExtended);
+    final availableMinutes = getAvailableExtensionMinutes(
+      order.expiresAt!,
+      isExtended: order.isExtended,
+      settings: _settings,
+    );
     if (availableMinutes <= 0) return 0;
 
     final newExpiry = order.expiresAt!.add(Duration(minutes: availableMinutes));
-    final updatedOrder = order.copyWith(expiresAt: newExpiry, isExtended: true);
-    _orders[idx] = updatedOrder;
+    final newExtensionCount = order.extensionCount + 1;
 
-    try {
-      await FirebaseFirestore.instance
-          .collection('orders')
-          .doc(order.id)
-          .update({
-        'expiresAt': Timestamp.fromDate(newExpiry),
-        'isExtended': true,
-      });
-    } catch (e) {
-      debugPrint('Error updating order expiry in Firestore: $e');
-    }
+    await FirebaseFirestore.instance.collection('orders').doc(order.id).update({
+      'expiresAt': Timestamp.fromDate(newExpiry),
+      'pickupEnd': Timestamp.fromDate(newExpiry),
+      'isExtended': true,
+      'extensionCount': newExtensionCount,
+    });
 
+    _orders[idx] = order.copyWith(
+      expiresAt: newExpiry,
+      pickupEnd: newExpiry,
+      isExtended: true,
+      extensionCount: newExtensionCount,
+    );
     notifyListeners();
     return availableMinutes;
   }
@@ -539,7 +555,130 @@ class OrderProvider extends ChangeNotifier {
     return List.generate(6, (_) => chars[random.nextInt(chars.length)]).join();
   }
 
-  // ── Submit order ───────────────────────────────────────────────────────────
+  int _computeReminderHours(List<CartItem> items, DateTime expiresAt) {
+    final now = TimeService.now;
+    final hoursUntilExpiry = expiresAt.difference(now).inHours;
+    if (hoursUntilExpiry > 0) return hoursUntilExpiry;
+
+    final hasPerishable = items.any((i) => i.isPerishable);
+    final hasStandard = items.any((i) => !i.isPerishable);
+    if (hasPerishable && hasStandard) return _settings.mixedWindowHours;
+    if (hasPerishable) return _settings.perishableWindowHours;
+    return _settings.standardWindowHours;
+  }
+
+  // ── Submit order (Reserve-Then-Pay) ────────────────────────────────────────
+
+  /// Step 1 of Reserve-Then-Pay: atomically validates stock, reserves `reservedStock`,
+  /// and writes an `awaitingPayment` order with a 15-minute payment timeout.
+  Future<({PreOrder order, DateTime pickupExpiresAt})> reserveOrderForPayment({
+    required String customerName,
+    required String customerEmail,
+    required String customerPhone,
+    required String location,
+    required String pickupSlot,
+    required List<Product> allProducts,
+    String paymentMethod = 'GCash',
+    String? notes,
+  }) async {
+    final now = TimeService.now;
+    final parsedRange = StoreHours.parseSlotRange(pickupSlot, nowTime: now);
+    final pickupStart = parsedRange?.start ??
+        StoreHours.parseSlotTargetDateTime(pickupSlot, nowTime: now);
+    final parsedEnd = parsedRange?.end ??
+        StoreHours.parseSlotEndDateTime(pickupSlot, nowTime: now);
+    final pickupExpiresAt = parsedEnd.isBefore(now)
+        ? now.add(const Duration(minutes: StoreHours.prepBufferMinutes))
+        : parsedEnd;
+
+    final paymentDeadline = now.add(const Duration(minutes: 15));
+    final sixCharOrderId = _generate6CharAlphanumericId();
+    final breakdown = PricingEngine.calculate(
+      items: _preCart,
+      allProducts: allProducts,
+    );
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+
+    final reservedOrder = PreOrder(
+      id: const Uuid().v4(),
+      orderId: sixCharOrderId,
+      customerId: uid,
+      customerName: customerName,
+      customerEmail: customerEmail,
+      customerPhone: customerPhone,
+      items: List.from(_preCart),
+      tax: 0,
+      total: breakdown.total,
+      status: OrderStatus.awaitingPayment,
+      paymentMethod: paymentMethod,
+      paymentStatus: 'unpaid',
+      isPaid: false,
+      location: location,
+      pickupTime: pickupSlot,
+      pickupStart: pickupStart,
+      pickupEnd: pickupExpiresAt,
+      createdAt: now,
+      expiresAt: paymentDeadline,
+      notes: notes,
+      reservationReleased: false,
+    );
+
+    await _fs.submitOrderTransactional(reservedOrder);
+    return (order: reservedOrder, pickupExpiresAt: pickupExpiresAt);
+  }
+
+  /// Step 2 of Reserve-Then-Pay: transitions the reserved `awaitingPayment` order
+  /// to `pending` (paid), schedules the reminder, and clears the cart.
+  Future<PreOrder> confirmReservedOrderPayment({
+    required PreOrder reservedOrder,
+    required String paymentReference,
+    required DateTime pickupExpiresAt,
+  }) async {
+    await _fs.confirmOrderPayment(
+      orderId: reservedOrder.id,
+      paymentReference: paymentReference,
+      pickupExpiresAt: pickupExpiresAt,
+    );
+
+    final confirmedOrder = reservedOrder.copyWith(
+      status: OrderStatus.pending,
+      paymentStatus: 'paid',
+      isPaid: true,
+      paymentReference: paymentReference,
+      expiresAt: pickupExpiresAt,
+    );
+
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      await _fs.addCustomerNotification(
+        userId: uid,
+        title: '🛍️ Purchase Successful',
+        body:
+            'Your pre-order ${confirmedOrder.orderId} (${formatPeso(confirmedOrder.total)}) was submitted successfully. Pickup time: ${confirmedOrder.pickupTime}.',
+        type: 'order',
+        relatedId: confirmedOrder.orderId,
+      );
+    }
+
+    final reminderHours =
+        _computeReminderHours(confirmedOrder.items, pickupExpiresAt);
+    await NotificationService.schedulePerishableReminder(
+      confirmedOrder.id,
+      confirmedOrder.orderId,
+      hours: reminderHours,
+    );
+
+    _preCart.clear();
+    notifyListeners();
+    return confirmedOrder;
+  }
+
+  /// Releases a reserved `awaitingPayment` order when payment fails or is cancelled,
+  /// keeping the customer's cart intact so they can retry.
+  Future<void> releaseUnpaidReservation(PreOrder reservedOrder) async {
+    _lastOrderStatusMap[reservedOrder.id] = OrderStatus.cancelled;
+    await _fs.cancelOrder(reservedOrder.id, reservedOrder.items);
+  }
 
   Future<PreOrder> submitOrder({
     required String customerName,
@@ -552,22 +691,24 @@ class OrderProvider extends ChangeNotifier {
     String? paymentReference,
     String? notes,
   }) async {
-    // 1. Target Scheduled Pickup End Time is the exact expiration time of the order
-    final parsedEnd = StoreHours.parseSlotEndDateTime(pickupSlot);
     final now = TimeService.now;
+    final parsedRange = StoreHours.parseSlotRange(pickupSlot, nowTime: now);
+    final pickupStart = parsedRange?.start ??
+        StoreHours.parseSlotTargetDateTime(pickupSlot, nowTime: now);
+    final parsedEnd = parsedRange?.end ??
+        StoreHours.parseSlotEndDateTime(pickupSlot, nowTime: now);
     final expiresAt = parsedEnd.isBefore(now)
         ? now.add(const Duration(minutes: StoreHours.prepBufferMinutes))
         : parsedEnd;
 
-    // Generate a 6-character alphanumeric Order ID (e.g. A8K2M9)
     final sixCharOrderId = _generate6CharAlphanumericId();
-
     final breakdown = PricingEngine.calculate(
       items: _preCart,
       allProducts: allProducts,
     );
-
     final uid = FirebaseAuth.instance.currentUser?.uid;
+    final hasPaidRef =
+        paymentReference != null && paymentReference.trim().isNotEmpty;
 
     final order = PreOrder(
       id: const Uuid().v4(),
@@ -581,18 +722,21 @@ class OrderProvider extends ChangeNotifier {
       total: breakdown.total,
       status: OrderStatus.pending,
       paymentMethod: paymentMethod,
+      paymentStatus: hasPaidRef ? 'paid' : 'unpaid',
+      isPaid: hasPaidRef,
       paymentReference: paymentReference,
       location: location,
       pickupTime: pickupSlot,
-      createdAt: TimeService.now,
+      pickupStart: pickupStart,
+      pickupEnd: expiresAt,
+      createdAt: now,
       expiresAt: expiresAt,
       notes: notes,
+      reservationReleased: false,
     );
 
-    // Atomic submission: checks stock and decrements in one transaction
     await _fs.submitOrderTransactional(order);
 
-    // Record in-store notification for customer
     if (uid != null) {
       await _fs.addCustomerNotification(
         userId: uid,
@@ -604,10 +748,11 @@ class OrderProvider extends ChangeNotifier {
       );
     }
 
-    // Schedule local reminder
+    final reminderHours = _computeReminderHours(order.items, expiresAt);
     await NotificationService.schedulePerishableReminder(
       order.id,
       order.orderId,
+      hours: reminderHours,
     );
 
     _preCart.clear();
@@ -618,20 +763,8 @@ class OrderProvider extends ChangeNotifier {
   // ── Admin actions ──────────────────────────────────────────────────────────
 
   Future<void> advanceStatus(String orderId) async {
-    final order = _orders.firstWhere((o) => o.id == orderId);
-    final next = switch (order.status) {
-      OrderStatus.pending => OrderStatus.staging,
-      OrderStatus.staging => OrderStatus.ready,
-      OrderStatus.ready => OrderStatus.collected,
-      _ => null,
-    };
-    if (next == null) return;
-    await _fs.updateOrderStatus(orderId, next);
-
-    // Notify customer when order is ready
-    if (next == OrderStatus.ready) {
-      await NotificationService.sendOrderReady(order.orderId);
-    }
+    throw UnsupportedError(
+        'Order fulfillment transitions are handled exclusively by store staff in Admin-App.');
   }
 
   Future<void> refundOrder(String orderId) async {
@@ -642,28 +775,36 @@ class OrderProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> requestRefund(String orderId, String reason, List<CartItem> itemsToRefund) async {
+  Future<void> requestRefund(
+      String orderId, String reason, List<CartItem> itemsToRefund) async {
     final order = _orders.firstWhere((o) => o.id == orderId);
 
-    // 1. Avoid Duplication
+    // 1. Avoid Duplication (ignore previously cancelled or rejected requests)
     final existingRequests =
         await _fs.getRefundRequestsForTransaction(order.orderId);
-    if (existingRequests.isNotEmpty) {
+    final hasActiveRequest = existingRequests.any(
+      (r) =>
+          r.status == RefundStatus.pending || r.status == RefundStatus.approved,
+    );
+    if (hasActiveRequest) {
       throw 'A refund request for this order is already being processed.';
     }
 
-    final refundTotal = itemsToRefund.fold(0.0, (sum, item) => sum + (item.price * item.qty));
+    final refundTotal =
+        itemsToRefund.fold(0.0, (sum, item) => sum + (item.price * item.qty));
+    final uid = order.customerId ?? FirebaseAuth.instance.currentUser?.uid;
 
     final req = RefundRequest(
       id: '',
       transactionId: order.orderId,
+      customerId: uid,
       customerEmail: order.customerEmail,
       customerName: order.customerName,
       items: itemsToRefund,
       total: refundTotal,
       reason: reason,
       status: RefundStatus.pending,
-      createdAt: DateTime.now(),
+      createdAt: TimeService.now,
     );
 
     await _fs.requestRefund(req);
@@ -672,7 +813,7 @@ class OrderProvider extends ChangeNotifier {
     await NotificationService.notifyAdminRefundRequest(
         order.orderId, order.customerName);
 
-    // Update order status to show it's being reviewed
+    // Update order status using standardized camelCase `refundRequested`
     await _fs.updateOrderStatus(orderId, OrderStatus.refundRequested);
 
     notifyListeners();

@@ -139,6 +139,7 @@ class CustomerDashboardScreen extends StatelessWidget {
             o.status != OrderStatus.collected &&
             o.status != OrderStatus.cancelled &&
             o.status != OrderStatus.refunded &&
+            o.status != OrderStatus.refundRequested &&
             o.status != OrderStatus.refundRejected &&
             !o.isExpired)
         .toList()
@@ -1445,13 +1446,23 @@ class _ActiveOrderCard extends StatelessWidget {
                   HapticFeedback.lightImpact();
                   final messenger = ScaffoldMessenger.of(context);
                   final op = context.read<OrderProvider>();
-                  final ext = await op.extendOrderPickupTime(order.id);
-                  if (ext > 0) {
+                  try {
+                    final ext = await op.extendOrderPickupTime(order.id);
+                    if (ext > 0) {
+                      messenger.showSnackBar(
+                        SnackBar(
+                          content: Text(
+                              '⏱ Pickup time extended by $ext mins!'),
+                          backgroundColor: AppColors.forest,
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    }
+                  } catch (e) {
                     messenger.showSnackBar(
                       SnackBar(
-                        content: Text(
-                            '⏱ Pickup time extended by $ext mins! Extended up to 3:00 PM cutoff.'),
-                        backgroundColor: AppColors.forest,
+                        content: Text('Could not extend pickup time: $e'),
+                        backgroundColor: AppColors.error,
                         behavior: SnackBarBehavior.floating,
                       ),
                     );

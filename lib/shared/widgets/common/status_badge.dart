@@ -9,6 +9,11 @@ class StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, bg, fg) = switch (status) {
+      OrderStatus.awaitingPayment => (
+          'Awaiting Payment',
+          const Color(0xFFFFF3E0),
+          GdcColors.warning
+        ),
       OrderStatus.pending => (
           'Pending',
           const Color(0xFFFFF3CD),

@@ -217,15 +217,6 @@ class InventoryProvider extends ChangeNotifier {
       debugPrint('Error listening to products stream: $e');
     }));
 
-    _subscriptions.add(_fs.transactionsStream().listen((list) {
-      if (_isDisposed) return;
-      list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      _transactions = list;
-      notifyListeners();
-    }, onError: (e) {
-      debugPrint('Error listening to transactions stream: $e');
-    }));
-
     _subscriptions.add(_fs.bundlesStream().listen((list) {
       if (_isDisposed) return;
       _bundles = list;

@@ -605,18 +605,37 @@ class _ShopScreenState extends State<ShopScreen> {
                             currentCategory: _cat,
                             onAdd: (bundle) {
                               final messenger = ScaffoldMessenger.of(context);
+                              int addedCount = 0;
                               for (final productId in bundle.productIds) {
                                 try {
                                   final p = inventory.products.firstWhere(
                                       (prod) => prod.id == productId);
-                                  orderProvider.addToPreCart(p);
+                                  if (p.hasVariants && p.variants != null) {
+                                    final available = p.variants!.values
+                                        .where((v) => !v.isOutOfStockForCustomer)
+                                        .toList();
+                                    if (available.isEmpty) continue;
+                                    final chosen = available.first;
+                                    orderProvider.addToPreCart(
+                                      p,
+                                      variantId: chosen.id,
+                                      variantName: chosen.name,
+                                    );
+                                    addedCount++;
+                                  } else if (!p.isOutOfStockForCustomer) {
+                                    orderProvider.addToPreCart(p);
+                                    addedCount++;
+                                  }
                                 } catch (_) {}
                               }
                               messenger.showSnackBar(
                                 SnackBar(
-                                  content: Text(
-                                      'Added "${bundle.name}" to pre-cart.'),
-                                  backgroundColor: AppColors.forest,
+                                  content: Text(addedCount > 0
+                                      ? 'Added "${bundle.name}" to pre-cart.'
+                                      : 'Items in "${bundle.name}" are currently out of stock.'),
+                                  backgroundColor: addedCount > 0
+                                      ? AppColors.forest
+                                      : AppColors.error,
                                   behavior: SnackBarBehavior.floating,
                                 ),
                               );
