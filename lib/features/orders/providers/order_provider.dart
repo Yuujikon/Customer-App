@@ -791,7 +791,7 @@ class OrderProvider extends ChangeNotifier {
     }
 
     final refundTotal =
-        itemsToRefund.fold(0.0, (sum, item) => sum + (item.price * item.qty));
+        itemsToRefund.fold(0.0, (acc, item) => acc + (item.price * item.qty));
     final uid = order.customerId ?? FirebaseAuth.instance.currentUser?.uid;
 
     final req = RefundRequest(

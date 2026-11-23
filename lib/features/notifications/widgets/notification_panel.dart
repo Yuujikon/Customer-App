@@ -47,7 +47,7 @@ class NotificationPanel extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       'UPDATES',
                       style: TextStyle(
                         fontSize: 10,
@@ -56,7 +56,7 @@ class NotificationPanel extends StatelessWidget {
                         letterSpacing: 0.8,
                       ),
                     ),
-                    SizedBox(height: 2),
+                    const SizedBox(height: 2),
                     Text(
                       'Notifications',
                       style: TextStyle(

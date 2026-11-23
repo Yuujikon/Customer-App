@@ -45,7 +45,7 @@ class _VariantSelectionSheetState extends State<VariantSelectionSheet> {
       ),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
       ),
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
@@ -86,8 +86,9 @@ class _VariantSelectionSheetState extends State<VariantSelectionSheet> {
                       : () {
                           setState(() {
                             _selectedVariantId = v.id;
-                            if (_quantity > v.maxPurchasableStock)
+                            if (_quantity > v.maxPurchasableStock) {
                               _quantity = v.maxPurchasableStock;
+                            }
                             if (_quantity < 1) _quantity = 1;
                             _syncQuantityWithCart();
                           });

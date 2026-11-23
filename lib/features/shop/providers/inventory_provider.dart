@@ -16,7 +16,7 @@ class InventoryProvider extends ChangeNotifier {
   final List<StreamSubscription> _subscriptions = [];
 
   List<Product> _products = [];
-  List<StoreTransaction> _transactions = [];
+  final List<StoreTransaction> _transactions = [];
   List<ProductBundle> _bundles = [];
   StoreSettings _settings = const StoreSettings(isClosed: false);
   DateTime? _lastProductUpdate;

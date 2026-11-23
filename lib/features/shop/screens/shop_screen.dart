@@ -164,7 +164,7 @@ class _ShopScreenState extends State<ShopScreen> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
+                          const Text(
                             'GDC MARKET',
                             style: TextStyle(
                               fontSize: 10,
@@ -173,7 +173,7 @@ class _ShopScreenState extends State<ShopScreen> {
                               letterSpacing: 1.2,
                             ),
                           ),
-                          SizedBox(height: 2),
+                          const SizedBox(height: 2),
                           Text(
                             'Browse Catalog',
                             style: TextStyle(
@@ -183,7 +183,7 @@ class _ShopScreenState extends State<ShopScreen> {
                               letterSpacing: -0.4,
                             ),
                           ),
-                          SizedBox(height: 2),
+                          const SizedBox(height: 2),
                           Text(
                             'Fresh essentials, ready for express pickup.',
                             style: TextStyle(
@@ -282,10 +282,10 @@ class _ShopScreenState extends State<ShopScreen> {
                                 ),
                               ),
                               if (_showOutOfStock || _savedOnly)
-                                PopupMenuItem(
+                                const PopupMenuItem(
                                   value: 'reset',
                                   child: Row(
-                                    children: const [
+                                    children: [
                                       Icon(Icons.refresh_rounded,
                                           size: 18, color: AppColors.mutedText),
                                       SizedBox(width: 8),
@@ -440,8 +440,9 @@ class _ShopScreenState extends State<ShopScreen> {
                                       MaterialTapTargetSize.shrinkWrap,
                                   visualDensity: VisualDensity.compact,
                                   onSelected: (selected) {
-                                    if (selected)
+                                    if (selected) {
                                       setState(() => _cat = catName);
+                                    }
                                   },
                                   selectedColor: AppColors.forest,
                                   labelStyle: TextStyle(
@@ -539,7 +540,7 @@ class _ShopScreenState extends State<ShopScreen> {
                                   .any((p) => p.isUnavailable || p.isAdjusted);
 
                               if (hasIssues) {
-                                showDialog(
+                                await showDialog(
                                   context: context,
                                   builder: (ctx) => ReorderSummaryDialog(
                                     previews: previews,

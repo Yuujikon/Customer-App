@@ -399,8 +399,7 @@ class _CustomerAuthScreenState extends State<CustomerAuthScreen> {
                                 await authProvider.signInWithGoogle();
                             if (!mounted) return;
                             if (requiresSetup) {
-                              Navigator.pushReplacement(
-                                context,
+                              navigator.pushReplacement(
                                 MaterialPageRoute(
                                   builder: (_) => const ProfileSetupScreen(),
                                 ),

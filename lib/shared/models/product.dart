@@ -144,8 +144,9 @@ class Product {
   bool get isOutOfStockForCustomer {
     if (isQuarantined) return true;
     if (hasVariants) {
-      if (variants == null || variants!.isEmpty)
+      if (variants == null || variants!.isEmpty) {
         return totalAvailableStock <= 0;
+      }
       return variants!.values.every((v) => v.isOutOfStockForCustomer);
     } else {
       return availableStock <= 0;

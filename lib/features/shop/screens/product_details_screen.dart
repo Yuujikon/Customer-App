@@ -8,7 +8,6 @@ import '../../../shared/widgets/common/qty_control.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/utils/format.dart';
 import '../../../core/theme/app_theme.dart';
-import '../widgets/shop_widgets.dart';
 
 class ProductDetailsScreen extends StatefulWidget {
   final Product product;
@@ -452,8 +451,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                     : (selected) {
                         setState(() {
                           _selectedVariantId = v.id;
-                          if (_quantity > v.maxPurchasableStock)
+                          if (_quantity > v.maxPurchasableStock) {
                             _quantity = v.maxPurchasableStock;
+                          }
                           if (_quantity < 1) _quantity = 1;
                           _syncQuantityWithCart();
                         });

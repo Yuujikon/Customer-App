@@ -4,7 +4,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/launcher.dart';
@@ -17,7 +16,6 @@ import '../../../shared/services/verification_service.dart';
 import '../../../shared/services/firestore_service.dart';
 import '../../../shared/models/customer_appeal.dart';
 import '../widgets/info/store_info_sheet.dart';
-import '../../../shared/widgets/common/logout_confirm_dialog.dart';
 
 class AccountScreen extends StatefulWidget {
   final VoidCallback onLogout;
@@ -152,11 +150,11 @@ class _AccountScreenState extends State<AccountScreen> {
                 border: Border.all(
                     color: AppColors.orangeCTA.withValues(alpha: 0.5)),
               ),
-              child: Row(
+              child: const Row(
                 children: [
-                  const Icon(Icons.error_outline_rounded,
+                  Icon(Icons.error_outline_rounded,
                       color: AppColors.orangeCTA, size: 22),
-                  const SizedBox(width: 10),
+                  SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -630,7 +628,7 @@ class _AccountScreenState extends State<AccountScreen> {
     if (d.inHours > 0) {
       final hours = d.inHours;
       final mins = d.inMinutes % 60;
-      return '$hours hr${hours > 1 ? "s" : ""} ${mins} min${mins > 1 ? "s" : ""}';
+      return '$hours hr${hours > 1 ? "s" : ""} $mins min${mins > 1 ? "s" : ""}';
     } else {
       final mins = d.inMinutes;
       return '$mins min${mins > 1 ? "s" : ""}';
@@ -1005,15 +1003,6 @@ class _AccountScreenState extends State<AccountScreen> {
     );
   }
 
-  void _showLogoutConfirm(BuildContext context) async {
-    final auth = context.read<AppAuthProvider>();
-    final confirm = await LogoutConfirmDialog.show(context);
-    if (confirm == true) {
-      await auth.signOut();
-      widget.onLogout();
-    }
-  }
-
   Future<void> _pickImage(AppAuthProvider auth) async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(
@@ -1060,7 +1049,7 @@ class _AccountScreenState extends State<AccountScreen> {
       builder: (ctx) => _EditPersonalInformationDialog(auth: auth),
     );
 
-    if (result == null || !mounted) return;
+    if (result == null || !context.mounted) return;
 
     final String? updatedName = result['updatedName'];
     final String? newPhoneToVerify = result['newPhoneToVerify'];
@@ -1078,7 +1067,7 @@ class _AccountScreenState extends State<AccountScreen> {
                 name: updatedName,
                 phone: newPhoneToVerify,
               );
-              if (mounted) {
+              if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content:

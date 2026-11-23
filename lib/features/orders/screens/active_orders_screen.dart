@@ -481,9 +481,9 @@ class _OrderDetail extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.info_outline_rounded,
+              const Icon(Icons.info_outline_rounded,
                   size: 16, color: GdcColors.terracotta),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   'Return & Exchange Policy: Present this QR receipt at the store. Opened, unsealed, or tampered items cannot be refunded or swapped.',
@@ -577,9 +577,9 @@ class _OrderDetail extends StatelessWidget {
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: () async {
-                HapticFeedback.lightImpact();
                 final messenger = ScaffoldMessenger.of(context);
                 final op = context.read<OrderProvider>();
+                await HapticFeedback.lightImpact();
                 try {
                   final ext = await op.extendOrderPickupTime(order.id);
                   if (ext > 0) {
@@ -625,7 +625,8 @@ class _OrderDetail extends StatelessWidget {
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: () async {
-                HapticFeedback.lightImpact();
+                await HapticFeedback.lightImpact();
+                if (!context.mounted) return;
                 final confirm = await showDialog<bool>(
                   context: context,
                   builder: (ctx) => CancelOrderDialog(orderId: order.orderId),

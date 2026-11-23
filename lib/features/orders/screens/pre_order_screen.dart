@@ -1,13 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/store_hours.dart';
-import '../../../core/utils/pricing_engine.dart';
 import '../../../shared/models/order.dart';
 import '../../../shared/models/product.dart';
 import '../../../shared/models/customer_appeal.dart';
@@ -39,15 +35,11 @@ class PreOrderScreen extends StatefulWidget {
 
 class _PreOrderScreenState extends State<PreOrderScreen> {
   late String _pickupSlot;
-  String _pickupOption = 'ASAP'; // 'ASAP' or 'Schedule'
   final _notesCtrl = TextEditingController();
   final _refNumCtrl = TextEditingController();
   String _selectedPaymentMethod = 'GCash'; // 'GCash', 'Maya'
   bool _isSubmitting = false;
   PreOrder? _submittedOrder;
-
-  String get _storeGcashNumber =>
-      dotenv.env['STORE_GCASH_NUMBER'] ?? '09558297358';
 
   @override
   void initState() {
@@ -79,7 +71,6 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
     final allProducts = inventoryProvider.products;
 
     final bool hasPerishables = cart.any((item) => item.isPerishable);
-    final bool isPrepaid = true;
 
     // Calculate earliest batch expiry (FEFO)
     DateTime? earliestExpiry;
@@ -107,7 +98,7 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
     final firstDate = earliestAvailableDate;
 
     // Calendar Max Allowed Date:
-    // - Perishable or Cash: max 1 day advance
+    // - Perishable: max 1 day advance
     // - Non-Perishable + Prepaid (GCash/Maya): max 3 days advance
     // - Bounded by earliest FEFO expiry date
     DateTime lastDate;
@@ -116,12 +107,9 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
     if (hasPerishables) {
       lastDate = today.add(const Duration(days: 1));
       itemTypeNotice = 'PERISHABLE: UP TO 1 DAY ADVANCE';
-    } else if (isPrepaid) {
+    } else {
       lastDate = today.add(const Duration(days: 3));
       itemTypeNotice = 'PREPAID NON-PERISHABLE: UP TO 3 DAYS ADVANCE';
-    } else {
-      lastDate = today.add(const Duration(days: 1));
-      itemTypeNotice = 'CASH ON PICKUP: UP TO 1 DAY ADVANCE';
     }
 
     if (earliestExpiry != null) {
@@ -351,8 +339,8 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-        title: Row(
-          children: const [
+        title: const Row(
+          children: [
             Icon(Icons.person_outline_rounded,
                 color: AppColors.orangeCTA, size: 26),
             SizedBox(width: 10),
@@ -403,80 +391,6 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                   borderRadius: BorderRadius.circular(100)),
             ),
             child: const Text('Go to Account Profile'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showQrCodeModal(String providerName, String accountNumber) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        backgroundColor: Theme.of(context).cardColor,
-        title: Column(
-          children: [
-            Text('$providerName Payment QR',
-                style: const TextStyle(fontWeight: FontWeight.w900)),
-            const SizedBox(height: 4),
-            Text(accountNumber,
-                style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.forest)),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Scan this QR code using your $providerName app or send payment to $accountNumber (GDC Sari-Sari Store).',
-              textAlign: TextAlign.center,
-              style:
-                  const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppColors.border, width: 2),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: SizedBox(
-                width: 180,
-                height: 180,
-                child: QrImageView(
-                  data: '00020101021226480016A000000677010111$accountNumber',
-                  version: QrVersions.auto,
-                  size: 180.0,
-                  backgroundColor: Colors.white,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            SelectableText(
-              'Account: $accountNumber\nName: GDC Sari-Sari Store',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.forest),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
           ),
         ],
       ),
@@ -1626,15 +1540,15 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Row(
+                                  const Row(
                                     children: [
-                                      const Icon(Icons.security_rounded,
+                                      Icon(Icons.security_rounded,
                                           color: AppColors.forest, size: 20),
-                                      const SizedBox(width: 8),
+                                      SizedBox(width: 8),
                                       Expanded(
                                         child: Text(
                                           'Secure Payment via Xendit',
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                               fontSize: 13,
                                               fontWeight: FontWeight.w800),
                                         ),
@@ -1643,7 +1557,7 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
-                                    'You will be redirected to a secure Xendit page to complete your ${_selectedPaymentMethod} payment. Please do not close the app.',
+                                    'You will be redirected to a secure Xendit page to complete your $_selectedPaymentMethod payment. Please do not close the app.',
                                     style: const TextStyle(
                                         fontSize: 11.5,
                                         color: AppColors.mutedText,
@@ -1887,7 +1801,7 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
     if (d.inHours > 0) {
       final hours = d.inHours;
       final mins = d.inMinutes % 60;
-      return '$hours hr${hours > 1 ? "s" : ""} ${mins} min${mins > 1 ? "s" : ""}';
+      return '$hours hr${hours > 1 ? "s" : ""} $mins min${mins > 1 ? "s" : ""}';
     } else {
       final mins = d.inMinutes;
       return '$mins min${mins > 1 ? "s" : ""}';

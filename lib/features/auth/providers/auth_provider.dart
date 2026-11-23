@@ -328,7 +328,7 @@ class AppAuthProvider extends ChangeNotifier {
         email: email, password: password);
     final formattedName = capitalizeName(name);
     if (!isValidRealName(formattedName)) {
-      throw FormatException('Please enter a valid First and Last name.');
+      throw const FormatException('Please enter a valid First and Last name.');
     }
     await cred.user?.updateDisplayName(formattedName);
 

@@ -486,9 +486,9 @@ class OrderTicketScreen extends StatelessWidget {
                 0) ...[
               OutlinedButton.icon(
                 onPressed: () async {
-                  HapticFeedback.lightImpact();
                   final messenger = ScaffoldMessenger.of(context);
                   final op = context.read<OrderProvider>();
+                  await HapticFeedback.lightImpact();
                   try {
                     final ext = await op.extendOrderPickupTime(order.id);
                     if (ext > 0) {

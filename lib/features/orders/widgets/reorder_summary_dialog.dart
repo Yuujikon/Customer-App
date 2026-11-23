@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../providers/reorder_preview.dart';
 import '../../../core/utils/format.dart';
-import '../../shop/screens/shop_screen.dart'; // to browse similar? Wait, maybe just pop and callback
+// to browse similar? Wait, maybe just pop and callback
 
 class ReorderSummaryDialog extends StatelessWidget {
   final List<ReorderItemPreview> previews;
@@ -20,11 +20,6 @@ class ReorderSummaryDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final available = previews.where((p) => !p.isUnavailable).toList();
     final unavailable = previews.where((p) => p.isUnavailable).toList();
-
-    int addedItemsCount = 0;
-    for (var p in available) {
-      addedItemsCount += p.toAddQty;
-    }
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
@@ -283,9 +278,9 @@ class ReorderSummaryDialog extends StatelessWidget {
                 Navigator.pop(context);
                 onBrowseSimilar(p.product!.category);
               },
-              child: Row(
+              child: const Row(
                 children: [
-                  const Text(
+                  Text(
                     'Browse Similar Items',
                     style: TextStyle(
                       fontSize: 14,
@@ -295,8 +290,8 @@ class ReorderSummaryDialog extends StatelessWidget {
                       decorationColor: AppColors.forest,
                     ),
                   ),
-                  const SizedBox(width: 4),
-                  const Icon(Icons.arrow_outward_rounded,
+                  SizedBox(width: 4),
+                  Icon(Icons.arrow_outward_rounded,
                       size: 14, color: AppColors.forest),
                 ],
               ),

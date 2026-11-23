@@ -33,7 +33,7 @@ class MyOrdersScreen extends StatelessWidget {
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              const Text(
                 'ORDER TRACKING',
                 style: TextStyle(
                   fontSize: 10,
@@ -42,7 +42,7 @@ class MyOrdersScreen extends StatelessWidget {
                   letterSpacing: 1.2,
                 ),
               ),
-              SizedBox(height: 2),
+              const SizedBox(height: 2),
               Text(
                 'My orders',
                 style: TextStyle(
