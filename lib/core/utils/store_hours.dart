@@ -1,228 +1,249 @@
 import 'package:intl/intl.dart';
+import '../../shared/models/store_settings.dart';
 import '../../shared/services/time_service.dart';
 
 class StoreHours {
-  // Designated store pickup hours (11:00 AM to 3:00 PM)
+  // Default store pickup hours (11:00 AM to 3:00 PM) when operatingHoursEnabled is false
   static const int openHour = 11; // 11:00 AM
   static const int closeHour = 15; // 3:00 PM (15:00)
   static const int prepBufferMinutes = 20; // 20-minute preparation buffer
 
-  /// Checks if the store is currently within active pickup hours (11:00 AM – 3:00 PM).
-  static bool isOpen({DateTime? nowTime}) {
-    final h = (nowTime ?? TimeService.now).hour;
-    return h >= openHour && h < closeHour;
+  // Matches:
+  //   "Today, 1:00 PM – 2:00 PM"
+  //   "Tomorrow, 11:00 AM - 12:00 PM"
+  //   "Wed, Nov 25, 11:00 AM – 12:00 PM"
+  //   "Wednesday, Nov 25, 11:30 AM – 12:30 PM"
+  //   "Nov 25, 11:00 AM – 12:00 PM"
+  //   "Today, 1:30 PM" (single time without range)
+  static final RegExp _slotRegex = RegExp(
+    r'^(.+?),\s*(\d{1,2}:\d{2}\s*[AP]M)(?:\s*[\-–—]\s*(\d{1,2}:\d{2}\s*[AP]M))?$',
+    caseSensitive: false,
+  );
+
+  static int effectiveOpenHour(StoreSettings? settings) {
+    if (settings != null && settings.operatingHoursEnabled) {
+      return settings.openHour;
+    }
+    return openHour;
+  }
+
+  static int effectiveCloseHour(StoreSettings? settings) {
+    if (settings != null && settings.operatingHoursEnabled) {
+      final close = settings.closeHour;
+      final open = settings.openHour;
+      if (close > open) return close;
+    }
+    return closeHour;
+  }
+
+  static String _formatHour(int h) {
+    final normalized = h % 24;
+    if (normalized == 0) return '12:00 AM';
+    if (normalized == 12) return '12:00 PM';
+    if (normalized > 12) return '${normalized - 12}:00 PM';
+    return '$normalized:00 AM';
+  }
+
+  /// Parses a slot string into its exact `(start, end)` DateTimes, or `null` if unparseable.
+  /// Handles "Today", "Tomorrow", "EEE, MMM d" (2 commas), "EEEE, MMM d", and "MMM d".
+  static ({DateTime start, DateTime end})? parseSlotRange(
+    String slotStr, {
+    DateTime? nowTime,
+  }) {
+    final now = nowTime ?? TimeService.now;
+    final trimmed = slotStr.trim();
+    if (trimmed.contains('ASAP')) {
+      final ready = now.add(const Duration(minutes: prepBufferMinutes));
+      return (start: ready, end: ready);
+    }
+
+    final match = _slotRegex.firstMatch(trimmed);
+    if (match == null) return null;
+
+    final datePart = match.group(1)!.trim();
+    final startStr = match.group(2)!.trim().toUpperCase();
+    final endStr = (match.group(3) ?? match.group(2))!.trim().toUpperCase();
+
+    DateTime parsedStartTime;
+    DateTime parsedEndTime;
+    try {
+      final timeFormat = DateFormat('h:mm a');
+      parsedStartTime = timeFormat.parseStrict(startStr);
+      parsedEndTime = timeFormat.parseStrict(endStr);
+    } catch (_) {
+      return null;
+    }
+
+    final today = DateTime(now.year, now.month, now.day);
+    DateTime? baseDate;
+
+    if (datePart.toLowerCase() == 'today') {
+      baseDate = today;
+    } else if (datePart.toLowerCase() == 'tomorrow') {
+      baseDate = today.add(const Duration(days: 1));
+    } else {
+      for (final fmt in ['EEE, MMM d', 'EEEE, MMM d', 'MMM d', 'MMMM d']) {
+        try {
+          final parsed = DateFormat(fmt).parseStrict(datePart);
+          var candidate = DateTime(now.year, parsed.month, parsed.day);
+          if (candidate.isBefore(today.subtract(const Duration(days: 30)))) {
+            candidate = DateTime(now.year + 1, parsed.month, parsed.day);
+          }
+          baseDate = candidate;
+          break;
+        } catch (_) {}
+      }
+    }
+
+    if (baseDate == null) return null;
+
+    final start = DateTime(
+      baseDate.year,
+      baseDate.month,
+      baseDate.day,
+      parsedStartTime.hour,
+      parsedStartTime.minute,
+    );
+
+    var end = DateTime(
+      baseDate.year,
+      baseDate.month,
+      baseDate.day,
+      parsedEndTime.hour,
+      parsedEndTime.minute,
+    );
+
+    // Handle range crossing midnight (e.g., 11:00 PM – 12:00 AM)
+    if (match.group(3) != null && !end.isAfter(start)) {
+      end = end.add(const Duration(days: 1));
+    }
+
+    return (start: start, end: end);
+  }
+
+  /// Checks if the store is currently within active pickup hours.
+  static bool isOpen({DateTime? nowTime, StoreSettings? settings}) {
+    final now = nowTime ?? TimeService.now;
+    if (settings != null && settings.isClosed) return false;
+    final openH = effectiveOpenHour(settings);
+    final closeH = effectiveCloseHour(settings);
+    return now.hour >= openH && now.hour < closeH;
   }
 
   /// Returns ASAP express pickup label (e.g., "ASAP (Ready by ~1:32 PM)").
   static String asapPickupSlot({DateTime? nowTime}) {
-    final readyTime = (nowTime ?? TimeService.now).add(const Duration(minutes: prepBufferMinutes));
+    final readyTime = (nowTime ?? TimeService.now)
+        .add(const Duration(minutes: prepBufferMinutes));
     final timeStr = DateFormat('h:mm a').format(readyTime);
     return 'ASAP (Ready by ~$timeStr)';
   }
 
-  /// Calculates the earliest valid pickup date for a basket considering operating hours (11:00 AM – 3:00 PM).
-  /// Returns Tomorrow if Today's store closing (3:00 PM) has passed.
-  static DateTime getEarliestPickupDate({DateTime? nowTime}) {
+  /// Calculates the earliest valid pickup date considering operating hours and prep buffer.
+  /// Returns Tomorrow if Today's last slot can no longer satisfy the prep buffer.
+  static DateTime getEarliestPickupDate({
+    DateTime? nowTime,
+    StoreSettings? settings,
+  }) {
     final now = nowTime ?? TimeService.now;
     final today = DateTime(now.year, now.month, now.day);
+    final closeH = effectiveCloseHour(settings);
     final todayClose =
-        DateTime(today.year, today.month, today.day, closeHour, 0);
+        DateTime(today.year, today.month, today.day, closeH, 0);
+    final readyAt = now.add(const Duration(minutes: prepBufferMinutes));
 
-    if (!now.isBefore(todayClose)) {
+    if (!readyAt.isBefore(todayClose)) {
       return today.add(const Duration(days: 1));
     }
     return today;
   }
 
-  /// Returns dynamic initial default pickup slot formatted string within 11:00 AM – 3:00 PM hours.
-  /// Selects the current active slot or next upcoming slot whose END time is in the future.
-  static String defaultPickupSlot({DateTime? nowTime}) {
+  /// Returns dynamic initial default pickup slot formatted string within operating hours.
+  /// Selects the current active slot or next upcoming slot whose END time can satisfy prep buffer.
+  static String defaultPickupSlot({
+    DateTime? nowTime,
+    StoreSettings? settings,
+  }) {
     final now = nowTime ?? TimeService.now;
     final today = DateTime(now.year, now.month, now.day);
-    final earliestDate = getEarliestPickupDate(nowTime: now);
+    final openH = effectiveOpenHour(settings);
+    final closeH = effectiveCloseHour(settings);
+    final earliestDate =
+        getEarliestPickupDate(nowTime: now, settings: settings);
+    final readyAt = now.add(const Duration(minutes: prepBufferMinutes));
 
     final bool isTodayAvailable = earliestDate.year == today.year &&
         earliestDate.month == today.month &&
         earliestDate.day == today.day;
 
     if (isTodayAvailable) {
-      for (int h = openHour; h < closeHour; h++) {
+      for (int h = openH; h < closeH; h++) {
         final slotEndTime =
             DateTime(today.year, today.month, today.day, h + 1);
-        if (now.isBefore(slotEndTime)) {
-          final startStr =
-              h == 12 ? '12:00 PM' : (h > 12 ? '${h - 12}:00 PM' : '$h:00 AM');
-          final endH = h + 1;
-          final endStr = endH == 12
-              ? '12:00 PM'
-              : (endH > 12 ? '${endH - 12}:00 PM' : '$endH:00 AM');
-          return 'Today, $startStr – $endStr';
+        if (readyAt.isBefore(slotEndTime)) {
+          return 'Today, ${_formatHour(h)} – ${_formatHour(h + 1)}';
         }
       }
     }
 
+    final firstRange = '${_formatHour(openH)} – ${_formatHour(openH + 1)}';
     final tomorrow = today.add(const Duration(days: 1));
     if (earliestDate.year == tomorrow.year &&
         earliestDate.month == tomorrow.month &&
         earliestDate.day == tomorrow.day) {
-      return 'Tomorrow, 11:00 AM – 12:00 PM';
+      return 'Tomorrow, $firstRange';
     }
 
     final dateLabel = DateFormat('EEE, MMM d').format(earliestDate);
-    return '$dateLabel, 11:00 AM – 12:00 PM';
+    return '$dateLabel, $firstRange';
   }
 
   /// Checks whether a formatted pickup slot string has passed its usable window.
-  /// A slot is considered expired when current time reaches or passes its END time.
-  static bool isSlotExpired(String slotStr, {DateTime? nowTime}) {
+  /// A slot is considered expired when `now + prepBufferMinutes` reaches or passes its END time.
+  static bool isSlotExpired(
+    String slotStr, {
+    DateTime? nowTime,
+    StoreSettings? settings,
+    DateTime? pickupEnd,
+  }) {
     if (slotStr.contains('ASAP')) {
-      return !isOpen(nowTime: nowTime);
+      return !isOpen(nowTime: nowTime, settings: settings);
     }
 
     final now = nowTime ?? TimeService.now;
-    try {
-      final parts = slotStr.split(',');
-      if (parts.length < 2) return false;
+    final endTime =
+        pickupEnd ?? parseSlotRange(slotStr, nowTime: now)?.end;
+    if (endTime == null) return false;
 
-      final datePart = parts[0].trim();
-      final rangeParts = parts[1].split(RegExp(r'\s*[\-–—]\s*'));
-      final endTimePart =
-          (rangeParts.length > 1 ? rangeParts[1] : rangeParts[0]).trim();
-      final timeFormat = DateFormat('h:mm a');
-      final parsedEndTime = timeFormat.parse(endTimePart);
-
-      final today = DateTime(now.year, now.month, now.day);
-      DateTime baseDate;
-
-      if (datePart == 'Today') {
-        baseDate = today;
-      } else if (datePart == 'Tomorrow') {
-        baseDate = today.add(const Duration(days: 1));
-      } else {
-        final parsed = DateFormat('EEE, MMM d').parse(datePart);
-        baseDate = DateTime(now.year, parsed.month, parsed.day);
-        if (baseDate.isBefore(today.subtract(const Duration(days: 30)))) {
-          baseDate = DateTime(now.year + 1, parsed.month, parsed.day);
-        }
-      }
-
-      final slotEndTime = DateTime(
-        baseDate.year,
-        baseDate.month,
-        baseDate.day,
-        parsedEndTime.hour,
-        parsedEndTime.minute,
-      );
-
-      return !now.isBefore(slotEndTime);
-    } catch (_) {
-      return false;
-    }
+    final readyAt = now.add(const Duration(minutes: prepBufferMinutes));
+    return !readyAt.isBefore(endTime);
   }
 
   /// Parses a pickup slot string into the START DateTime of the slot.
-  static DateTime parseSlotTargetDateTime(String slotStr, {DateTime? nowTime}) {
+  /// Prefers [pickupStart] when already stored as a structured Timestamp.
+  static DateTime parseSlotTargetDateTime(
+    String slotStr, {
+    DateTime? nowTime,
+    DateTime? pickupStart,
+  }) {
+    if (pickupStart != null) return pickupStart;
     final now = nowTime ?? TimeService.now;
-    if (slotStr.contains('ASAP')) {
-      return now.add(const Duration(minutes: prepBufferMinutes));
-    }
-
-    try {
-      final parts = slotStr.split(',');
-      if (parts.length < 2) {
-        return now.add(const Duration(minutes: prepBufferMinutes));
-      }
-
-      final datePart = parts[0].trim();
-      final timePart = parts[1].split(RegExp(r'\s*[\-–—]\s*'))[0].trim();
-      final timeFormat = DateFormat('h:mm a');
-      final parsedTime = timeFormat.parse(timePart);
-
-      final today = DateTime(now.year, now.month, now.day);
-      DateTime baseDate;
-
-      if (datePart == 'Today') {
-        baseDate = today;
-      } else if (datePart == 'Tomorrow') {
-        baseDate = today.add(const Duration(days: 1));
-      } else {
-        final parsed = DateFormat('EEE, MMM d').parse(datePart);
-        baseDate = DateTime(now.year, parsed.month, parsed.day);
-        if (baseDate.isBefore(today.subtract(const Duration(days: 30)))) {
-          baseDate = DateTime(now.year + 1, parsed.month, parsed.day);
-        }
-      }
-
-      final target = DateTime(
-        baseDate.year,
-        baseDate.month,
-        baseDate.day,
-        parsedTime.hour,
-        parsedTime.minute,
-      );
-
-      if (target.isBefore(now)) {
-        return now.add(const Duration(minutes: prepBufferMinutes));
-      }
-
-      return target;
-    } catch (_) {
-      return now.add(const Duration(minutes: prepBufferMinutes));
-    }
+    final parsed = parseSlotRange(slotStr, nowTime: now);
+    if (parsed != null) return parsed.start;
+    return now.add(const Duration(minutes: prepBufferMinutes));
   }
 
   /// Parses a pickup slot string into the END DateTime of the slot.
-  /// Used for hold window expiration calculations (expiresAt is calculated starting after slot ends).
-  static DateTime parseSlotEndDateTime(String slotStr, {DateTime? nowTime}) {
+  /// Prefers [pickupEnd] when already stored as a structured Timestamp.
+  static DateTime parseSlotEndDateTime(
+    String slotStr, {
+    DateTime? nowTime,
+    DateTime? pickupEnd,
+  }) {
+    if (pickupEnd != null) return pickupEnd;
     final now = nowTime ?? TimeService.now;
-    if (slotStr.contains('ASAP')) {
-      return now.add(const Duration(minutes: prepBufferMinutes));
-    }
-
-    try {
-      final parts = slotStr.split(',');
-      if (parts.length < 2) {
-        return now.add(const Duration(minutes: prepBufferMinutes));
-      }
-
-      final datePart = parts[0].trim();
-      final rangeParts = parts[1].split(RegExp(r'\s*[\-–—]\s*'));
-      final endTimePart =
-          (rangeParts.length > 1 ? rangeParts[1] : rangeParts[0]).trim();
-      final timeFormat = DateFormat('h:mm a');
-      final parsedEndTime = timeFormat.parse(endTimePart);
-
-      final today = DateTime(now.year, now.month, now.day);
-      DateTime baseDate;
-
-      if (datePart == 'Today') {
-        baseDate = today;
-      } else if (datePart == 'Tomorrow') {
-        baseDate = today.add(const Duration(days: 1));
-      } else {
-        final parsed = DateFormat('EEE, MMM d').parse(datePart);
-        baseDate = DateTime(now.year, parsed.month, parsed.day);
-        if (baseDate.isBefore(today.subtract(const Duration(days: 30)))) {
-          baseDate = DateTime(now.year + 1, parsed.month, parsed.day);
-        }
-      }
-
-      final targetEnd = DateTime(
-        baseDate.year,
-        baseDate.month,
-        baseDate.day,
-        parsedEndTime.hour,
-        parsedEndTime.minute,
-      );
-
-      if (targetEnd.isBefore(now)) {
-        return now.add(const Duration(minutes: prepBufferMinutes));
-      }
-
-      return targetEnd;
-    } catch (_) {
-      return now.add(const Duration(minutes: prepBufferMinutes));
-    }
+    final parsed = parseSlotRange(slotStr, nowTime: now);
+    if (parsed != null) return parsed.end;
+    return now.add(const Duration(minutes: prepBufferMinutes));
   }
 
   /// Returns allowed pickup dates starting from today up to maxHours window from now,
@@ -240,7 +261,8 @@ class StoreHours {
     DateTime endDate = DateTime(windowEnd.year, windowEnd.month, windowEnd.day);
 
     if (earliestExpiry != null) {
-      final expiryDay = DateTime(earliestExpiry.year, earliestExpiry.month, earliestExpiry.day);
+      final expiryDay = DateTime(
+          earliestExpiry.year, earliestExpiry.month, earliestExpiry.day);
       if (expiryDay.isBefore(endDate)) {
         endDate = expiryDay;
       }
@@ -254,50 +276,59 @@ class StoreHours {
     return dates;
   }
 
-  /// Returns available time slots for a specific date within store hours (11 AM - 3 PM),
+  /// Returns available time slots for a specific date within store hours,
   /// filtered by prep buffer and FEFO batch expiration date.
   static List<Map<String, dynamic>> getTimeSlotsForDate(
     DateTime date, {
     int maxHours = 72,
     DateTime? earliestExpiry,
     DateTime? nowTime,
+    StoreSettings? settings,
   }) {
     final now = nowTime ?? TimeService.now;
     final windowEnd = now.add(Duration(hours: maxHours));
     final List<Map<String, dynamic>> slots = [];
 
-    final isToday =
-        date.year == now.year && date.month == now.month && date.day == now.day;
+    final openH = effectiveOpenHour(settings);
+    final closeH = effectiveCloseHour(settings);
 
-    for (int h = openHour; h < closeHour; h++) {
+    final today = DateTime(now.year, now.month, now.day);
+    final tomorrow = today.add(const Duration(days: 1));
+    final isToday =
+        date.year == today.year && date.month == today.month && date.day == today.day;
+    final isTomorrow = date.year == tomorrow.year &&
+        date.month == tomorrow.month &&
+        date.day == tomorrow.day;
+
+    for (int h = openH; h < closeH; h++) {
       final slotDateTime = DateTime(date.year, date.month, date.day, h);
       final slotEndTime = DateTime(date.year, date.month, date.day, h + 1);
 
       // Skip slots whose end time cannot satisfy prep buffer
-      if (isToday && now.add(const Duration(minutes: prepBufferMinutes)).isAfter(slotEndTime)) {
+      if (isToday &&
+          !now
+              .add(const Duration(minutes: prepBufferMinutes))
+              .isBefore(slotEndTime)) {
         continue;
       }
 
       // Skip hours exceeding window or batch expiry
       if (slotDateTime.isAfter(windowEnd)) continue;
-      if (earliestExpiry != null && slotEndTime.isAfter(earliestExpiry)) continue;
+      if (earliestExpiry != null && slotEndTime.isAfter(earliestExpiry)) {
+        continue;
+      }
 
-      final hStart = h;
-      final hEnd = h + 1;
+      final startStr = _formatHour(h);
+      final endStr = _formatHour(h + 1);
 
-      final startStr = hStart == 12
-          ? '12:00 PM'
-          : (hStart > 12 ? '${hStart - 12}:00 PM' : '$hStart:00 AM');
-      final endStr = hEnd == 12
-          ? '12:00 PM'
-          : (hEnd > 12 ? '${hEnd - 12}:00 PM' : '$hEnd:00 AM');
-
-      final dateLabel =
-          isToday ? 'Today' : DateFormat('EEE, MMM d').format(date);
+      final dateLabel = isToday
+          ? 'Today'
+          : (isTomorrow ? 'Tomorrow' : DateFormat('EEE, MMM d').format(date));
       final slotValue = '$dateLabel, $startStr – $endStr';
 
       slots.add({
         'dateTime': slotDateTime,
+        'endDateTime': slotEndTime,
         'hour': h,
         'timeLabel': startStr,
         'rangeLabel': '$startStr – $endStr',
@@ -312,36 +343,43 @@ class StoreHours {
     int maxHours = 72,
     DateTime? earliestExpiry,
     DateTime? nowTime,
+    StoreSettings? settings,
   }) {
-    final dates = getAvailableDates(maxHours: maxHours, earliestExpiry: earliestExpiry, nowTime: nowTime);
+    final dates = getAvailableDates(
+        maxHours: maxHours, earliestExpiry: earliestExpiry, nowTime: nowTime);
     final List<Map<String, dynamic>> allSlots = [];
 
     for (final date in dates) {
-      final daySlots = getTimeSlotsForDate(date, maxHours: maxHours, earliestExpiry: earliestExpiry, nowTime: nowTime);
+      final daySlots = getTimeSlotsForDate(
+        date,
+        maxHours: maxHours,
+        earliestExpiry: earliestExpiry,
+        nowTime: nowTime,
+        settings: settings,
+      );
       final now = nowTime ?? TimeService.now;
-      final isToday = date.year == now.year &&
-          date.month == now.month &&
-          date.day == now.day;
-      final isTomorrow = date
-              .difference(DateTime(now.year, now.month, now.day))
-              .inDays ==
-          1;
+      final today = DateTime(now.year, now.month, now.day);
+      final isToday = date.year == today.year &&
+          date.month == today.month &&
+          date.day == today.day;
+      final isTomorrow = date.difference(today).inDays == 1;
       final dayName = isToday
           ? 'Today'
-          : (isTomorrow ? 'Tomorrow' : DateFormat('EEEE').format(date));
+          : (isTomorrow ? 'Tomorrow' : DateFormat('EEE, MMM d').format(date));
       final dateStr = DateFormat('MMM d').format(date);
 
       for (final slot in daySlots) {
-        final timeOnly = slot['timeLabel'] as String;
         final h = slot['hour'] as int;
 
         allSlots.add({
-          'value': '$dayName, ${slot['rangeLabel']}',
+          'value': slot['value'],
           'label': '$dayName ($dateStr): ${slot['rangeLabel']}',
           'isPast': false,
           'hour': h,
           'day': dayName,
           'dateLabel': dateStr,
+          'dateTime': slot['dateTime'],
+          'endDateTime': slot['endDateTime'],
         });
       }
     }

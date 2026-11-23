@@ -371,10 +371,10 @@ class _CustomerAppState extends State<CustomerApp> {
                                     ),
                                   ),
                                   child: isLargeTablet
-                                      ? Row(
+                                      ? const Row(
                                           mainAxisAlignment:
                                               MainAxisAlignment.center,
-                                          children: const [
+                                          children: [
                                             Icon(
                                               Icons.logout_rounded,
                                               color: AppColors.error,

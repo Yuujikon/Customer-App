@@ -139,6 +139,7 @@ class CustomerDashboardScreen extends StatelessWidget {
             o.status != OrderStatus.collected &&
             o.status != OrderStatus.cancelled &&
             o.status != OrderStatus.refunded &&
+            o.status != OrderStatus.refundRequested &&
             o.status != OrderStatus.refundRejected &&
             !o.isExpired)
         .toList()
@@ -830,79 +831,6 @@ class CustomerDashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildCategoryTile(BuildContext context, Map<String, dynamic> cat) {
-    final String label = cat['label'] as String;
-    return InkWell(
-      onTap: () {
-        if (onSelectCategory != null) {
-          onSelectCategory!(label);
-        } else {
-          onBrowseCatalog();
-        }
-      },
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Theme.of(context).dividerColor),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 22,
-              height: 22,
-              decoration: BoxDecoration(
-                color: cat['bgColor'] as Color,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                cat['icon'] as IconData,
-                color: cat['iconColor'] as Color,
-                size: 12,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    cat['label'] as String,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w800,
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                  ),
-                  Text(
-                    cat['subtitle'] as String,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 8.5,
-                      fontWeight: FontWeight.w500,
-                      color: Theme.of(context).textTheme.bodySmall?.color,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.chevron_right_rounded,
-              size: 14,
-              color: Theme.of(context).textTheme.bodySmall?.color,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   static const List<Product> _sampleFreshPicks = [
     Product(
       id: 'p1',
@@ -1442,16 +1370,26 @@ class _ActiveOrderCard extends StatelessWidget {
               width: double.infinity,
               child: OutlinedButton.icon(
                 onPressed: () async {
-                  HapticFeedback.lightImpact();
                   final messenger = ScaffoldMessenger.of(context);
                   final op = context.read<OrderProvider>();
-                  final ext = await op.extendOrderPickupTime(order.id);
-                  if (ext > 0) {
+                  await HapticFeedback.lightImpact();
+                  try {
+                    final ext = await op.extendOrderPickupTime(order.id);
+                    if (ext > 0) {
+                      messenger.showSnackBar(
+                        SnackBar(
+                          content: Text(
+                              '⏱ Pickup time extended by $ext mins!'),
+                          backgroundColor: AppColors.forest,
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    }
+                  } catch (e) {
                     messenger.showSnackBar(
                       SnackBar(
-                        content: Text(
-                            '⏱ Pickup time extended by $ext mins! Extended up to 3:00 PM cutoff.'),
-                        backgroundColor: AppColors.forest,
+                        content: Text('Could not extend pickup time: $e'),
+                        backgroundColor: AppColors.error,
                         behavior: SnackBarBehavior.floating,
                       ),
                     );
@@ -1685,60 +1623,6 @@ class _ShopperTile extends StatelessWidget {
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CategoryAvatarItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color bgColor;
-  final Color iconColor;
-  final VoidCallback onTap;
-
-  const _CategoryAvatarItem({
-    required this.icon,
-    required this.label,
-    required this.bgColor,
-    required this.iconColor,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.only(right: 16),
-        child: Column(
-          children: [
-            Container(
-              width: 58,
-              height: 58,
-              decoration: BoxDecoration(
-                color: bgColor,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: bgColor.withValues(alpha: 0.4),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Icon(icon, color: iconColor, size: 28),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: Theme.of(context).colorScheme.onSurface),
             ),
           ],
         ),

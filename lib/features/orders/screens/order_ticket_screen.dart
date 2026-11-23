@@ -486,16 +486,26 @@ class OrderTicketScreen extends StatelessWidget {
                 0) ...[
               OutlinedButton.icon(
                 onPressed: () async {
-                  HapticFeedback.lightImpact();
                   final messenger = ScaffoldMessenger.of(context);
                   final op = context.read<OrderProvider>();
-                  final ext = await op.extendOrderPickupTime(order.id);
-                  if (ext > 0) {
+                  await HapticFeedback.lightImpact();
+                  try {
+                    final ext = await op.extendOrderPickupTime(order.id);
+                    if (ext > 0) {
+                      messenger.showSnackBar(
+                        SnackBar(
+                          content: Text(
+                              '⏱ Pickup time extended by $ext mins!'),
+                          backgroundColor: GdcColors.forest,
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    }
+                  } catch (e) {
                     messenger.showSnackBar(
                       SnackBar(
-                        content: Text(
-                            '⏱ Pickup time extended by $ext mins! Extended up to 3:00 PM cutoff.'),
-                        backgroundColor: GdcColors.forest,
+                        content: Text('Could not extend pickup time: $e'),
+                        backgroundColor: GdcColors.error,
                         behavior: SnackBarBehavior.floating,
                       ),
                     );

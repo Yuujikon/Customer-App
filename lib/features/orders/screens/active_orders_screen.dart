@@ -76,6 +76,7 @@ class _ActiveOrdersScreenState extends State<ActiveOrdersScreen>
                   o.status != OrderStatus.collected &&
                   o.status != OrderStatus.cancelled &&
                   o.status != OrderStatus.refunded &&
+                  o.status != OrderStatus.refundRequested &&
                   o.status != OrderStatus.refundRejected &&
                   !o.isExpired)
               .toList()
@@ -480,9 +481,9 @@ class _OrderDetail extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.info_outline_rounded,
+              const Icon(Icons.info_outline_rounded,
                   size: 16, color: GdcColors.terracotta),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   'Return & Exchange Policy: Present this QR receipt at the store. Opened, unsealed, or tampered items cannot be refunded or swapped.',
@@ -576,16 +577,26 @@ class _OrderDetail extends StatelessWidget {
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: () async {
-                HapticFeedback.lightImpact();
                 final messenger = ScaffoldMessenger.of(context);
                 final op = context.read<OrderProvider>();
-                final ext = await op.extendOrderPickupTime(order.id);
-                if (ext > 0) {
+                await HapticFeedback.lightImpact();
+                try {
+                  final ext = await op.extendOrderPickupTime(order.id);
+                  if (ext > 0) {
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content:
+                            Text('⏱ Pickup time extended by $ext mins!'),
+                        backgroundColor: GdcColors.forest,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                } catch (e) {
                   messenger.showSnackBar(
                     SnackBar(
-                      content: Text(
-                          '⏱ Pickup time extended by $ext mins! Extended up to 3:00 PM cutoff.'),
-                      backgroundColor: GdcColors.forest,
+                      content: Text('Could not extend pickup time: $e'),
+                      backgroundColor: GdcColors.error,
                       behavior: SnackBarBehavior.floating,
                     ),
                   );
@@ -614,7 +625,8 @@ class _OrderDetail extends StatelessWidget {
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: () async {
-                HapticFeedback.lightImpact();
+                await HapticFeedback.lightImpact();
+                if (!context.mounted) return;
                 final confirm = await showDialog<bool>(
                   context: context,
                   builder: (ctx) => CancelOrderDialog(orderId: order.orderId),

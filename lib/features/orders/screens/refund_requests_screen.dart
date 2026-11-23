@@ -150,6 +150,7 @@ class _RefundRequestCard extends StatelessWidget {
       RefundStatus.pending => GdcColors.warning,
       RefundStatus.approved => GdcColors.success,
       RefundStatus.rejected => GdcColors.error,
+      RefundStatus.cancelled => Colors.grey,
     };
 
     final hasResponse =

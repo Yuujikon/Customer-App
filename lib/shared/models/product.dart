@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
-enum ProductStatus { draft, published }
+enum ProductStatus { draft, published, archived }
 
 enum ExpiryStatus { optimal, warning, critical, expired }
 
@@ -26,7 +26,10 @@ class ProductVariant {
     this.barcode,
   });
 
-  int get availableStock => (stock - reservedStock).clamp(0, stock);
+  int get availableStock {
+    final raw = stock - reservedStock;
+    return raw < 0 ? 0 : raw;
+  }
 
   int get effectiveInitialStock =>
       (initialStock != null && initialStock! > 0) ? initialStock! : stock;
@@ -117,7 +120,7 @@ class Product {
     this.notifyUserIds = const [],
   });
 
-  bool get isPerishable => shelfDays != null || expiryDate != null;
+  bool get isPerishable => shelfDays != null;
   bool get hasVariants => variants != null && variants!.isNotEmpty;
 
   int get availableStock {
@@ -141,8 +144,9 @@ class Product {
   bool get isOutOfStockForCustomer {
     if (isQuarantined) return true;
     if (hasVariants) {
-      if (variants == null || variants!.isEmpty)
+      if (variants == null || variants!.isEmpty) {
         return totalAvailableStock <= 0;
+      }
       return variants!.values.every((v) => v.isOutOfStockForCustomer);
     } else {
       return availableStock <= 0;

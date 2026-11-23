@@ -73,6 +73,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       isEmail: widget.isEmail,
     );
 
+    if (!mounted) return;
     setState(() {
       _isLoading = false;
     });

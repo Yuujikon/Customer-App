@@ -60,10 +60,12 @@ class ProductTile extends StatelessWidget {
 
   IconData _getCategoryIcon(String category) {
     final cat = category.toLowerCase();
-    if (cat.contains('beverage') || cat.contains('drink'))
+    if (cat.contains('beverage') || cat.contains('drink')) {
       return Icons.local_drink_rounded;
-    if (cat.contains('grain') || cat.contains('rice'))
+    }
+    if (cat.contains('grain') || cat.contains('rice')) {
       return Icons.grass_rounded;
+    }
     if (cat.contains('snack')) return Icons.fastfood_rounded;
     if (cat.contains('household')) return Icons.home_repair_service_rounded;
     if (cat.contains('can')) return Icons.inventory_2_rounded;
@@ -807,10 +809,12 @@ class BundlesSection extends StatelessWidget {
 
     final sortedBundles = List<ProductBundle>.from(bundles)
       ..sort((a, b) {
-        if (a.category == currentCategory && b.category != currentCategory)
+        if (a.category == currentCategory && b.category != currentCategory) {
           return -1;
-        if (a.category != currentCategory && b.category == currentCategory)
+        }
+        if (a.category != currentCategory && b.category == currentCategory) {
           return 1;
+        }
         return 0;
       });
 
@@ -1469,12 +1473,6 @@ class _RecentOrderSectionState extends State<RecentOrderSection> {
 
               // Item rows
               ...order.items.map((item) {
-                Product? p;
-                try {
-                  p = inventory.products
-                      .firstWhere((prod) => prod.id == item.productId);
-                } catch (_) {}
-
                 final String variantNameStr =
                     item.variantName != null ? ' (${item.variantName})' : '';
 
@@ -1574,14 +1572,15 @@ class _RecentOrderSectionState extends State<RecentOrderSection> {
                   StatusBadge(order.status),
                   OutlinedButton.icon(
                     onPressed: () async {
-                      HapticFeedback.lightImpact();
+                      await HapticFeedback.lightImpact();
+                      if (!context.mounted) return;
                       final previews = orderProvider.previewReorder(
                           order.items, inventory.products);
                       final bool hasIssues =
                           previews.any((p) => p.isUnavailable || p.isAdjusted);
 
                       if (hasIssues) {
-                        showDialog(
+                        await showDialog(
                           context: context,
                           builder: (ctx) => ReorderSummaryDialog(
                             previews: previews,

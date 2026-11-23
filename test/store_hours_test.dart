@@ -35,12 +35,49 @@ void main() {
 
     test('parseSlotTargetDateTime extracts correct DateTime target', () {
       final simulatedNow = DateTime(2025, 10, 24, 13, 12);
-      final target = StoreHours.parseSlotTargetDateTime('Today, 1:00 PM – 2:00 PM', nowTime: simulatedNow);
+      final target = StoreHours.parseSlotTargetDateTime(
+          'Today, 1:00 PM – 2:00 PM',
+          nowTime: simulatedNow);
       expect(target.year, equals(2025));
       expect(target.month, equals(10));
       expect(target.day, equals(24));
       expect(target.hour, equals(13));
       expect(target.minute, equals(0));
+    });
+
+    test('parses 2-comma future date slot accurately without fallback', () {
+      final simulatedNow = DateTime(2026, 11, 23, 10, 0);
+      const slot = 'Wed, Nov 25, 11:00 AM – 12:00 PM';
+      final start =
+          StoreHours.parseSlotTargetDateTime(slot, nowTime: simulatedNow);
+      final end = StoreHours.parseSlotEndDateTime(slot, nowTime: simulatedNow);
+
+      expect(start, equals(DateTime(2026, 11, 25, 11, 0)));
+      expect(end, equals(DateTime(2026, 11, 25, 12, 0)));
+      expect(StoreHours.isSlotExpired(slot, nowTime: simulatedNow), isFalse);
+    });
+
+    test('parses ASCII hyphen and midnight rollover correctly', () {
+      final simulatedNow = DateTime(2026, 11, 23, 21, 0);
+      const slot = 'Today, 11:00 PM - 12:00 AM';
+      final range = StoreHours.parseSlotRange(slot, nowTime: simulatedNow);
+
+      expect(range, isNotNull);
+      expect(range!.start, equals(DateTime(2026, 11, 23, 23, 0)));
+      expect(range.end, equals(DateTime(2026, 11, 24, 0, 0)));
+    });
+
+    test('availableSlots produces parseable 2-comma date values', () {
+      final simulatedNow = DateTime(2026, 11, 23, 10, 0);
+      final slots =
+          StoreHours.availableSlots(maxHours: 72, nowTime: simulatedNow);
+      expect(slots, isNotEmpty);
+      for (final s in slots) {
+        final parsed = StoreHours.parseSlotRange(s['value'] as String,
+            nowTime: simulatedNow);
+        expect(parsed, isNotNull,
+            reason: 'Failed to parse slot value: ${s['value']}');
+      }
     });
   });
 }

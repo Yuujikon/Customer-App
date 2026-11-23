@@ -16,7 +16,7 @@ class InventoryProvider extends ChangeNotifier {
   final List<StreamSubscription> _subscriptions = [];
 
   List<Product> _products = [];
-  List<StoreTransaction> _transactions = [];
+  final List<StoreTransaction> _transactions = [];
   List<ProductBundle> _bundles = [];
   StoreSettings _settings = const StoreSettings(isClosed: false);
   DateTime? _lastProductUpdate;
@@ -215,15 +215,6 @@ class InventoryProvider extends ChangeNotifier {
       notifyListeners();
     }, onError: (e) {
       debugPrint('Error listening to products stream: $e');
-    }));
-
-    _subscriptions.add(_fs.transactionsStream().listen((list) {
-      if (_isDisposed) return;
-      list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      _transactions = list;
-      notifyListeners();
-    }, onError: (e) {
-      debugPrint('Error listening to transactions stream: $e');
     }));
 
     _subscriptions.add(_fs.bundlesStream().listen((list) {

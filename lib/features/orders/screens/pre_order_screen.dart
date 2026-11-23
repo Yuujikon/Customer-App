@@ -1,13 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/store_hours.dart';
-import '../../../core/utils/pricing_engine.dart';
 import '../../../shared/models/order.dart';
 import '../../../shared/models/product.dart';
 import '../../../shared/models/customer_appeal.dart';
@@ -39,15 +35,11 @@ class PreOrderScreen extends StatefulWidget {
 
 class _PreOrderScreenState extends State<PreOrderScreen> {
   late String _pickupSlot;
-  String _pickupOption = 'ASAP'; // 'ASAP' or 'Schedule'
   final _notesCtrl = TextEditingController();
   final _refNumCtrl = TextEditingController();
   String _selectedPaymentMethod = 'GCash'; // 'GCash', 'Maya'
   bool _isSubmitting = false;
   PreOrder? _submittedOrder;
-
-  String get _storeGcashNumber =>
-      dotenv.env['STORE_GCASH_NUMBER'] ?? '09558297358';
 
   @override
   void initState() {
@@ -79,7 +71,6 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
     final allProducts = inventoryProvider.products;
 
     final bool hasPerishables = cart.any((item) => item.isPerishable);
-    final bool isPrepaid = true;
 
     // Calculate earliest batch expiry (FEFO)
     DateTime? earliestExpiry;
@@ -107,7 +98,7 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
     final firstDate = earliestAvailableDate;
 
     // Calendar Max Allowed Date:
-    // - Perishable or Cash: max 1 day advance
+    // - Perishable: max 1 day advance
     // - Non-Perishable + Prepaid (GCash/Maya): max 3 days advance
     // - Bounded by earliest FEFO expiry date
     DateTime lastDate;
@@ -116,12 +107,9 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
     if (hasPerishables) {
       lastDate = today.add(const Duration(days: 1));
       itemTypeNotice = 'PERISHABLE: UP TO 1 DAY ADVANCE';
-    } else if (isPrepaid) {
+    } else {
       lastDate = today.add(const Duration(days: 3));
       itemTypeNotice = 'PREPAID NON-PERISHABLE: UP TO 3 DAYS ADVANCE';
-    } else {
-      lastDate = today.add(const Duration(days: 1));
-      itemTypeNotice = 'CASH ON PICKUP: UP TO 1 DAY ADVANCE';
     }
 
     if (earliestExpiry != null) {
@@ -351,8 +339,8 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-        title: Row(
-          children: const [
+        title: const Row(
+          children: [
             Icon(Icons.person_outline_rounded,
                 color: AppColors.orangeCTA, size: 26),
             SizedBox(width: 10),
@@ -403,80 +391,6 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                   borderRadius: BorderRadius.circular(100)),
             ),
             child: const Text('Go to Account Profile'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showQrCodeModal(String providerName, String accountNumber) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        backgroundColor: Theme.of(context).cardColor,
-        title: Column(
-          children: [
-            Text('$providerName Payment QR',
-                style: const TextStyle(fontWeight: FontWeight.w900)),
-            const SizedBox(height: 4),
-            Text(accountNumber,
-                style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.forest)),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Scan this QR code using your $providerName app or send payment to $accountNumber (GDC Sari-Sari Store).',
-              textAlign: TextAlign.center,
-              style:
-                  const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppColors.border, width: 2),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: SizedBox(
-                width: 180,
-                height: 180,
-                child: QrImageView(
-                  data: '00020101021226480016A000000677010111$accountNumber',
-                  version: QrVersions.auto,
-                  size: 180.0,
-                  backgroundColor: Colors.white,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            SelectableText(
-              'Account: $accountNumber\nName: GDC Sari-Sari Store',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.forest),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
           ),
         ],
       ),
@@ -701,6 +615,17 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
 
     if (orderProvider.preCart.isEmpty) return;
 
+    if (inventoryProvider.settings.effectivelyClosed) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(inventoryProvider.settings.closureReason),
+          backgroundColor: AppColors.error,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+      return;
+    }
+
     if (authProvider.isOrderRestricted) {
       _showRestrictionDialog(authProvider);
       return;
@@ -710,9 +635,6 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
       _showFullNameRequiredDialog();
       return;
     }
-
-    // Validation: Require Payment Reference Number for GCash / Maya
-    // This is now handled by Xendit, so no reference number input is needed.
 
     // Rule 3 Expiration Check: Validate that selected slot hasn't passed current live time
     if (_isPickupSlotExpired(_pickupSlot)) {
@@ -727,17 +649,28 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
 
     setState(() => _isSubmitting = true);
 
-    String? paymentReference;
+    PreOrder? reservedOrder;
 
     try {
-      final breakdown = PricingEngine.calculate(
-        items: orderProvider.preCart,
-        allProducts: inventoryProvider.products,
-      );
+      final pickupNotesText = _notesCtrl.text.trim();
 
+      // Step 1: Reserve stock atomically BEFORE opening Xendit payment
+      final reservation = await orderProvider.reserveOrderForPayment(
+        customerName: authProvider.displayName,
+        customerEmail: authProvider.email,
+        customerPhone: authProvider.phoneNumber ?? '+63 912 345 6789',
+        location: 'GDC Store · Main',
+        pickupSlot: _pickupSlot,
+        allProducts: inventoryProvider.products,
+        paymentMethod: _selectedPaymentMethod,
+        notes: pickupNotesText.isNotEmpty ? pickupNotesText : null,
+      );
+      reservedOrder = reservation.order;
+
+      // Step 2: Create Xendit invoice for the reserved order
       final checkout = await XenditService.createInvoice(
-        amount: breakdown.total,
-        description: 'GDC Store Order',
+        amount: reservedOrder.total,
+        description: 'GDC Store Order #${reservedOrder.orderId}',
         customerName: authProvider.displayName,
         customerEmail: authProvider.email,
         customerPhone: authProvider.phoneNumber ?? '+63 912 345 6789',
@@ -754,26 +687,28 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       }
 
-      final isPaid = await _showPaymentAwaitingDialog(sessionId);
-
-      if (isPaid == null) {
-        setState(() => _isSubmitting = false);
+      if (!mounted) {
+        await orderProvider.releaseUnpaidReservation(reservedOrder);
         return;
       }
-      paymentReference = isPaid;
 
-      final pickupNotesText = _notesCtrl.text.trim();
-      final order = await orderProvider.submitOrder(
-        customerName: authProvider.displayName,
-        customerEmail: authProvider.email,
-        customerPhone: authProvider.phoneNumber ?? '+63 912 345 6789',
-        location: 'GDC Store · Main',
-        pickupSlot: _pickupSlot,
-        allProducts: inventoryProvider.products,
-        paymentMethod: _selectedPaymentMethod,
+      final paymentReference = await _showPaymentAwaitingDialog(sessionId);
+
+      if (paymentReference == null) {
+        // Customer cancelled payment: release reserved stock immediately
+        await orderProvider.releaseUnpaidReservation(reservedOrder);
+        reservedOrder = null;
+        if (mounted) setState(() => _isSubmitting = false);
+        return;
+      }
+
+      // Step 3: Confirm payment and activate the reserved order
+      final order = await orderProvider.confirmReservedOrderPayment(
+        reservedOrder: reservedOrder,
         paymentReference: paymentReference,
-        notes: pickupNotesText.isNotEmpty ? pickupNotesText : null,
+        pickupExpiresAt: reservation.pickupExpiresAt,
       );
+      reservedOrder = null;
 
       _notesCtrl.clear();
 
@@ -783,6 +718,12 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
         _submittedOrder = order;
       });
     } catch (e) {
+      // Release reservation if anything failed after reserving stock
+      if (reservedOrder != null) {
+        try {
+          await orderProvider.releaseUnpaidReservation(reservedOrder);
+        } catch (_) {}
+      }
       if (!mounted) return;
       setState(() => _isSubmitting = false);
       final errorStr = e
@@ -800,13 +741,13 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
   }
 
   Future<String?> _showPaymentAwaitingDialog(String sessionId) async {
+    bool isChecking = false;
+    String? errorMsg;
+
     return showDialog<String>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(builder: (context, setSt) {
-        bool isChecking = false;
-        String? errorMsg;
-
         return AlertDialog(
           title: const Text('Complete Payment'),
           content: Column(
@@ -850,7 +791,7 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                         final ref =
                             await XenditService.checkPaymentStatus(sessionId);
                         if (ref != null) {
-                          if (context.mounted) Navigator.pop(ctx, ref);
+                          if (ctx.mounted) Navigator.pop(ctx, ref);
                         } else {
                           setSt(() {
                             isChecking = false;
@@ -1097,14 +1038,14 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                             .firstWhere((p) => p.id == item.productId);
                       } catch (_) {}
 
-                      int maxStock = product?.maxPurchasableStock ?? 99;
+                      int maxStock = product?.maxPurchasableStock ?? 0;
                       if (item.variantId != null && product?.variants != null) {
                         final v = product!.variants![item.variantId];
                         if (v != null) {
                           maxStock = v.maxPurchasableStock;
                         }
                       }
-                      if (maxStock <= 0) maxStock = 1;
+                      final bool isOutOfStock = maxStock <= 0;
 
                       return Container(
                         margin: const EdgeInsets.only(bottom: 12),
@@ -1163,13 +1104,17 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    '₱${item.price.toStringAsFixed(2)}',
+                                    isOutOfStock
+                                        ? 'Out of stock'
+                                        : '₱${item.price.toStringAsFixed(2)}',
                                     style: TextStyle(
                                       fontSize: 12.5,
-                                      color: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.color,
+                                      color: isOutOfStock
+                                          ? AppColors.error
+                                          : Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.color,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -1221,7 +1166,7 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                                   // Decrease Button
                                   InkWell(
                                     onTap: () {
-                                      if (item.qty <= 1) {
+                                      if (isOutOfStock || item.qty <= 1) {
                                         _confirmRemoveItem(
                                             context, item, orderProvider);
                                       } else {
@@ -1242,22 +1187,26 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
 
                                   // Editable Quantity Display
                                   InkWell(
-                                    onTap: () => _showEditQuantityDialog(
-                                      context: context,
-                                      item: item,
-                                      maxStock: maxStock,
-                                      orderProvider: orderProvider,
-                                    ),
+                                    onTap: isOutOfStock
+                                        ? null
+                                        : () => _showEditQuantityDialog(
+                                              context: context,
+                                              item: item,
+                                              maxStock: maxStock,
+                                              orderProvider: orderProvider,
+                                            ),
                                     borderRadius: BorderRadius.circular(8),
                                     child: Padding(
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 8, vertical: 2),
                                       child: Text(
                                         '${item.qty}',
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 12,
                                           fontWeight: FontWeight.w800,
-                                          color: AppColors.forest,
+                                          color: isOutOfStock
+                                              ? AppColors.mutedText
+                                              : AppColors.forest,
                                         ),
                                       ),
                                     ),
@@ -1265,34 +1214,41 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
 
                                   // Increase Button capped at maxStock
                                   InkWell(
-                                    onTap: () {
-                                      if (item.qty >= maxStock) {
-                                        ScaffoldMessenger.of(context)
-                                            .hideCurrentSnackBar();
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                                'Maximum stock reached ($maxStock available).'),
-                                            backgroundColor:
-                                                AppColors.orangeCTA,
-                                            duration:
-                                                const Duration(seconds: 2),
-                                          ),
-                                        );
-                                      } else {
-                                        orderProvider.adjustPreCartQty(
-                                          item.productId,
-                                          1,
-                                          maxStock,
-                                          variantId: item.variantId,
-                                        );
-                                      }
-                                    },
-                                    child: const Padding(
-                                      padding: EdgeInsets.all(4),
-                                      child: Icon(Icons.add,
-                                          size: 14, color: AppColors.forest),
+                                    onTap: isOutOfStock
+                                        ? null
+                                        : () {
+                                            if (item.qty >= maxStock) {
+                                              ScaffoldMessenger.of(context)
+                                                  .hideCurrentSnackBar();
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(
+                                                SnackBar(
+                                                  content: Text(
+                                                      'Maximum stock reached ($maxStock available).'),
+                                                  backgroundColor:
+                                                      AppColors.orangeCTA,
+                                                  duration: const Duration(
+                                                      seconds: 2),
+                                                ),
+                                              );
+                                            } else {
+                                              orderProvider.adjustPreCartQty(
+                                                item.productId,
+                                                1,
+                                                maxStock,
+                                                variantId: item.variantId,
+                                              );
+                                            }
+                                          },
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(4),
+                                      child: Icon(
+                                        Icons.add,
+                                        size: 14,
+                                        color: isOutOfStock
+                                            ? AppColors.mutedText
+                                            : AppColors.forest,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -1355,8 +1311,6 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                                   'Prepaid Order Notice: Stock reserved and held until the end of your chosen pickup slot.';
                               noticeIcon = Icons.verified_user_outlined;
                               bgColor = AppColors.sageTint;
-                              borderThemeColor = AppColors.forest;
-                            }
                               borderThemeColor = AppColors.forest;
                             }
 
@@ -1586,15 +1540,15 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Row(
+                                  const Row(
                                     children: [
-                                      const Icon(Icons.security_rounded,
+                                      Icon(Icons.security_rounded,
                                           color: AppColors.forest, size: 20),
-                                      const SizedBox(width: 8),
+                                      SizedBox(width: 8),
                                       Expanded(
                                         child: Text(
                                           'Secure Payment via Xendit',
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                               fontSize: 13,
                                               fontWeight: FontWeight.w800),
                                         ),
@@ -1603,7 +1557,7 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
-                                    'You will be redirected to a secure Xendit page to complete your ${_selectedPaymentMethod} payment. Please do not close the app.',
+                                    'You will be redirected to a secure Xendit page to complete your $_selectedPaymentMethod payment. Please do not close the app.',
                                     style: const TextStyle(
                                         fontSize: 11.5,
                                         color: AppColors.mutedText,
@@ -1612,7 +1566,6 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                                 ],
                               ),
                             ),
-                          ],
                         ],
                       ),
                     ),
@@ -1848,7 +1801,7 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
     if (d.inHours > 0) {
       final hours = d.inHours;
       final mins = d.inMinutes % 60;
-      return '$hours hr${hours > 1 ? "s" : ""} ${mins} min${mins > 1 ? "s" : ""}';
+      return '$hours hr${hours > 1 ? "s" : ""} $mins min${mins > 1 ? "s" : ""}';
     } else {
       final mins = d.inMinutes;
       return '$mins min${mins > 1 ? "s" : ""}';

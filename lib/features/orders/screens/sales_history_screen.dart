@@ -237,9 +237,9 @@ class _HistoryCard extends StatelessWidget {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.info_outline_rounded,
+                        const Icon(Icons.info_outline_rounded,
                             size: 16, color: GdcColors.terracotta),
-                        SizedBox(width: 8),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             'Return & Exchange Policy: Present this QR receipt at the store. Opened, unsealed, or tampered items cannot be refunded or swapped.',
@@ -298,7 +298,7 @@ class _HistoryCard extends StatelessWidget {
                                     (p) => p.isUnavailable || p.isAdjusted);
 
                                 if (hasIssues) {
-                                  showDialog(
+                                  await showDialog(
                                     context: context,
                                     builder: (ctx) => ReorderSummaryDialog(
                                       previews: previews,
