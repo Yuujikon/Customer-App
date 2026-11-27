@@ -162,6 +162,23 @@ class GdcTheme {
           tooltipTheme: const TooltipThemeData(
             triggerMode: TooltipTriggerMode.manual,
           ),
+          popupMenuTheme: PopupMenuThemeData(
+            color: Colors.white,
+            surfaceTintColor: Colors.transparent,
+            elevation: 12,
+            shadowColor: Colors.black.withValues(alpha: 0.12),
+            position: PopupMenuPosition.under,
+            menuPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+              side: const BorderSide(color: Color(0xFFE5EBDD), width: 1),
+            ),
+            textStyle: GoogleFonts.plusJakartaSans(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: GdcColors.textPrimary,
+            ),
+          ),
           navigationBarTheme: NavigationBarThemeData(
             backgroundColor: Colors.white,
             elevation: 8,
@@ -342,6 +359,23 @@ class GdcTheme {
           ),
           tooltipTheme: const TooltipThemeData(
             triggerMode: TooltipTriggerMode.manual,
+          ),
+          popupMenuTheme: PopupMenuThemeData(
+            color: darkSurface,
+            surfaceTintColor: Colors.transparent,
+            elevation: 12,
+            shadowColor: Colors.black.withValues(alpha: 0.5),
+            position: PopupMenuPosition.under,
+            menuPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+              side: const BorderSide(color: darkBorder, width: 1),
+            ),
+            textStyle: GoogleFonts.plusJakartaSans(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: darkTextPrimary,
+            ),
           ),
           navigationBarTheme: NavigationBarThemeData(
             backgroundColor: darkSurface,

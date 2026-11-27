@@ -7,6 +7,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/format.dart';
 import '../../../core/utils/pricing_engine.dart';
 import '../../../shared/models/product.dart';
+import '../../../shared/widgets/common/gdc_popup_menu.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../orders/providers/order_provider.dart';
 import '../../orders/widgets/reorder_summary_dialog.dart';
@@ -205,33 +206,17 @@ class _ShopScreenState extends State<ShopScreen> {
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // 1. 3-Dot Filter Options Menu (Swapped Position)
-                          PopupMenuButton<String>(
+                          // 1. 3-Dot Filter Options Menu
+                          GdcPopupMenuButton<String>.icon(
                             tooltip: 'Filter options',
-                            icon: Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: (_showOutOfStock || _savedOnly)
-                                    ? AppColors.sageTint
-                                    : Theme.of(context).cardColor,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: (_showOutOfStock || _savedOnly)
-                                      ? AppColors.forest
-                                      : Theme.of(context).dividerColor,
-                                ),
-                              ),
-                              child: Icon(
-                                Icons.more_vert_rounded,
-                                color: (_showOutOfStock || _savedOnly)
-                                    ? AppColors.forest
-                                    : Theme.of(context).colorScheme.onSurface,
-                                size: 20,
-                              ),
-                            ),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16)),
+                            menuTitle: 'Catalog Filters',
+                            icon: Icons.tune_rounded,
+                            size: 40,
+                            iconSize: 20,
+                            isCircular: true,
+                            isActive: _showOutOfStock || _savedOnly,
+                            activeBadgeCount: (_showOutOfStock ? 1 : 0) +
+                                (_savedOnly ? 1 : 0),
                             onSelected: (val) {
                               setState(() {
                                 if (val == 'oos') {
@@ -244,65 +229,35 @@ class _ShopScreenState extends State<ShopScreen> {
                                 }
                               });
                             },
-                            itemBuilder: (context) => [
-                              PopupMenuItem(
+                            options: [
+                              GdcPopupOption<String>(
                                 value: 'oos',
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      _showOutOfStock
-                                          ? Icons.check_circle_rounded
-                                          : Icons
-                                              .radio_button_unchecked_rounded,
-                                      size: 18,
-                                      color: _showOutOfStock
-                                          ? AppColors.forest
-                                          : AppColors.mutedText,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    const Text('Show Sold Out Items',
-                                        style: TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w700)),
-                                  ],
-                                ),
+                                label: 'Show Sold Out Items',
+                                subtitle: 'Include out-of-stock products',
+                                icon: _showOutOfStock
+                                    ? Icons.inventory_2_rounded
+                                    : Icons.inventory_2_outlined,
+                                isSelected: _showOutOfStock,
                               ),
-                              PopupMenuItem(
+                              GdcPopupOption<String>(
                                 value: 'saved',
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      _savedOnly
-                                          ? Icons.favorite_rounded
-                                          : Icons.favorite_border_rounded,
-                                      size: 18,
-                                      color: _savedOnly
-                                          ? Colors.red.shade600
-                                          : AppColors.mutedText,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text('Saved Items ($savedCount)',
-                                        style: const TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w700)),
-                                  ],
-                                ),
+                                label: 'Saved Items',
+                                subtitle: 'Only show your favorites',
+                                icon: _savedOnly
+                                    ? Icons.favorite_rounded
+                                    : Icons.favorite_border_rounded,
+                                iconColor:
+                                    _savedOnly ? Colors.red.shade500 : null,
+                                trailingBadge: '$savedCount',
+                                isSelected: _savedOnly,
                               ),
                               if (_showOutOfStock || _savedOnly)
-                                const PopupMenuItem(
+                                const GdcPopupOption<String>(
                                   value: 'reset',
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.refresh_rounded,
-                                          size: 18, color: AppColors.mutedText),
-                                      SizedBox(width: 8),
-                                      Text('Reset Filters',
-                                          style: TextStyle(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w600,
-                                              color: AppColors.mutedText)),
-                                    ],
-                                  ),
+                                  label: 'Reset Filters',
+                                  icon: Icons.restart_alt_rounded,
+                                  isDestructive: true,
+                                  showDividerBefore: true,
                                 ),
                             ],
                           ),
