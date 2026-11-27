@@ -16,8 +16,31 @@ import '../../../core/utils/pricing_engine.dart';
 import '../../../core/utils/format.dart';
 import '../../../core/utils/store_hours.dart';
 
+/// Describes a live cart quantity adjustment caused by a real-time stock change.
+class CartStockAdjustment {
+  final String productId;
+  final String? variantId;
+  final String itemName;
+  final int previousQty;
+  final int newQty;
+  final int availableOnlineStock;
+
+  const CartStockAdjustment({
+    required this.productId,
+    this.variantId,
+    required this.itemName,
+    required this.previousQty,
+    required this.newQty,
+    required this.availableOnlineStock,
+  });
+
+  bool get isOutOfStock => availableOnlineStock <= 0;
+}
+
 class OrderProvider extends ChangeNotifier {
-  final _fs = FirestoreService();
+  FirestoreService? _fsInstance;
+  FirestoreService get _fs => _fsInstance ??= FirestoreService();
+  final bool _attachTimeService;
   bool _isDisposed = false;
 
   final List<PreOrder> _orders = [];
@@ -25,9 +48,29 @@ class OrderProvider extends ChangeNotifier {
   final Map<String, OrderStatus> _lastOrderStatusMap = {};
   final Map<String, RefundStatus> _lastRefundStatusMap = {};
   StoreSettings _settings = const StoreSettings(isClosed: false);
+  bool _isSubmittingOrder = false;
+
+  String? _stockLimitBannerMessage;
+  List<CartStockAdjustment> _lastStockAdjustments = const [];
+  final Map<String, int> _reportedOutOfStockSignatures = {};
+
+  bool get isSubmittingOrder => _isSubmittingOrder;
+  StoreSettings get settings => _settings;
 
   List<PreOrder> get orders => _orders;
   List<CartItem> get preCart => _preCart;
+  String? get stockLimitBannerMessage => _stockLimitBannerMessage;
+  List<CartStockAdjustment> get lastStockAdjustments =>
+      List.unmodifiable(_lastStockAdjustments);
+
+  void clearStockLimitNotice() {
+    if (_stockLimitBannerMessage == null && _lastStockAdjustments.isEmpty) {
+      return;
+    }
+    _stockLimitBannerMessage = null;
+    _lastStockAdjustments = const [];
+    notifyListeners();
+  }
 
   PreOrder? get recentOrder => _orders.isNotEmpty ? _orders.first : null;
   List<PreOrder> get recentOrders => _orders
@@ -44,19 +87,28 @@ class OrderProvider extends ChangeNotifier {
   // Stream for a specific customer
   Stream<List<PreOrder>>? _cachedStream;
   String? _cachedEmail;
+  Stream<List<RefundRequest>>? _cachedRefundStream;
+  String? _cachedRefundEmail;
   StreamSubscription? _ordersSub;
   StreamSubscription? _settingsSub;
   Timer? _expirationTimer;
 
   Stream<List<PreOrder>> ordersStreamForEmail(String email, {int limit = 50}) {
-    if (_cachedStream != null && _cachedEmail == email) {
+    final cleanEmail = email.trim();
+    if (cleanEmail.isEmpty) {
+      return Stream.value(const []);
+    }
+    if (_cachedStream != null && _cachedEmail == cleanEmail) {
       return _cachedStream!;
     }
 
     _ordersSub?.cancel();
-    _cachedEmail = email;
+    _orders.clear();
+    _lastOrderStatusMap.clear();
+    _processedGhostedOrderIds.clear();
+    _cachedEmail = cleanEmail;
     _cachedStream = _fs
-        .ordersStreamForEmail(email, limit: limit)
+        .ordersStreamForEmail(cleanEmail, limit: limit)
         .map((list) => _processAndCancelExpired(list))
         .asBroadcastStream();
 
@@ -82,8 +134,11 @@ class OrderProvider extends ChangeNotifier {
     return _cachedStream!;
   }
 
-  OrderProvider() {
-    TimeService.instance.addListener(_onTimeServiceChanged);
+  OrderProvider({bool attachTimeService = true})
+      : _attachTimeService = attachTimeService {
+    if (_attachTimeService) {
+      TimeService.instance.addListener(_onTimeServiceChanged);
+    }
   }
 
   void _onTimeServiceChanged() {
@@ -102,14 +157,30 @@ class OrderProvider extends ChangeNotifier {
     _processedGhostedOrderIds.add(order.id);
     _processedGhostedOrderIds.add(order.orderId);
 
-    _fs.cancelOrder(order.id, order.items);
-    _fs.recordGhostingOffense(
-      userId: order.customerId,
-      userEmail: order.customerEmail,
-      orderId: order.id,
-      sixCharOrderId: order.orderId,
-    );
-    debugPrint('Recorded ghosting offense for order: ${order.orderId}');
+    unawaited(_processGhostedOrderAsync(order));
+  }
+
+  Future<void> _processGhostedOrderAsync(PreOrder order) async {
+    try {
+      await _fs.cancelOrder(order.id, order.items);
+    } catch (e) {
+      debugPrint('Error auto-cancelling expired order ${order.orderId}: $e');
+    }
+
+    try {
+      await _fs.recordGhostingOffense(
+        userId: order.customerId,
+        userEmail: order.customerEmail,
+        orderId: order.id,
+        sixCharOrderId: order.orderId,
+      );
+      debugPrint('Recorded ghosting offense for order: ${order.orderId}');
+    } catch (e) {
+      // Customer accounts cannot self-modify offense counters per Firestore rules;
+      // server/admin processes offense escalation safely.
+      debugPrint(
+          'Skipped client-side ghosting offense update for ${order.orderId}: $e');
+    }
   }
 
   void _checkAndProcessExpirations() {
@@ -170,57 +241,69 @@ class OrderProvider extends ChangeNotifier {
     }).toList();
   }
 
-  Stream<List<RefundRequest>> refundRequestsStreamForEmail(String email) =>
-      _fs.refundRequestsStreamForEmail(email).map((list) {
-        list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-        for (final req in list) {
-          final previousStatus = _lastRefundStatusMap[req.id];
-          if (previousStatus != null && previousStatus != req.status) {
-            final storeNote =
-                (req.adminNotes != null && req.adminNotes!.trim().isNotEmpty)
-                    ? ' Store note: "${req.adminNotes!.trim()}"'
-                    : '';
+  Stream<List<RefundRequest>> refundRequestsStreamForEmail(String email) {
+    final cleanEmail = email.trim();
+    if (cleanEmail.isEmpty) {
+      return Stream.value(const []);
+    }
+    if (_cachedRefundStream != null && _cachedRefundEmail == cleanEmail) {
+      return _cachedRefundStream!;
+    }
+    _lastRefundStatusMap.clear();
+    _cachedRefundEmail = cleanEmail;
+    _cachedRefundStream =
+        _fs.refundRequestsStreamForEmail(cleanEmail).map((list) {
+      list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      for (final req in list) {
+        final previousStatus = _lastRefundStatusMap[req.id];
+        if (previousStatus != null && previousStatus != req.status) {
+          final storeNote =
+              (req.adminNotes != null && req.adminNotes!.trim().isNotEmpty)
+                  ? ' Store note: "${req.adminNotes!.trim()}"'
+                  : '';
 
-            if (req.status == RefundStatus.approved) {
-              final uid = FirebaseAuth.instance.currentUser?.uid;
-              if (uid != null) {
-                _fs.addCustomerNotification(
-                  userId: uid,
-                  title: '💸 Refund Successful',
-                  body:
-                      'Your refund request for #${req.transactionId} (${formatPeso(req.total)}) was approved.$storeNote',
-                  type: 'order',
-                  relatedId: req.transactionId,
-                );
-              }
-              NotificationService.showSmsNotificationPopUp(
-                title: '💸 Refund Approved',
+          if (req.status == RefundStatus.approved) {
+            final uid = FirebaseAuth.instance.currentUser?.uid;
+            if (uid != null) {
+              _fs.addCustomerNotification(
+                userId: uid,
+                title: '💸 Refund Successful',
                 body:
-                    'Your refund for #${req.transactionId} has been approved.$storeNote',
+                    'Your refund request for #${req.transactionId} (${formatPeso(req.total)}) was approved.$storeNote',
+                type: 'order',
+                relatedId: req.transactionId,
               );
-            } else if (req.status == RefundStatus.rejected) {
-              final uid = FirebaseAuth.instance.currentUser?.uid;
-              if (uid != null) {
-                _fs.addCustomerNotification(
-                  userId: uid,
-                  title: '❌ Refund Rejected',
-                  body:
-                      'Your refund request for #${req.transactionId} was rejected.$storeNote',
-                  type: 'order',
-                  relatedId: req.transactionId,
-                );
-              }
-              NotificationService.showSmsNotificationPopUp(
+            }
+            NotificationService.showSmsNotificationPopUp(
+              title: '💸 Refund Approved',
+              body:
+                  'Your refund for #${req.transactionId} has been approved.$storeNote',
+            );
+          } else if (req.status == RefundStatus.rejected) {
+            final uid = FirebaseAuth.instance.currentUser?.uid;
+            if (uid != null) {
+              _fs.addCustomerNotification(
+                userId: uid,
                 title: '❌ Refund Rejected',
                 body:
                     'Your refund request for #${req.transactionId} was rejected.$storeNote',
+                type: 'order',
+                relatedId: req.transactionId,
               );
             }
+            NotificationService.showSmsNotificationPopUp(
+              title: '❌ Refund Rejected',
+              body:
+                  'Your refund request for #${req.transactionId} was rejected.$storeNote',
+            );
           }
-          _lastRefundStatusMap[req.id] = req.status;
         }
-        return list;
-      });
+        _lastRefundStatusMap[req.id] = req.status;
+      }
+      return list;
+    }).asBroadcastStream();
+    return _cachedRefundStream!;
+  }
 
   List<CartItem> getBuyItAgainItems() {
     if (_orders.isEmpty) return [];
@@ -243,6 +326,10 @@ class OrderProvider extends ChangeNotifier {
       ..sort((a, b) => counts[b]!.compareTo(counts[a]!));
 
     return sortedIds.take(5).map((id) => itemsMap[id]!).toList();
+  }
+
+  void syncSettings(StoreSettings newSettings) {
+    _settings = newSettings;
   }
 
   void initialize() {
@@ -281,7 +368,9 @@ class OrderProvider extends ChangeNotifier {
       }
 
       int maxStock = p.maxPurchasableStock;
-      if (item.variantId != null && p.variants != null) {
+      final bool hasItemVariant =
+          item.variantId != null && item.variantId!.isNotEmpty;
+      if (hasItemVariant && p.variants != null) {
         final v = p.variants![item.variantId];
         if (v == null || v.isOutOfStockForCustomer) {
           previews.add(ReorderItemPreview(
@@ -354,21 +443,39 @@ class OrderProvider extends ChangeNotifier {
     return previews;
   }
 
+  String? _normalizeVariantId(String? variantId) {
+    if (variantId == null || variantId.isEmpty) return null;
+    return variantId;
+  }
+
   void applyReorder(List<ReorderItemPreview> previews) {
     for (final preview in previews) {
       if (preview.isUnavailable || preview.toAddQty <= 0) continue;
 
+      final normalizedVariantId =
+          _normalizeVariantId(preview.originalItem.variantId);
       final existingIdx = _preCart.indexWhere((i) =>
           i.productId == preview.originalItem.productId &&
-          i.variantId == preview.originalItem.variantId);
+          _normalizeVariantId(i.variantId) == normalizedVariantId);
+
+      final double resolvedPrice;
+      if (normalizedVariantId != null && preview.product?.variants != null) {
+        resolvedPrice =
+            preview.product!.variants![normalizedVariantId]?.price ??
+                preview.originalItem.price;
+      } else {
+        resolvedPrice = preview.product?.price ?? preview.originalItem.price;
+      }
 
       if (existingIdx >= 0) {
-        _preCart[existingIdx] = _preCart[existingIdx]
-            .copyWith(qty: _preCart[existingIdx].qty + preview.toAddQty);
+        _preCart[existingIdx] = _preCart[existingIdx].copyWith(
+          qty: _preCart[existingIdx].qty + preview.toAddQty,
+          price: resolvedPrice,
+        );
       } else {
         _preCart.add(preview.originalItem.copyWith(
           qty: preview.toAddQty,
-          price: preview.product?.price ?? preview.originalItem.price,
+          price: resolvedPrice,
         ));
       }
     }
@@ -382,14 +489,16 @@ class OrderProvider extends ChangeNotifier {
       String? variantId,
       String? variantName,
       bool replace = false}) {
-    final idx = _preCart
-        .indexWhere((i) => i.productId == p.id && i.variantId == variantId);
+    final normalizedVariantId = _normalizeVariantId(variantId);
+    final idx = _preCart.indexWhere((i) =>
+        i.productId == p.id &&
+        _normalizeVariantId(i.variantId) == normalizedVariantId);
 
     int maxStock = p.maxPurchasableStock;
     double itemPrice = p.price;
 
-    if (variantId != null && p.variants != null) {
-      final v = p.variants![variantId];
+    if (normalizedVariantId != null && p.variants != null) {
+      final v = p.variants![normalizedVariantId];
       if (v != null) {
         maxStock = v.maxPurchasableStock;
         itemPrice = v.price;
@@ -402,6 +511,7 @@ class OrderProvider extends ChangeNotifier {
       final newQty = replace ? quantity : (_preCart[idx].qty + quantity);
       _preCart[idx] = _preCart[idx].copyWith(
         qty: newQty.clamp(1, maxStock),
+        price: itemPrice,
         barcode: p.barcode ?? '',
       );
     } else {
@@ -412,17 +522,20 @@ class OrderProvider extends ChangeNotifier {
         price: itemPrice,
         qty: quantity.clamp(1, maxStock),
         isPerishable: p.isPerishable,
-        variantId: variantId,
+        variantId: normalizedVariantId,
         variantName: variantName,
       ));
     }
     notifyListeners();
   }
 
-  void removeFromPreCart(String productId, {String? variantId}) {
-    if (variantId != null) {
-      _preCart.removeWhere(
-          (i) => i.productId == productId && i.variantId == variantId);
+  void removeFromPreCart(String productId,
+      {String? variantId, bool exactVariantMatch = false}) {
+    final normalizedVariantId = _normalizeVariantId(variantId);
+    if (normalizedVariantId != null || exactVariantMatch) {
+      _preCart.removeWhere((i) =>
+          i.productId == productId &&
+          _normalizeVariantId(i.variantId) == normalizedVariantId);
     } else {
       _preCart.removeWhere((i) => i.productId == productId);
     }
@@ -431,14 +544,134 @@ class OrderProvider extends ChangeNotifier {
 
   void clearPreCart() {
     _preCart.clear();
+    _stockLimitBannerMessage = null;
+    _lastStockAdjustments = const [];
+    _reportedOutOfStockSignatures.clear();
     notifyListeners();
+  }
+
+  /// Reconciles every item in [_preCart] against live online-allocated stock
+  /// derived from the active category split in Firestore.
+  ///
+  /// If a category split change or concurrent order reduces available online
+  /// stock below what is in the cart, automatically caps the quantity to the
+  /// live online limit and sets [stockLimitBannerMessage] so the UI displays
+  /// a clear stock-limit notice.
+  List<CartStockAdjustment> reconcileCartWithLiveStock(
+    List<Product> products, {
+    bool deferNotify = false,
+  }) {
+    if (_preCart.isEmpty || products.isEmpty) {
+      return const [];
+    }
+
+    final Map<String, Product> productById = {
+      for (final p in products) p.id: p,
+    };
+
+    final List<CartStockAdjustment> adjustments = [];
+    bool cartMutated = false;
+
+    for (int i = 0; i < _preCart.length; i++) {
+      final item = _preCart[i];
+      final product = productById[item.productId];
+      if (product == null) continue;
+
+      final normalizedVariantId = _normalizeVariantId(item.variantId);
+      int liveMaxStock = product.maxPurchasableStock;
+      String displayName = item.name;
+
+      if (normalizedVariantId != null && product.variants != null) {
+        final variant = product.variants![normalizedVariantId];
+        if (variant != null) {
+          liveMaxStock = variant.maxPurchasableStock;
+          displayName = '${item.name} (${variant.name})';
+        } else {
+          liveMaxStock = 0;
+        }
+      }
+
+      if (product.isQuarantined || product.status != ProductStatus.published) {
+        liveMaxStock = 0;
+      }
+
+      final sigKey = '${item.productId}::${normalizedVariantId ?? ''}';
+
+      if (liveMaxStock > 0) {
+        _reportedOutOfStockSignatures.remove(sigKey);
+        if (item.qty > liveMaxStock) {
+          _preCart[i] = item.copyWith(qty: liveMaxStock);
+          cartMutated = true;
+          adjustments.add(
+            CartStockAdjustment(
+              productId: item.productId,
+              variantId: normalizedVariantId,
+              itemName: displayName,
+              previousQty: item.qty,
+              newQty: liveMaxStock,
+              availableOnlineStock: liveMaxStock,
+            ),
+          );
+        }
+      } else {
+        if (_reportedOutOfStockSignatures[sigKey] != item.qty) {
+          _reportedOutOfStockSignatures[sigKey] = item.qty;
+          adjustments.add(
+            CartStockAdjustment(
+              productId: item.productId,
+              variantId: normalizedVariantId,
+              itemName: displayName,
+              previousQty: item.qty,
+              newQty: 0,
+              availableOnlineStock: 0,
+            ),
+          );
+        }
+      }
+    }
+
+    if (adjustments.isNotEmpty) {
+      _lastStockAdjustments = adjustments;
+      if (adjustments.length == 1) {
+        final adj = adjustments.first;
+        _stockLimitBannerMessage = adj.isOutOfStock
+            ? '"${adj.itemName}" is currently out of stock. Please remove it before checking out.'
+            : 'Stock updated: "${adj.itemName}" quantity was adjusted from ${adj.previousQty} to ${adj.newQty} based on available stock.';
+      } else {
+        final cappedCount = adjustments.where((a) => !a.isOutOfStock).length;
+        final oosCount = adjustments.where((a) => a.isOutOfStock).length;
+        final parts = <String>[];
+        if (cappedCount > 0) {
+          parts.add(
+              '$cappedCount item${cappedCount == 1 ? '' : 's'} adjusted to available stock');
+        }
+        if (oosCount > 0) {
+          parts.add('$oosCount item${oosCount == 1 ? '' : 's'} out of stock');
+        }
+        _stockLimitBannerMessage =
+            'Stock availability changed: ${parts.join(' and ')}. Review your basket before checkout.';
+      }
+    }
+
+    if (cartMutated || adjustments.isNotEmpty) {
+      if (deferNotify) {
+        Future.microtask(() {
+          if (!_isDisposed) notifyListeners();
+        });
+      } else {
+        notifyListeners();
+      }
+    }
+
+    return adjustments;
   }
 
   void adjustPreCartQty(String productId, int delta, int stock,
       {String? variantId}) {
+    final normalizedVariantId = _normalizeVariantId(variantId);
     final idx = _preCart.indexWhere((i) =>
         i.productId == productId &&
-        (variantId == null || i.variantId == variantId));
+        _normalizeVariantId(i.variantId) == normalizedVariantId);
     if (idx < 0) return;
     final maxStock = stock <= 0 ? 0 : stock;
     if (maxStock <= 0) {
@@ -453,9 +686,10 @@ class OrderProvider extends ChangeNotifier {
 
   void setPreCartQty(String productId, int qty, int stock,
       {String? variantId}) {
+    final normalizedVariantId = _normalizeVariantId(variantId);
     final idx = _preCart.indexWhere((i) =>
         i.productId == productId &&
-        (variantId == null || i.variantId == variantId));
+        _normalizeVariantId(i.variantId) == normalizedVariantId);
     if (idx < 0) return;
     final maxStock = stock <= 0 ? 0 : stock;
     if (maxStock <= 0) {
@@ -470,11 +704,16 @@ class OrderProvider extends ChangeNotifier {
 
   /// Calculates available extension minutes up to 20 minutes max.
   /// Only available during the final 10 minutes before the order's allocated expiration time.
-  /// Disabled (returns 0) if order was already extended once, or if current time/expiration is at/past 3:00 PM (15:00).
-  static int getAvailableExtensionMinutes(DateTime? currentExpiry,
-      {bool isExtended = false}) {
+  /// Disabled (returns 0) if order was already extended once, or if current time/expiration
+  /// reaches the store's closing time (or an upcoming maintenance window) for that day.
+  static int getAvailableExtensionMinutes(
+    DateTime? currentExpiry, {
+    bool isExtended = false,
+    StoreSettings? settings,
+    DateTime? nowTime,
+  }) {
     if (currentExpiry == null || isExtended) return 0;
-    final now = TimeService.now;
+    final now = nowTime ?? TimeService.now;
 
     // Only allow extension when within 10 minutes before pickup expiration
     final secondsRemaining = currentExpiry.difference(now).inSeconds;
@@ -482,25 +721,52 @@ class OrderProvider extends ChangeNotifier {
       return 0;
     }
 
-    final cutoff3PM = DateTime(now.year, now.month, now.day, 15, 0);
+    DateTime? cutoff;
+    if (settings != null) {
+      final window = settings.getOperatingWindowForDate(currentExpiry);
+      if (window == null) return 0;
+      int cutoffMins = window.closeMinutes;
+      final expiryMins = currentExpiry.hour * 60 + currentExpiry.minute;
+      for (final b in window.blockedWindows) {
+        if (b.startMinutes >= expiryMins && b.startMinutes < cutoffMins) {
+          cutoffMins = b.startMinutes;
+        }
+      }
+      cutoff = DateTime(
+        currentExpiry.year,
+        currentExpiry.month,
+        currentExpiry.day,
+        cutoffMins ~/ 60,
+        cutoffMins % 60,
+      );
+    } else {
+      cutoff = DateTime(
+        currentExpiry.year,
+        currentExpiry.month,
+        currentExpiry.day,
+        StoreHours.defaultCloseHour,
+        0,
+      );
+    }
 
-    if (now.isAfter(cutoff3PM) || now.isAtSameMomentAs(cutoff3PM)) {
+    if (!now.isBefore(cutoff) || !currentExpiry.isBefore(cutoff)) {
       return 0;
     }
 
-    if (currentExpiry.isAfter(cutoff3PM) ||
-        currentExpiry.isAtSameMomentAs(cutoff3PM)) {
-      return 0;
-    }
-
-    final minutesToCutoff = cutoff3PM.difference(currentExpiry).inMinutes;
+    final minutesToCutoff = cutoff.difference(currentExpiry).inMinutes;
     if (minutesToCutoff <= 0) return 0;
 
     return minutesToCutoff.clamp(0, 20);
   }
 
+  /// Human-readable closing cutoff label for pickup extension feedback.
+  String getExtensionCutoffLabel(DateTime? targetDate) {
+    final date = targetDate ?? TimeService.now;
+    return _settings.closingTimeLabelForDate(date);
+  }
+
   /// Extends an active order's pickup expiration time by up to 20 minutes max (1-time extension allowed per order).
-  /// Strictly capped so that pickup time NEVER exceeds 3:00 PM (15:00).
+  /// Strictly capped so that pickup time never exceeds the Admin-configured store closing cutoff.
   Future<int> extendOrderPickupTime(String orderId) async {
     final idx =
         _orders.indexWhere((o) => o.id == orderId || o.orderId == orderId);
@@ -509,13 +775,14 @@ class OrderProvider extends ChangeNotifier {
     final order = _orders[idx];
     if (order.expiresAt == null || order.isExtended) return 0;
 
-    final availableMinutes = getAvailableExtensionMinutes(order.expiresAt!,
-        isExtended: order.isExtended);
+    final availableMinutes = getAvailableExtensionMinutes(
+      order.expiresAt!,
+      isExtended: order.isExtended,
+      settings: _settings,
+    );
     if (availableMinutes <= 0) return 0;
 
     final newExpiry = order.expiresAt!.add(Duration(minutes: availableMinutes));
-    final updatedOrder = order.copyWith(expiresAt: newExpiry, isExtended: true);
-    _orders[idx] = updatedOrder;
 
     try {
       await FirebaseFirestore.instance
@@ -527,8 +794,11 @@ class OrderProvider extends ChangeNotifier {
       });
     } catch (e) {
       debugPrint('Error updating order expiry in Firestore: $e');
+      return 0;
     }
 
+    final updatedOrder = order.copyWith(expiresAt: newExpiry, isExtended: true);
+    _orders[idx] = updatedOrder;
     notifyListeners();
     return availableMinutes;
   }
@@ -552,67 +822,83 @@ class OrderProvider extends ChangeNotifier {
     String? paymentReference,
     String? notes,
   }) async {
-    // 1. Target Scheduled Pickup End Time is the exact expiration time of the order
-    final parsedEnd = StoreHours.parseSlotEndDateTime(pickupSlot);
-    final now = TimeService.now;
-    final expiresAt = parsedEnd.isBefore(now)
-        ? now.add(const Duration(minutes: StoreHours.prepBufferMinutes))
-        : parsedEnd;
-
-    // Generate a 6-character alphanumeric Order ID (e.g. A8K2M9)
-    final sixCharOrderId = _generate6CharAlphanumericId();
-
-    final breakdown = PricingEngine.calculate(
-      items: _preCart,
-      allProducts: allProducts,
-    );
-
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-
-    final order = PreOrder(
-      id: const Uuid().v4(),
-      orderId: sixCharOrderId,
-      customerId: uid,
-      customerName: customerName,
-      customerEmail: customerEmail,
-      customerPhone: customerPhone,
-      items: List.from(_preCart),
-      tax: 0,
-      total: breakdown.total,
-      status: OrderStatus.pending,
-      paymentMethod: paymentMethod,
-      paymentReference: paymentReference,
-      location: location,
-      pickupTime: pickupSlot,
-      createdAt: TimeService.now,
-      expiresAt: expiresAt,
-      notes: notes,
-    );
-
-    // Atomic submission: checks stock and decrements in one transaction
-    await _fs.submitOrderTransactional(order);
-
-    // Record in-store notification for customer
-    if (uid != null) {
-      await _fs.addCustomerNotification(
-        userId: uid,
-        title: '🛍️ Purchase Successful',
-        body:
-            'Your pre-order ${order.orderId} (${formatPeso(order.total)}) was submitted successfully. Pickup time: ${order.pickupTime}.',
-        type: 'order',
-        relatedId: order.orderId,
-      );
+    if (_isSubmittingOrder) {
+      throw 'Order submission in progress. Please wait...';
     }
-
-    // Schedule local reminder
-    await NotificationService.schedulePerishableReminder(
-      order.id,
-      order.orderId,
-    );
-
-    _preCart.clear();
+    _isSubmittingOrder = true;
     notifyListeners();
-    return order;
+
+    try {
+      if (_preCart.isEmpty) {
+        throw 'Your cart is empty.';
+      }
+
+      // 1. Target Scheduled Pickup End Time is the exact expiration time of the order
+      final parsedEnd = StoreHours.parseSlotEndDateTime(pickupSlot);
+      final now = TimeService.now;
+      final expiresAt = parsedEnd.isBefore(now)
+          ? now.add(const Duration(minutes: StoreHours.prepBufferMinutes))
+          : parsedEnd;
+
+      // Generate a 6-character alphanumeric Order ID (e.g. A8K2M9)
+      final sixCharOrderId = _generate6CharAlphanumericId();
+
+      final breakdown = PricingEngine.calculate(
+        items: _preCart,
+        allProducts: allProducts,
+      );
+
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+
+      final order = PreOrder(
+        id: const Uuid().v4(),
+        orderId: sixCharOrderId,
+        customerId: uid,
+        customerName: customerName,
+        customerEmail: customerEmail,
+        customerPhone: customerPhone,
+        items: List.from(_preCart),
+        subtotal: breakdown.subtotal,
+        tax: breakdown.vAtAmount,
+        total: breakdown.total,
+        status: OrderStatus.pending,
+        paymentMethod: paymentMethod,
+        paymentReference: paymentReference,
+        location: location,
+        pickupTime: pickupSlot,
+        createdAt: TimeService.now,
+        expiresAt: expiresAt,
+        notes: notes,
+      );
+
+      // Atomic submission: checks stock and decrements in one transaction
+      await _fs.submitOrderTransactional(order);
+
+      // Record in-store notification for customer
+      if (uid != null) {
+        await _fs.addCustomerNotification(
+          userId: uid,
+          title: '🛍️ Purchase Successful',
+          body:
+              'Your pre-order ${order.orderId} (${formatPeso(order.total)}) was submitted successfully. Pickup time: ${order.pickupTime}.',
+          type: 'order',
+          relatedId: order.orderId,
+        );
+      }
+
+      // Schedule local reminder
+      await NotificationService.schedulePerishableReminder(
+        order.id,
+        order.orderId,
+      );
+
+      _preCart.clear();
+      notifyListeners();
+      return order;
+    } finally {
+      _isSubmittingOrder = false;
+      notifyListeners();
+    }
   }
 
   // ── Admin actions ──────────────────────────────────────────────────────────
@@ -642,7 +928,8 @@ class OrderProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> requestRefund(String orderId, String reason, List<CartItem> itemsToRefund) async {
+  Future<void> requestRefund(
+      String orderId, String reason, List<CartItem> itemsToRefund) async {
     final order = _orders.firstWhere((o) => o.id == orderId);
 
     // 1. Avoid Duplication
@@ -652,18 +939,20 @@ class OrderProvider extends ChangeNotifier {
       throw 'A refund request for this order is already being processed.';
     }
 
-    final refundTotal = itemsToRefund.fold(0.0, (sum, item) => sum + (item.price * item.qty));
+    final refundTotal =
+        itemsToRefund.fold(0.0, (acc, item) => acc + (item.price * item.qty));
 
     final req = RefundRequest(
       id: '',
       transactionId: order.orderId,
+      customerId: order.customerId ?? FirebaseAuth.instance.currentUser?.uid,
       customerEmail: order.customerEmail,
       customerName: order.customerName,
       items: itemsToRefund,
       total: refundTotal,
       reason: reason,
       status: RefundStatus.pending,
-      createdAt: DateTime.now(),
+      createdAt: TimeService.now,
     );
 
     await _fs.requestRefund(req);
@@ -739,7 +1028,9 @@ class OrderProvider extends ChangeNotifier {
   @override
   void dispose() {
     _isDisposed = true;
-    TimeService.instance.removeListener(_onTimeServiceChanged);
+    if (_attachTimeService) {
+      TimeService.instance.removeListener(_onTimeServiceChanged);
+    }
     _ordersSub?.cancel();
     _settingsSub?.cancel();
     _expirationTimer?.cancel();

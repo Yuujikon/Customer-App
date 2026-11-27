@@ -1,9 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/store_hours.dart';
@@ -19,6 +15,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../shop/providers/inventory_provider.dart';
 import '../providers/order_provider.dart';
+import '../widgets/pickup_time_picker_sheet.dart';
 import 'order_ticket_screen.dart';
 
 class PreOrderScreen extends StatefulWidget {
@@ -38,32 +35,16 @@ class PreOrderScreen extends StatefulWidget {
 }
 
 class _PreOrderScreenState extends State<PreOrderScreen> {
-  late String _pickupSlot;
-  String _pickupOption = 'ASAP'; // 'ASAP' or 'Schedule'
+  String _pickupSlot = '';
   final _notesCtrl = TextEditingController();
-  final _refNumCtrl = TextEditingController();
   String _selectedPaymentMethod = 'GCash'; // 'GCash', 'Maya'
   bool _isSubmitting = false;
   PreOrder? _submittedOrder;
 
-  String get _storeGcashNumber =>
-      dotenv.env['STORE_GCASH_NUMBER'] ?? '09558297358';
-
-  @override
-  void initState() {
-    super.initState();
-    _pickupSlot = StoreHours.defaultPickupSlot();
-  }
-
   @override
   void dispose() {
     _notesCtrl.dispose();
-    _refNumCtrl.dispose();
     super.dispose();
-  }
-
-  bool _isPickupSlotExpired(String slot) {
-    return StoreHours.isSlotExpired(slot);
   }
 
   Future<void> _showPickupTimePicker() async {
@@ -75,224 +56,46 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
 
     final orderProvider = context.read<OrderProvider>();
     final inventoryProvider = context.read<InventoryProvider>();
-    final cart = orderProvider.preCart;
-    final allProducts = inventoryProvider.products;
+    final settings = inventoryProvider.settings;
 
-    final bool hasPerishables = cart.any((item) => item.isPerishable);
-    final bool isPrepaid = true;
-
-    // Calculate earliest batch expiry (FEFO)
-    DateTime? earliestExpiry;
-    for (final cartItem in cart) {
-      final p = allProducts.firstWhere(
-        (prod) => prod.id == cartItem.productId,
-        orElse: () => Product(
-            id: cartItem.productId,
-            name: cartItem.name,
-            category: 'Others',
-            price: cartItem.price,
-            stock: cartItem.qty),
-      );
-      if (p.expiryDate != null) {
-        if (earliestExpiry == null || p.expiryDate!.isBefore(earliestExpiry)) {
-          earliestExpiry = p.expiryDate;
-        }
-      }
-    }
-
-    final now = TimeService.now;
-    final today = DateTime(now.year, now.month, now.day);
-    final earliestAvailableDate =
-        StoreHours.getEarliestPickupDate(nowTime: now);
-    final firstDate = earliestAvailableDate;
-
-    // Calendar Max Allowed Date:
-    // - Perishable or Cash: max 1 day advance
-    // - Non-Perishable + Prepaid (GCash/Maya): max 3 days advance
-    // - Bounded by earliest FEFO expiry date
-    DateTime lastDate;
-    String itemTypeNotice;
-
-    if (hasPerishables) {
-      lastDate = today.add(const Duration(days: 1));
-      itemTypeNotice = 'PERISHABLE: UP TO 1 DAY ADVANCE';
-    } else if (isPrepaid) {
-      lastDate = today.add(const Duration(days: 3));
-      itemTypeNotice = 'PREPAID NON-PERISHABLE: UP TO 3 DAYS ADVANCE';
-    } else {
-      lastDate = today.add(const Duration(days: 1));
-      itemTypeNotice = 'CASH ON PICKUP: UP TO 1 DAY ADVANCE';
-    }
-
-    if (earliestExpiry != null) {
-      final expiryDay = DateTime(
-          earliestExpiry.year, earliestExpiry.month, earliestExpiry.day);
-      if (expiryDay.isBefore(lastDate)) {
-        lastDate = expiryDay;
-      }
-    }
-
-    if (lastDate.isBefore(firstDate)) {
-      lastDate = firstDate;
-    }
-
-    DateTime initialCalendarDate = earliestAvailableDate;
-    if (initialCalendarDate.isAfter(lastDate)) {
-      initialCalendarDate = lastDate;
-    }
-
-    // 1. Show Native Material Calendar Date Picker
-    final pickedDate = await showDatePicker(
-      context: context,
-      initialDate: initialCalendarDate,
-      firstDate: firstDate,
-      lastDate: lastDate,
-      helpText: 'SELECT PICKUP TIME (DATE) • $itemTypeNotice',
-      confirmText: 'NEXT: PICK TIME',
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: AppColors.forest,
-              onPrimary: Colors.white,
-              onSurface: AppColors.primaryText,
-            ),
+    if (settings.isEmergencyClosed) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            settings.closureReason.isNotEmpty
+                ? settings.closureReason
+                : 'Store is currently under emergency maintenance.',
           ),
-          child: child!,
-        );
-      },
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
+    final policy = BasketPickupPolicy.fromCart(
+      cart: orderProvider.preCart,
+      allProducts: inventoryProvider.products,
+      settings: settings,
     );
 
-    if (pickedDate == null || !mounted) return;
+    final pickedSlot = await PickupTimePickerSheet.show(
+      context,
+      settings: settings,
+      policy: policy,
+      currentSlot: _pickupSlot,
+    );
 
-    // Calculate default initial time within store hours (11:00 AM - 3:00 PM)
-    final bool isToday = pickedDate.year == today.year &&
-        pickedDate.month == today.month &&
-        pickedDate.day == today.day;
-
-    int defaultHour = StoreHours.openHour; // 11:00 AM
-    if (isToday) {
-      if (now.hour + 1 < StoreHours.openHour) {
-        defaultHour = StoreHours.openHour;
-      } else if (now.hour < StoreHours.closeHour) {
-        defaultHour = now.hour;
-      } else {
-        defaultHour = StoreHours.closeHour - 1;
-      }
-    } else {
-      defaultHour = StoreHours.openHour;
+    if (pickedSlot != null && mounted) {
+      setState(() {
+        _pickupSlot = pickedSlot;
+      });
     }
-
-    TimeOfDay? currentSelectedTime = TimeOfDay(hour: defaultHour, minute: 0);
-    bool isValidTime = false;
-
-    // 2. Show Native Material Time Picker with loop on invalid selection
-    while (!isValidTime) {
-      final pickedTime = await showTimePicker(
-        context: context,
-        initialTime:
-            currentSelectedTime ?? TimeOfDay(hour: defaultHour, minute: 0),
-        helpText: 'SELECT PICKUP TIME (11:00 AM – 3:00 PM)',
-        confirmText: 'CONFIRM TIME',
-        builder: (context, child) {
-          return Theme(
-            data: Theme.of(context).copyWith(
-              colorScheme: const ColorScheme.light(
-                primary: AppColors.forest,
-                onPrimary: Colors.white,
-                onSurface: AppColors.primaryText,
-              ),
-            ),
-            child: child!,
-          );
-        },
-      );
-
-      if (pickedTime == null || !mounted) return;
-      currentSelectedTime = pickedTime;
-
-      final selectedDateTime = DateTime(
-        pickedDate.year,
-        pickedDate.month,
-        pickedDate.day,
-        pickedTime.hour,
-        pickedTime.minute,
-      );
-
-      final slotEndTime = selectedDateTime.add(const Duration(hours: 1));
-
-      // 3. Enforce Prep Buffer & Store Hours Constraints
-      if (isToday &&
-          TimeService.now
-              .add(const Duration(minutes: StoreHours.prepBufferMinutes))
-              .isAfter(slotEndTime)) {
-        if (!mounted) return;
-        final bool? reselect = await _showTimeValidationDialog(
-          title: 'Time Already Passed',
-          message:
-              'Selected time (${pickedTime.format(context)}) does not allow sufficient preparation time (${StoreHours.prepBufferMinutes} mins). Please choose a future pickup time.',
-        );
-
-        if (reselect == true) {
-          continue;
-        } else {
-          return;
-        }
-      }
-
-      // Store Operating Hours Check (11:00 AM – 3:00 PM)
-      if (pickedTime.hour < StoreHours.openHour ||
-          pickedTime.hour >= StoreHours.closeHour) {
-        if (!mounted) return;
-        final bool? reselect = await _showTimeValidationDialog(
-          title: 'Outside Pickup Hours',
-          message:
-              'Pickup schedules are limited to store operating hours: 11:00 AM to 3:00 PM.',
-        );
-
-        if (reselect == true) {
-          continue;
-        } else {
-          return;
-        }
-      }
-
-      isValidTime = true;
-    }
-
-    final validTime = currentSelectedTime!;
-    final tomorrow = today.add(const Duration(days: 1));
-
-    String dateLabel;
-    if (isToday) {
-      dateLabel = 'Today';
-    } else if (pickedDate.year == tomorrow.year &&
-        pickedDate.month == tomorrow.month &&
-        pickedDate.day == tomorrow.day) {
-      dateLabel = 'Tomorrow';
-    } else {
-      dateLabel = DateFormat('EEE, MMM d').format(pickedDate);
-    }
-
-    final startHourNum =
-        validTime.hourOfPeriod == 0 ? 12 : validTime.hourOfPeriod;
-    final period = validTime.period == DayPeriod.am ? 'AM' : 'PM';
-    final minuteStr = validTime.minute.toString().padLeft(2, '0');
-    final endHourVal = (validTime.hour + 1) % 24;
-    final endHourPeriodVal = endHourVal % 12 == 0 ? 12 : endHourVal % 12;
-    final endPeriodStr = endHourVal >= 12 ? 'PM' : 'AM';
-
-    final rangeStr =
-        '$startHourNum:$minuteStr $period – $endHourPeriodVal:$minuteStr $endPeriodStr';
-
-    setState(() {
-      _pickupSlot = '$dateLabel, $rangeStr';
-    });
   }
 
   void _showEditQuantityDialog({
     required BuildContext context,
     required CartItem item,
+    required double unitPrice,
     required int maxStock,
     required OrderProvider orderProvider,
   }) {
@@ -300,7 +103,8 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
       context: context,
       builder: (ctx) => QuantitySelectorDialog(
         productName: item.name,
-        unitPrice: item.price,
+        variantName: item.variantName,
+        unitPrice: unitPrice,
         initialQty: item.qty,
         maxStock: maxStock,
         onConfirm: (newQty) {
@@ -330,8 +134,11 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
           ),
           ElevatedButton(
             onPressed: () {
-              orderProvider.removeFromPreCart(item.productId,
-                  variantId: item.variantId);
+              orderProvider.removeFromPreCart(
+                item.productId,
+                variantId: item.variantId,
+                exactVariantMatch: true,
+              );
               Navigator.pop(ctx);
             },
             style: ElevatedButton.styleFrom(
@@ -351,8 +158,8 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-        title: Row(
-          children: const [
+        title: const Row(
+          children: [
             Icon(Icons.person_outline_rounded,
                 color: AppColors.orangeCTA, size: 26),
             SizedBox(width: 10),
@@ -403,80 +210,6 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                   borderRadius: BorderRadius.circular(100)),
             ),
             child: const Text('Go to Account Profile'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showQrCodeModal(String providerName, String accountNumber) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        backgroundColor: Theme.of(context).cardColor,
-        title: Column(
-          children: [
-            Text('$providerName Payment QR',
-                style: const TextStyle(fontWeight: FontWeight.w900)),
-            const SizedBox(height: 4),
-            Text(accountNumber,
-                style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.forest)),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Scan this QR code using your $providerName app or send payment to $accountNumber (GDC Sari-Sari Store).',
-              textAlign: TextAlign.center,
-              style:
-                  const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppColors.border, width: 2),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: SizedBox(
-                width: 180,
-                height: 180,
-                child: QrImageView(
-                  data: '00020101021226480016A000000677010111$accountNumber',
-                  version: QrVersions.auto,
-                  size: 180.0,
-                  backgroundColor: Colors.white,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            SelectableText(
-              'Account: $accountNumber\nName: GDC Sari-Sari Store',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.forest),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
           ),
         ],
       ),
@@ -701,6 +434,26 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
 
     if (orderProvider.preCart.isEmpty) return;
 
+    final settings = inventoryProvider.settings;
+
+    // Only block ordering completely during Admin Emergency Maintenance.
+    // Outside normal operating hours, customers can still reserve pickup for
+    // upcoming open hours based on the products in their basket.
+    if (settings.isEmergencyClosed) {
+      final reason = settings.closureReason;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            reason.isNotEmpty
+                ? reason
+                : 'Store is currently under maintenance and not accepting pre-orders.',
+          ),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
     if (authProvider.isOrderRestricted) {
       _showRestrictionDialog(authProvider);
       return;
@@ -711,17 +464,154 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
       return;
     }
 
-    // Validation: Require Payment Reference Number for GCash / Maya
-    // This is now handled by Xendit, so no reference number input is needed.
-
-    // Rule 3 Expiration Check: Validate that selected slot hasn't passed current live time
-    if (_isPickupSlotExpired(_pickupSlot)) {
-      await _showTimeValidationDialog(
-        title: 'Time Already Passed',
-        message:
-            'Selected pickup time ($_pickupSlot) has passed. Please select a valid future pickup slot.',
+    // Pre-validate live inventory BEFORE launching Xendit checkout so customers
+    // are never charged for out-of-stock or quarantined items.
+    // Reconcile cart against live online-allocated stock (from real-time category splits)
+    // BEFORE launching Xendit checkout so customers are never charged above live limits.
+    final adjustments = orderProvider.reconcileCartWithLiveStock(
+      inventoryProvider.products,
+    );
+    if (adjustments.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            orderProvider.stockLimitBannerMessage ??
+                'Online stock limits changed. Your basket quantities were adjusted — please review and try again.',
+          ),
+          backgroundColor: AppColors.orangeCTA,
+          duration: const Duration(seconds: 4),
+        ),
       );
-      await _showPickupTimePicker();
+      return;
+    }
+
+    for (final item in orderProvider.preCart) {
+      final matching =
+          inventoryProvider.products.where((p) => p.id == item.productId);
+      if (matching.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                '"${item.name}" is no longer available. Please remove it from your basket.'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+        return;
+      }
+      final product = matching.first;
+      if (product.isQuarantined || product.status != ProductStatus.published) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                '"${item.name}" is currently unavailable. Please remove it from your basket.'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+        return;
+      }
+      if (product.hasVariants) {
+        if (item.variantId == null ||
+            product.variants?[item.variantId] == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  'Please select a valid option for "${item.name}" before checking out.'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+          return;
+        }
+        final variant = product.variants![item.variantId]!;
+        final avail = variant.maxPurchasableStock;
+        if (avail <= 0) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  '"${item.name} (${variant.name})" is currently out of stock. Please remove it from your basket.'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+          return;
+        }
+        if (item.qty > avail) {
+          orderProvider.setPreCartQty(
+            item.productId,
+            avail,
+            avail,
+            variantId: item.variantId,
+          );
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  'Only $avail left in stock for "${item.name} (${variant.name})". Quantity adjusted to $avail.'),
+              backgroundColor: AppColors.orangeCTA,
+            ),
+          );
+          return;
+        }
+      } else {
+        final avail = product.maxPurchasableStock;
+        if (avail <= 0) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  '"${item.name}" is currently out of stock. Please remove it from your basket.'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+          return;
+        }
+        if (item.qty > avail) {
+          orderProvider.setPreCartQty(
+            item.productId,
+            avail,
+            avail,
+          );
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  'Only $avail left in stock for "${item.name}". Quantity adjusted to $avail.'),
+              backgroundColor: AppColors.orangeCTA,
+            ),
+          );
+          return;
+        }
+      }
+    }
+
+    // Validate selected pickup slot against live Admin operating hours,
+    // holiday/maintenance overrides, and the basket's product policy.
+    final policy = BasketPickupPolicy.fromCart(
+      cart: orderProvider.preCart,
+      allProducts: inventoryProvider.products,
+      settings: settings,
+    );
+    final defaultValidSlot = StoreHours.getDefaultSlotOption(
+      settings: settings,
+      policy: policy,
+    );
+    if (defaultValidSlot == null) {
+      await _showTimeValidationDialog(
+        title: 'No Pickup Slots Available',
+        message:
+            'There are no open store pickup slots within the freshness/reservation window of the items in your basket. Please adjust your basket or check store hours.',
+      );
+      return;
+    }
+
+    if (!StoreHours.isSlotValidForSettings(
+      _pickupSlot,
+      settings: settings,
+      policy: policy,
+    )) {
+      final bool? reselect = await _showTimeValidationDialog(
+        title: 'Pickup Schedule Updated',
+        message:
+            'Your selected pickup slot ($_pickupSlot) is no longer available under current store operating hours or product rules. Please choose an available pickup time.',
+      );
+      if (reselect == true && mounted) {
+        await _showPickupTimePicker();
+      }
       return;
     }
 
@@ -754,8 +644,10 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       }
 
+      if (!mounted) return;
       final isPaid = await _showPaymentAwaitingDialog(sessionId);
 
+      if (!mounted) return;
       if (isPaid == null) {
         setState(() => _isSubmitting = false);
         return;
@@ -800,13 +692,13 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
   }
 
   Future<String?> _showPaymentAwaitingDialog(String sessionId) async {
+    bool isChecking = false;
+    String? errorMsg;
+
     return showDialog<String>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => StatefulBuilder(builder: (context, setSt) {
-        bool isChecking = false;
-        String? errorMsg;
-
+      builder: (ctx) => StatefulBuilder(builder: (dialogContext, setSt) {
         return AlertDialog(
           title: const Text('Complete Payment'),
           content: Column(
@@ -827,8 +719,9 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                 const SizedBox(height: 12),
                 Text(
                   errorMsg!,
-                  style: const TextStyle(color: Colors.red, fontSize: 12),
                   textAlign: TextAlign.center,
+                  style:
+                      const TextStyle(fontSize: 12, color: AppColors.orangeCTA),
                 ),
               ],
             ],
@@ -849,8 +742,9 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                       try {
                         final ref =
                             await XenditService.checkPaymentStatus(sessionId);
+                        if (!ctx.mounted) return;
                         if (ref != null) {
-                          if (context.mounted) Navigator.pop(ctx, ref);
+                          Navigator.pop(ctx, ref);
                         } else {
                           setSt(() {
                             isChecking = false;
@@ -859,6 +753,7 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                           });
                         }
                       } catch (e) {
+                        if (!ctx.mounted) return;
                         setSt(() {
                           isChecking = false;
                           errorMsg = 'Error verifying payment. Try again.';
@@ -878,6 +773,8 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
     final orderProvider = context.watch<OrderProvider>();
     final inventoryProvider = context.watch<InventoryProvider>();
     final authProvider = context.watch<AppAuthProvider>();
+    context.watch<TimeService>();
+    final settings = inventoryProvider.settings;
     final cart = orderProvider.preCart;
 
     if (_submittedOrder != null) {
@@ -902,12 +799,36 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
       }
     }
 
-    // Automatically advance pickup slot if current selection has passed
-    if (_isPickupSlotExpired(_pickupSlot)) {
-      _pickupSlot = StoreHours.defaultPickupSlot();
+    final policy = BasketPickupPolicy.fromCart(
+      cart: cart,
+      allProducts: inventoryProvider.products,
+      settings: settings,
+    );
+    final defaultSlotOption = StoreHours.getDefaultSlotOption(
+      settings: settings,
+      policy: policy,
+    );
+    final bool hasAvailablePickupSlots =
+        !settings.isEmergencyClosed && defaultSlotOption != null;
+
+    // Automatically keep pickup slot synchronized with Admin operating hours,
+    // schedule overrides, and the basket's current product reservation rules.
+    if (cart.isNotEmpty &&
+        !StoreHours.isSlotValidForSettings(
+          _pickupSlot,
+          settings: settings,
+          policy: policy,
+        )) {
+      _pickupSlot = defaultSlotOption?.value ??
+          StoreHours.defaultPickupSlot(settings: settings, policy: policy);
     }
 
-    final double subtotal = cart.fold(0.0, (sum, i) => sum + i.price * i.qty);
+    final pricing = PricingEngine.calculate(
+      items: cart,
+      allProducts: inventoryProvider.products,
+    );
+    final double subtotal = pricing.subtotal;
+    final double total = pricing.total;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -1089,6 +1010,68 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                       ),
                     ],
 
+                    // Live Stock-Limit Adjustment Banner (when category allocation split reduces online stock)
+                    if (orderProvider.stockLimitBannerMessage != null) ...[
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 14),
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.shade50,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color:
+                                Colors.amber.shade700.withValues(alpha: 0.45),
+                          ),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              Icons.info_outline_rounded,
+                              color: Colors.amber.shade900,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Stock Limit Updated',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w800,
+                                      color: Colors.amber.shade900,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    orderProvider.stockLimitBannerMessage!,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.amber.shade900,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              icon: Icon(
+                                Icons.close_rounded,
+                                size: 18,
+                                color: Colors.amber.shade900,
+                              ),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              tooltip: 'Dismiss',
+                              onPressed: () =>
+                                  orderProvider.clearStockLimitNotice(),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+
                     // Items List
                     ...cart.map((item) {
                       Product? product;
@@ -1097,14 +1080,26 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                             .firstWhere((p) => p.id == item.productId);
                       } catch (_) {}
 
-                      int maxStock = product?.maxPurchasableStock ?? 99;
-                      if (item.variantId != null && product?.variants != null) {
-                        final v = product!.variants![item.variantId];
-                        if (v != null) {
-                          maxStock = v.maxPurchasableStock;
+                      int maxStock = product?.maxPurchasableStock ?? 0;
+                      double unitPrice = item.price;
+                      final bool hasItemVariant =
+                          item.variantId != null && item.variantId!.isNotEmpty;
+                      if (product != null) {
+                        if (hasItemVariant && product.variants != null) {
+                          final v = product.variants![item.variantId];
+                          if (v != null) {
+                            maxStock = v.maxPurchasableStock;
+                            unitPrice = v.price;
+                          } else {
+                            maxStock = 0;
+                          }
+                        } else {
+                          unitPrice = product.price;
                         }
                       }
-                      if (maxStock <= 0) maxStock = 1;
+                      final bool isItemUnavailable = product == null ||
+                          product.isQuarantined ||
+                          maxStock <= 0;
 
                       return Container(
                         margin: const EdgeInsets.only(bottom: 12),
@@ -1112,8 +1107,11 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                         decoration: BoxDecoration(
                           color: Theme.of(context).cardColor,
                           borderRadius: BorderRadius.circular(20),
-                          border:
-                              Border.all(color: Theme.of(context).dividerColor),
+                          border: Border.all(
+                            color: isItemUnavailable
+                                ? AppColors.error.withValues(alpha: 0.5)
+                                : Theme.of(context).dividerColor,
+                          ),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withValues(alpha: 0.02),
@@ -1161,16 +1159,36 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
+                                  if (item.variantName != null &&
+                                      item.variantName!.isNotEmpty) ...[
+                                    const SizedBox(height: 1),
+                                    Text(
+                                      item.variantName!,
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.forest,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
                                   const SizedBox(height: 2),
                                   Text(
-                                    '₱${item.price.toStringAsFixed(2)}',
+                                    isItemUnavailable
+                                        ? 'Out of stock'
+                                        : '₱${unitPrice.toStringAsFixed(2)}',
                                     style: TextStyle(
                                       fontSize: 12.5,
-                                      color: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.color,
-                                      fontWeight: FontWeight.w600,
+                                      color: isItemUnavailable
+                                          ? AppColors.error
+                                          : Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.color,
+                                      fontWeight: isItemUnavailable
+                                          ? FontWeight.w800
+                                          : FontWeight.w600,
                                     ),
                                   ),
                                 ],
@@ -1184,13 +1202,14 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                                 color: Colors.red.shade600,
                                 size: 18,
                               ),
-                              tooltip: '',
+                              tooltip: 'Remove item',
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(),
                               onPressed: () {
                                 orderProvider.removeFromPreCart(
                                   item.productId,
                                   variantId: item.variantId,
+                                  exactVariantMatch: true,
                                 );
                                 ScaffoldMessenger.of(context)
                                     .hideCurrentSnackBar();
@@ -1209,93 +1228,115 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                             const SizedBox(width: 8),
 
                             // Capped & Non-Negative Quantity Controller
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: AppColors.sageTint,
-                                borderRadius: BorderRadius.circular(100),
-                              ),
-                              child: Row(
-                                children: [
-                                  // Decrease Button
-                                  InkWell(
-                                    onTap: () {
-                                      if (item.qty <= 1) {
-                                        _confirmRemoveItem(
-                                            context, item, orderProvider);
-                                      } else {
-                                        orderProvider.adjustPreCartQty(
-                                          item.productId,
-                                          -1,
-                                          maxStock,
-                                          variantId: item.variantId,
-                                        );
-                                      }
-                                    },
-                                    child: const Padding(
-                                      padding: EdgeInsets.all(4),
-                                      child: Icon(Icons.remove,
-                                          size: 14, color: AppColors.forest),
+                            Material(
+                              color: AppColors.sageTint,
+                              borderRadius: BorderRadius.circular(100),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 4),
+                                child: Row(
+                                  children: [
+                                    // Decrease Button
+                                    InkWell(
+                                      borderRadius: BorderRadius.circular(100),
+                                      onTap: () {
+                                        if (item.qty <= 1) {
+                                          _confirmRemoveItem(
+                                              context, item, orderProvider);
+                                        } else {
+                                          orderProvider.adjustPreCartQty(
+                                            item.productId,
+                                            -1,
+                                            maxStock > 0 ? maxStock : item.qty,
+                                            variantId: item.variantId,
+                                          );
+                                        }
+                                      },
+                                      child: const Padding(
+                                        padding: EdgeInsets.all(4),
+                                        child: Icon(Icons.remove,
+                                            size: 14, color: AppColors.forest),
+                                      ),
                                     ),
-                                  ),
 
-                                  // Editable Quantity Display
-                                  InkWell(
-                                    onTap: () => _showEditQuantityDialog(
-                                      context: context,
-                                      item: item,
-                                      maxStock: maxStock,
-                                      orderProvider: orderProvider,
-                                    ),
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 8, vertical: 2),
-                                      child: Text(
-                                        '${item.qty}',
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w800,
-                                          color: AppColors.forest,
+                                    // Editable Quantity Display
+                                    InkWell(
+                                      onTap: isItemUnavailable
+                                          ? null
+                                          : () => _showEditQuantityDialog(
+                                                context: context,
+                                                item: item,
+                                                unitPrice: unitPrice,
+                                                maxStock: maxStock,
+                                                orderProvider: orderProvider,
+                                              ),
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 2),
+                                        child: Text(
+                                          '${item.qty}',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w800,
+                                            color: AppColors.forest,
+                                          ),
                                         ),
                                       ),
                                     ),
-                                  ),
 
-                                  // Increase Button capped at maxStock
-                                  InkWell(
-                                    onTap: () {
-                                      if (item.qty >= maxStock) {
-                                        ScaffoldMessenger.of(context)
-                                            .hideCurrentSnackBar();
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                                'Maximum stock reached ($maxStock available).'),
-                                            backgroundColor:
-                                                AppColors.orangeCTA,
-                                            duration:
-                                                const Duration(seconds: 2),
-                                          ),
-                                        );
-                                      } else {
-                                        orderProvider.adjustPreCartQty(
-                                          item.productId,
-                                          1,
-                                          maxStock,
-                                          variantId: item.variantId,
-                                        );
-                                      }
-                                    },
-                                    child: const Padding(
-                                      padding: EdgeInsets.all(4),
-                                      child: Icon(Icons.add,
-                                          size: 14, color: AppColors.forest),
+                                    // Increase Button capped at maxStock
+                                    InkWell(
+                                      borderRadius: BorderRadius.circular(100),
+                                      onTap: () {
+                                        if (isItemUnavailable) {
+                                          ScaffoldMessenger.of(context)
+                                              .hideCurrentSnackBar();
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                  'This item is currently out of stock.'),
+                                              backgroundColor: AppColors.error,
+                                              duration: Duration(seconds: 2),
+                                            ),
+                                          );
+                                        } else if (item.qty >= maxStock) {
+                                          ScaffoldMessenger.of(context)
+                                              .hideCurrentSnackBar();
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                  'Maximum stock reached ($maxStock available).'),
+                                              backgroundColor:
+                                                  AppColors.orangeCTA,
+                                              duration:
+                                                  const Duration(seconds: 2),
+                                            ),
+                                          );
+                                        } else {
+                                          orderProvider.adjustPreCartQty(
+                                            item.productId,
+                                            1,
+                                            maxStock,
+                                            variantId: item.variantId,
+                                          );
+                                        }
+                                      },
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(4),
+                                        child: Icon(
+                                          Icons.add,
+                                          size: 14,
+                                          color: isItemUnavailable
+                                              ? AppColors.mutedText
+                                              : AppColors.forest,
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
                           ],
@@ -1324,41 +1365,169 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Pickup details',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  'Pickup details',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                    color:
+                                        Theme.of(context).colorScheme.onSurface,
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 9, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: settings.isEmergencyClosed
+                                      ? AppColors.error.withValues(alpha: 0.12)
+                                      : (settings.effectivelyClosed
+                                          ? AppColors.orangeCTALight
+                                          : AppColors.sageTint),
+                                  borderRadius: BorderRadius.circular(100),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      width: 6,
+                                      height: 6,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: settings.isEmergencyClosed
+                                            ? AppColors.error
+                                            : (settings.effectivelyClosed
+                                                ? AppColors.orangeCTA
+                                                : AppColors.forest),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      settings.isEmergencyClosed
+                                          ? 'Maintenance'
+                                          : settings.formattedDailyHours,
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w800,
+                                        color: settings.isEmergencyClosed
+                                            ? AppColors.error
+                                            : (settings.effectivelyClosed
+                                                ? AppColors.orangeCTA
+                                                : AppColors.forest),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 14),
+                          const SizedBox(height: 12),
 
-                          // Dynamic Hold Grace Period Banner
+                          // Live Store Operating Status Banner (Emergency vs After-Hours Reservation)
+                          if (settings.isEmergencyClosed)
+                            Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: AppColors.error.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                    color: AppColors.error
+                                        .withValues(alpha: 0.35)),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.lock_clock_rounded,
+                                      size: 18, color: AppColors.error),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      settings.closureReason,
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w700,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurface,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else if (settings.effectivelyClosed)
+                            Builder(builder: (context) {
+                              final nextOpen =
+                                  StoreHours.formatNextOpeningLabel(
+                                settings: settings,
+                              );
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).brightness ==
+                                          Brightness.dark
+                                      ? AppColors.forest.withValues(alpha: 0.18)
+                                      : AppColors.sageTint,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                      color: AppColors.forest
+                                          .withValues(alpha: 0.3)),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.event_available_rounded,
+                                        size: 18, color: AppColors.forest),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        nextOpen != null
+                                            ? 'Store is currently closed (Reopens $nextOpen). You can still reserve your pickup slot below!'
+                                            : 'Store is currently outside operating hours. Reserve your pickup for the next open slot below!',
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.w700,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurface,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }),
+
+                          // Product-Based Reservation Policy Banner
                           Builder(builder: (context) {
-                            final bool hasPerishables =
-                                cart.any((item) => item.isPerishable);
-
-                            String noticeText;
-                            IconData noticeIcon;
-                            Color bgColor;
-                            Color borderThemeColor;
-
-                            if (hasPerishables) {
-                              noticeText =
-                                  'Perishable Notice: Stock reserved and held until the end of your chosen pickup slot before auto-cancellation.';
-                              noticeIcon = Icons.timer_outlined;
-                              bgColor = AppColors.orangeCTALight;
-                              borderThemeColor = AppColors.orangeCTA;
-                            } else {
-                              noticeText =
-                                  'Prepaid Order Notice: Stock reserved and held until the end of your chosen pickup slot.';
-                              noticeIcon = Icons.verified_user_outlined;
-                              bgColor = AppColors.sageTint;
-                              borderThemeColor = AppColors.forest;
-                            }
-                              borderThemeColor = AppColors.forest;
-                            }
+                            final isDark =
+                                Theme.of(context).brightness == Brightness.dark;
+                            final IconData noticeIcon = policy.hasPerishables
+                                ? Icons.timer_outlined
+                                : Icons.verified_user_outlined;
+                            final Color borderThemeColor =
+                                policy.tier == BasketProductTier.perishableOnly
+                                    ? AppColors.orangeCTA
+                                    : (policy.tier == BasketProductTier.mixed
+                                        ? Colors.amber.shade800
+                                        : AppColors.forest);
+                            final Color bgColor = policy.tier ==
+                                    BasketProductTier.perishableOnly
+                                ? (isDark
+                                    ? AppColors.orangeCTA
+                                        .withValues(alpha: 0.15)
+                                    : AppColors.orangeCTALight)
+                                : (policy.tier == BasketProductTier.mixed
+                                    ? (isDark
+                                        ? Colors.amber.withValues(alpha: 0.14)
+                                        : const Color(0xFFFFF8E1))
+                                    : (isDark
+                                        ? AppColors.forest
+                                            .withValues(alpha: 0.15)
+                                        : AppColors.sageTint));
 
                             return Container(
                               margin: const EdgeInsets.only(bottom: 12),
@@ -1371,20 +1540,60 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                                         alpha: 0.3)),
                               ),
                               child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Icon(noticeIcon,
-                                      size: 18, color: borderThemeColor),
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 1),
+                                    child: Icon(noticeIcon,
+                                        size: 18, color: borderThemeColor),
+                                  ),
                                   const SizedBox(width: 8),
                                   Expanded(
-                                    child: Text(
-                                      noticeText,
-                                      style: TextStyle(
-                                        fontSize: 11.5,
-                                        fontWeight: FontWeight.w700,
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .onSurface,
-                                      ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Text(
+                                              policy.badgeTitle,
+                                              style: TextStyle(
+                                                fontSize: 11.5,
+                                                fontWeight: FontWeight.w900,
+                                                color: borderThemeColor,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Flexible(
+                                              child: Text(
+                                                '· ${policy.shortRuleTag}',
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  fontSize: 10.5,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: Theme.of(context)
+                                                      .textTheme
+                                                      .bodySmall
+                                                      ?.color,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 3),
+                                        Text(
+                                          '${policy.detailedNotice} Stock is held until the end of your chosen slot.',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .onSurface,
+                                            height: 1.3,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ],
@@ -1394,7 +1603,9 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
 
                           // Interactive Pickup Time Slot Button Box
                           InkWell(
-                            onTap: _showPickupTimePicker,
+                            onTap: settings.isEmergencyClosed
+                                ? null
+                                : _showPickupTimePicker,
                             borderRadius: BorderRadius.circular(14),
                             child: Container(
                               padding: const EdgeInsets.all(14),
@@ -1404,20 +1615,30 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                                     .surfaceContainerLow,
                                 borderRadius: BorderRadius.circular(14),
                                 border: Border.all(
-                                  color: Theme.of(context).dividerColor,
+                                  color: hasAvailablePickupSlots
+                                      ? AppColors.forest.withValues(alpha: 0.35)
+                                      : AppColors.error.withValues(alpha: 0.4),
+                                  width: 1.2,
                                 ),
                               ),
                               child: Row(
                                 children: [
                                   Container(
                                     padding: const EdgeInsets.all(8),
-                                    decoration: const BoxDecoration(
-                                      color: AppColors.sageTint,
+                                    decoration: BoxDecoration(
+                                      color: hasAvailablePickupSlots
+                                          ? AppColors.sageTint
+                                          : AppColors.error
+                                              .withValues(alpha: 0.12),
                                       shape: BoxShape.circle,
                                     ),
-                                    child: const Icon(
-                                      Icons.access_time_filled_rounded,
-                                      color: AppColors.forest,
+                                    child: Icon(
+                                      hasAvailablePickupSlots
+                                          ? Icons.access_time_filled_rounded
+                                          : Icons.event_busy_rounded,
+                                      color: hasAvailablePickupSlots
+                                          ? AppColors.forest
+                                          : AppColors.error,
                                       size: 18,
                                     ),
                                   ),
@@ -1428,7 +1649,7 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          'Pickup time',
+                                          'Scheduled pickup time',
                                           style: TextStyle(
                                             fontSize: 10,
                                             fontWeight: FontWeight.w700,
@@ -1440,22 +1661,46 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                                         ),
                                         const SizedBox(height: 2),
                                         Text(
-                                          _pickupSlot,
+                                          hasAvailablePickupSlots
+                                              ? _pickupSlot
+                                              : 'No eligible pickup slots available',
                                           style: TextStyle(
                                             fontSize: 14,
                                             fontWeight: FontWeight.w800,
-                                            color: Theme.of(context)
-                                                .colorScheme
-                                                .onSurface,
+                                            color: hasAvailablePickupSlots
+                                                ? Theme.of(context)
+                                                    .colorScheme
+                                                    .onSurface
+                                                : AppColors.error,
                                           ),
                                         ),
                                       ],
                                     ),
                                   ),
-                                  const Icon(
-                                    Icons.chevron_right_rounded,
-                                    color: AppColors.mutedText,
-                                  ),
+                                  if (!settings.isEmergencyClosed) ...[
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.sageTint,
+                                        borderRadius:
+                                            BorderRadius.circular(100),
+                                      ),
+                                      child: const Text(
+                                        'Change',
+                                        style: TextStyle(
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w800,
+                                          color: AppColors.forest,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    const Icon(
+                                      Icons.chevron_right_rounded,
+                                      color: AppColors.mutedText,
+                                    ),
+                                  ],
                                 ],
                               ),
                             ),
@@ -1574,45 +1819,44 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
 
                           const SizedBox(height: 16),
                           Container(
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .surfaceContainerLow,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                    color: Theme.of(context).dividerColor),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      const Icon(Icons.security_rounded,
-                                          color: AppColors.forest, size: 20),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          'Secure Payment via Xendit',
-                                          style: const TextStyle(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w800),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'You will be redirected to a secure Xendit page to complete your ${_selectedPaymentMethod} payment. Please do not close the app.',
-                                    style: const TextStyle(
-                                        fontSize: 11.5,
-                                        color: AppColors.mutedText,
-                                        height: 1.3),
-                                  ),
-                                ],
-                              ),
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .surfaceContainerLow,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                  color: Theme.of(context).dividerColor),
                             ),
-                          ],
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Row(
+                                  children: [
+                                    Icon(Icons.security_rounded,
+                                        color: AppColors.forest, size: 20),
+                                    SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'Secure Payment via Xendit',
+                                        style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w800),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'You will be redirected to a secure Xendit page to complete your $_selectedPaymentMethod payment. Please do not close the app.',
+                                  style: const TextStyle(
+                                      fontSize: 11.5,
+                                      color: AppColors.mutedText,
+                                      height: 1.3),
+                                ),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -1624,6 +1868,7 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
                         color: Theme.of(context).cardColor,
+                        borderRadius: BorderRadius.circular(22),
                         border:
                             Border.all(color: Theme.of(context).dividerColor),
                       ),
@@ -1695,7 +1940,7 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                                 ),
                               ),
                               Text(
-                                '₱${subtotal.toStringAsFixed(2)}',
+                                '₱${total.toStringAsFixed(2)}',
                                 style: TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.w900,
@@ -1708,8 +1953,11 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton(
-                              onPressed:
-                                  _isSubmitting ? null : _handleConfirmPreOrder,
+                              onPressed: (_isSubmitting ||
+                                      settings.isEmergencyClosed ||
+                                      !hasAvailablePickupSlots)
+                                  ? null
+                                  : _handleConfirmPreOrder,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppColors.orangeCTA,
                                 foregroundColor: Colors.white,
@@ -1728,9 +1976,15 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
                                         strokeWidth: 2,
                                       ),
                                     )
-                                  : const Text(
-                                      'Confirm pre-order',
-                                      style: TextStyle(
+                                  : Text(
+                                      settings.isEmergencyClosed
+                                          ? 'Store under maintenance'
+                                          : (!hasAvailablePickupSlots
+                                              ? 'No pickup slots available'
+                                              : (settings.effectivelyClosed
+                                                  ? 'Reserve pickup order'
+                                                  : 'Confirm pre-order')),
+                                      style: const TextStyle(
                                         fontSize: 15,
                                         fontWeight: FontWeight.w800,
                                       ),
@@ -1848,7 +2102,7 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
     if (d.inHours > 0) {
       final hours = d.inHours;
       final mins = d.inMinutes % 60;
-      return '$hours hr${hours > 1 ? "s" : ""} ${mins} min${mins > 1 ? "s" : ""}';
+      return '$hours hr${hours > 1 ? "s" : ""} $mins min${mins > 1 ? "s" : ""}';
     } else {
       final mins = d.inMinutes;
       return '$mins min${mins > 1 ? "s" : ""}';
@@ -1879,136 +2133,153 @@ class _PreOrderScreenState extends State<PreOrderScreen> {
   }
 
   void _showAppealDialog(AppAuthProvider auth) {
-    final reasonCtrl = TextEditingController();
-    bool submitting = false;
-
     showDialog(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          return AlertDialog(
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: const Row(
-              children: [
-                Icon(Icons.gavel_rounded, color: AppColors.orangeCTA),
-                SizedBox(width: 10),
-                Expanded(
-                  child: Text('Submit Restriction Appeal',
-                      style:
-                          TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-                ),
-              ],
-            ),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Explain why you missed or ghosted your pre-order pick up. Your appeal will be reviewed by store management.',
-                    style: TextStyle(fontSize: 12.5, color: Colors.grey[700]),
-                  ),
-                  const SizedBox(height: 14),
-                  TextField(
-                    controller: reasonCtrl,
-                    maxLines: 4,
-                    decoration: InputDecoration(
-                      hintText:
-                          'Enter your explanation for missing the order (e.g. medical emergency, technical issue)...',
-                      hintStyle: const TextStyle(fontSize: 12),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide:
-                            const BorderSide(color: AppColors.forest, width: 2),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: submitting ? null : () => Navigator.pop(ctx),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: submitting
-                    ? null
-                    : () async {
-                        final reason = reasonCtrl.text.trim();
-                        if (reason.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                  'Please enter an explanation for your appeal.'),
-                              backgroundColor: AppColors.error,
-                            ),
-                          );
-                          return;
-                        }
+      builder: (_) => _PreOrderAppealDialog(auth: auth),
+    );
+  }
+}
 
-                        setDialogState(() => submitting = true);
+class _PreOrderAppealDialog extends StatefulWidget {
+  final AppAuthProvider auth;
+  const _PreOrderAppealDialog({required this.auth});
 
-                        try {
-                          final appeal = CustomerAppeal(
-                            id: '',
-                            userId: auth.currentUser?.uid ?? '',
-                            customerEmail: auth.email,
-                            customerName: auth.displayName,
-                            offenseCount: auth.offenseCount,
-                            reason: reason,
-                            status: AppealStatus.pending,
-                            createdAt: TimeService.now,
-                          );
+  @override
+  State<_PreOrderAppealDialog> createState() => _PreOrderAppealDialogState();
+}
 
-                          await FirestoreService().submitAppeal(appeal);
+class _PreOrderAppealDialogState extends State<_PreOrderAppealDialog> {
+  final _reasonCtrl = TextEditingController();
+  bool _submitting = false;
 
-                          if (ctx.mounted) Navigator.pop(ctx);
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                    '🎉 Your appeal has been submitted to store admins for review.'),
-                                backgroundColor: AppColors.success,
-                              ),
-                            );
-                          }
-                        } catch (e) {
-                          setDialogState(() => submitting = false);
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Failed to submit appeal: $e'),
-                                backgroundColor: AppColors.error,
-                              ),
-                            );
-                          }
-                        }
-                      },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.forest,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                ),
-                child: submitting
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white),
-                      )
-                    : const Text('Submit Appeal',
-                        style: TextStyle(
-                            color: Colors.white, fontWeight: FontWeight.bold)),
-              ),
-            ],
-          );
-        },
+  @override
+  void dispose() {
+    _reasonCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: const Row(
+        children: [
+          Icon(Icons.gavel_rounded, color: AppColors.orangeCTA),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text('Submit Restriction Appeal',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+          ),
+        ],
       ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Explain why you missed or ghosted your pre-order pick up. Your appeal will be reviewed by store management.',
+              style: TextStyle(
+                fontSize: 12.5,
+                color: Theme.of(context).textTheme.bodySmall?.color,
+              ),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _reasonCtrl,
+              maxLines: 4,
+              decoration: InputDecoration(
+                hintText:
+                    'Enter your explanation for missing the order (e.g. medical emergency, technical issue)...',
+                hintStyle: const TextStyle(fontSize: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide:
+                      const BorderSide(color: AppColors.forest, width: 2),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _submitting ? null : () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _submitting
+              ? null
+              : () async {
+                  final reason = _reasonCtrl.text.trim();
+                  if (reason.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                            'Please enter an explanation for your appeal.'),
+                        backgroundColor: AppColors.error,
+                      ),
+                    );
+                    return;
+                  }
+
+                  setState(() => _submitting = true);
+
+                  try {
+                    final appeal = CustomerAppeal(
+                      id: '',
+                      userId: widget.auth.currentUser?.uid ?? '',
+                      customerEmail: widget.auth.email,
+                      customerName: widget.auth.displayName,
+                      offenseCount: widget.auth.offenseCount,
+                      reason: reason,
+                      status: AppealStatus.pending,
+                      createdAt: TimeService.now,
+                    );
+
+                    await FirestoreService().submitAppeal(appeal);
+
+                    if (!context.mounted) return;
+                    final messenger = ScaffoldMessenger.of(context);
+                    Navigator.pop(context);
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                            '🎉 Your appeal has been submitted to store admins for review.'),
+                        backgroundColor: AppColors.success,
+                      ),
+                    );
+                  } catch (e) {
+                    if (!mounted) return;
+                    setState(() => _submitting = false);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Failed to submit appeal: $e'),
+                        backgroundColor: AppColors.error,
+                      ),
+                    );
+                  }
+                },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.forest,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          child: _submitting
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Colors.white),
+                )
+              : const Text('Submit Appeal',
+                  style: TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.bold)),
+        ),
+      ],
     );
   }
 }

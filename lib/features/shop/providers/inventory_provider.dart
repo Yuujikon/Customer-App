@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
+import '../../../core/utils/inventory_allocation.dart';
 import '../../../shared/models/product.dart';
 import '../../../shared/models/bundle.dart';
 import '../../../shared/models/order.dart';
@@ -13,10 +14,11 @@ import '../../../shared/services/time_service.dart';
 class InventoryProvider extends ChangeNotifier {
   final _fs = FirestoreService();
   bool _isDisposed = false;
+  bool _productsStreamFailed = false;
   final List<StreamSubscription> _subscriptions = [];
 
   List<Product> _products = [];
-  List<StoreTransaction> _transactions = [];
+  final List<StoreTransaction> _transactions = [];
   List<ProductBundle> _bundles = [];
   StoreSettings _settings = const StoreSettings(isClosed: false);
   DateTime? _lastProductUpdate;
@@ -100,8 +102,12 @@ class InventoryProvider extends ChangeNotifier {
     for (final product in queue) {
       final recommendedRestock = product.effectiveReorderQuantity;
       final newStock = product.stock + recommendedRestock;
+      final newReserve = InventoryAllocation.calculatePhysicalReserve(newStock);
 
-      final updated = product.copyWith(stock: newStock);
+      final updated = product.copyWith(
+        stock: newStock,
+        physicalReserve: newReserve,
+      );
       await _fs.updateProduct(updated);
       await _fs.logStockAudit(
         productId: product.id,
@@ -148,7 +154,13 @@ class InventoryProvider extends ChangeNotifier {
   }) async {
     final product = _products.firstWhere((p) => p.id == productId);
     final previousStock = product.stock;
-    final updated = product.copyWith(stock: newStock);
+    final int nextReserve = newStock > previousStock
+        ? InventoryAllocation.calculatePhysicalReserve(newStock)
+        : product.effectivePhysicalReserve;
+    final updated = product.copyWith(
+      stock: newStock,
+      physicalReserve: nextReserve,
+    );
 
     await _fs.updateProduct(updated);
     await _fs.logStockAudit(
@@ -190,8 +202,8 @@ class InventoryProvider extends ChangeNotifier {
 
     final sorted = List<Product>.from(_products);
     sorted.sort((a, b) {
-      final aStock = a.totalStock;
-      final bStock = b.totalStock;
+      final aStock = a.maxPurchasableStock;
+      final bStock = b.maxPurchasableStock;
 
       // 1. Prioritize Stocked items over Out of Stock items
       if (aStock > 0 && bStock <= 0) return -1;
@@ -208,22 +220,17 @@ class InventoryProvider extends ChangeNotifier {
 
   void initialize() {
     _cancelSubscriptions();
+    _productsStreamFailed = false;
+
     _subscriptions.add(_fs.productsStream().listen((list) {
       if (_isDisposed) return;
+      _productsStreamFailed = false;
       _products = list;
       _lastProductUpdate = TimeService.now;
       notifyListeners();
     }, onError: (e) {
+      _productsStreamFailed = true;
       debugPrint('Error listening to products stream: $e');
-    }));
-
-    _subscriptions.add(_fs.transactionsStream().listen((list) {
-      if (_isDisposed) return;
-      list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      _transactions = list;
-      notifyListeners();
-    }, onError: (e) {
-      debugPrint('Error listening to transactions stream: $e');
     }));
 
     _subscriptions.add(_fs.bundlesStream().listen((list) {
@@ -258,9 +265,21 @@ class InventoryProvider extends ChangeNotifier {
   }
 
   Future<void> refreshData() async {
-    // Firestore streams keep data updated in real-time.
-    // Instant completion for zero-latency pull-to-refresh UX.
-    return;
+    if (_isDisposed) return;
+    if (_subscriptions.isEmpty || _productsStreamFailed) {
+      initialize();
+    }
+
+    try {
+      final fetchedProducts = await _fs.fetchProductsFromServer();
+      if (_isDisposed) return;
+
+      _products = fetchedProducts;
+      _lastProductUpdate = TimeService.now;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error refreshing inventory from server: $e');
+    }
   }
 
   Future<void> saveProduct(Product product) {

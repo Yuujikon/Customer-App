@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -348,7 +349,8 @@ class OrderTicketScreen extends StatelessWidget {
                       _DetailRow(
                         icon: Icons.timer_outlined,
                         label: 'Store Hold Expiration',
-                        value: DateFormat('EEE, MMM d • h:mm a').format(order.expiresAt!),
+                        value: DateFormat('EEE, MMM d • h:mm a')
+                            .format(order.expiresAt!),
                       ),
                     ],
                     const SizedBox(height: 8),
@@ -481,20 +483,24 @@ class OrderTicketScreen extends StatelessWidget {
               ),
               const SizedBox(height: 12),
             ] else if (OrderProvider.getAvailableExtensionMinutes(
-                    order.expiresAt,
-                    isExtended: order.isExtended) >
+                  order.expiresAt,
+                  isExtended: order.isExtended,
+                  settings: context.watch<OrderProvider>().settings,
+                ) >
                 0) ...[
               OutlinedButton.icon(
                 onPressed: () async {
-                  HapticFeedback.lightImpact();
+                  unawaited(HapticFeedback.lightImpact());
                   final messenger = ScaffoldMessenger.of(context);
                   final op = context.read<OrderProvider>();
                   final ext = await op.extendOrderPickupTime(order.id);
                   if (ext > 0) {
+                    final cutoffLabel =
+                        op.getExtensionCutoffLabel(order.expiresAt);
                     messenger.showSnackBar(
                       SnackBar(
                         content: Text(
-                            '⏱ Pickup time extended by $ext mins! Extended up to 3:00 PM cutoff.'),
+                            '⏱ Pickup time extended by $ext mins! Extended up to $cutoffLabel cutoff.'),
                         backgroundColor: GdcColors.forest,
                         behavior: SnackBarBehavior.floating,
                       ),
@@ -503,7 +509,7 @@ class OrderTicketScreen extends StatelessWidget {
                 },
                 icon: const Icon(Icons.timer_outlined, size: 18),
                 label: Text(
-                  'EXTEND PICKUP (+ ${OrderProvider.getAvailableExtensionMinutes(order.expiresAt, isExtended: order.isExtended)} MIN)',
+                  'EXTEND PICKUP (+ ${OrderProvider.getAvailableExtensionMinutes(order.expiresAt, isExtended: order.isExtended, settings: context.watch<OrderProvider>().settings)} MIN)',
                   style: const TextStyle(
                       fontSize: 13, fontWeight: FontWeight.w900),
                 ),

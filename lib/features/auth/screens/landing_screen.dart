@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'auth_screen.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/utils/store_hours.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/common/brand_logo.dart';
+import '../../shop/providers/inventory_provider.dart';
 
 class LandingScreen extends StatelessWidget {
   const LandingScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final isOpen = StoreHours.isOpen();
+    final settings = context.watch<InventoryProvider>().settings;
+    final isOpen = StoreHours.isOpen(settings: settings);
     final isLargeScreen = Responsive.isLargeScreen(context);
 
     Widget buildSignInButton() {
@@ -100,8 +103,10 @@ class LandingScreen extends StatelessWidget {
                         const SizedBox(width: 8),
                         Text(
                           isOpen
-                              ? 'Store Open · Pickup Available'
-                              : 'Store Currently Closed',
+                              ? 'Store Open · ${settings.formattedDailyHours}'
+                              : (settings.isEmergencyClosed
+                                  ? 'Store Under Maintenance'
+                                  : 'Store Closed · Advance Pickup Open'),
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w800,

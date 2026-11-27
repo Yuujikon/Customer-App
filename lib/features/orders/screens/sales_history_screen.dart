@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -9,6 +10,7 @@ import '../widgets/reorder_summary_dialog.dart';
 import '../../../shared/widgets/common/status_badge.dart';
 import '../../../core/utils/format.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/services/time_service.dart';
 
 class SalesHistoryScreen extends StatefulWidget {
   final Function(String category)? onBrowseSimilar;
@@ -32,6 +34,22 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen>
     final auth = context.watch<AppAuthProvider>();
     final orderProvider = context.watch<OrderProvider>();
     final email = auth.email;
+
+    if (email.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.history_rounded, size: 64, color: Colors.grey),
+            SizedBox(height: 16),
+            Text(
+              'Sign in to view past transactions.',
+              style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+      );
+    }
 
     return StreamBuilder<List<PreOrder>>(
       stream: orderProvider.ordersStreamForEmail(email),
@@ -132,7 +150,7 @@ class _HistoryCard extends StatelessWidget {
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: Colors.grey.shade200),
+          side: BorderSide(color: Theme.of(context).dividerColor),
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(children: [
@@ -237,9 +255,9 @@ class _HistoryCard extends StatelessWidget {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.info_outline_rounded,
+                        const Icon(Icons.info_outline_rounded,
                             size: 16, color: GdcColors.terracotta),
-                        SizedBox(width: 8),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             'Return & Exchange Policy: Present this QR receipt at the store. Opened, unsealed, or tampered items cannot be refunded or swapped.',
@@ -298,7 +316,7 @@ class _HistoryCard extends StatelessWidget {
                                     (p) => p.isUnavailable || p.isAdjusted);
 
                                 if (hasIssues) {
-                                  showDialog(
+                                  unawaited(showDialog(
                                     context: context,
                                     builder: (ctx) => ReorderSummaryDialog(
                                       previews: previews,
@@ -320,7 +338,7 @@ class _HistoryCard extends StatelessWidget {
                                         }
                                       },
                                     ),
-                                  );
+                                  ));
                                 } else {
                                   orderProvider.applyReorder(previews);
                                   ScaffoldMessenger.of(context).showSnackBar(
@@ -371,7 +389,7 @@ class _RefundButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Basic business rules for customer refund request
-    final diff = DateTime.now().difference(order.createdAt).inDays;
+    final diff = TimeService.now.difference(order.createdAt).inDays;
     final canRefund = diff <= 3;
 
     if (!canRefund) return const SizedBox.shrink();
@@ -385,179 +403,19 @@ class _RefundButton extends StatelessWidget {
     );
   }
 
-  void _showRefundRequestDialog(BuildContext context) async {
-    final descCtrl = TextEditingController();
-    final List<String> selectedReasons = [];
-    final List<CartItem> selectedItems = [];
-
-    final res = await showDialog<bool>(
+  Future<void> _showRefundRequestDialog(BuildContext context) async {
+    final result = await showDialog<({String reason, List<CartItem> items})>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setSt) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          backgroundColor: const Color(0xFFF1F4EB),
-          title: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Request Refund', style: TextStyle(fontWeight: FontWeight.w600)),
-              IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () => Navigator.pop(ctx, false),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              ),
-            ],
-          ),
-          contentPadding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Select items to refund:',
-                    style:
-                        TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                const SizedBox(height: 12),
-                ...order.items.map((item) {
-                  final isSelected = selectedItems.contains(item);
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8.0),
-                    child: InkWell(
-                      onTap: () {
-                        setSt(() {
-                          if (isSelected) {
-                            selectedItems.remove(item);
-                          } else {
-                            selectedItems.add(item);
-                          }
-                        });
-                      },
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: isSelected ? Colors.white : Colors.transparent,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                              color: isSelected ? AppColors.forest : Colors.grey.shade300,
-                              width: isSelected ? 1.5 : 1),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                                isSelected
-                                    ? Icons.check_box_rounded
-                                    : Icons.check_box_outline_blank_rounded,
-                                color: isSelected ? AppColors.forest : Colors.grey),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('${item.qty}x ${item.name}',
-                                      style: const TextStyle(fontSize: 14)),
-                                  Text(formatPeso(item.price * item.qty),
-                                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                }),
-                const SizedBox(height: 16),
-                const Text('What is the issue with your items?',
-                    style:
-                        TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                const SizedBox(height: 12),
-                _buildCustomCheckbox(
-                  'Damaged Item',
-                  selectedReasons.contains('Damaged'),
-                  (v) => setSt(() => v
-                      ? selectedReasons.add('Damaged')
-                      : selectedReasons.remove('Damaged')),
-                ),
-                _buildCustomCheckbox(
-                  'Expired Item',
-                  selectedReasons.contains('Expired'),
-                  (v) => setSt(() => v
-                      ? selectedReasons.add('Expired')
-                      : selectedReasons.remove('Expired')),
-                ),
-                _buildCustomCheckbox(
-                  'Wrong Item Received',
-                  selectedReasons.contains('Wrong Item'),
-                  (v) => setSt(() => v
-                      ? selectedReasons.add('Wrong Item')
-                      : selectedReasons.remove('Wrong Item')),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: descCtrl,
-                  maxLines: 1,
-                  decoration: InputDecoration(
-                    hintText: 'Provide more details...',
-                    hintStyle: const TextStyle(fontSize: 14, color: Colors.grey),
-                    prefixIcon: const Icon(Icons.chat_bubble_outline_rounded, size: 20, color: Colors.grey),
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  ),
-                ),
-                const SizedBox(height: 8),
-              ],
-            ),
-          ),
-          actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-          actions: [
-            Row(
-              children: [
-                Expanded(
-                  child: TextButton(
-                    onPressed: () => Navigator.pop(ctx, false),
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppColors.forest,
-                    ),
-                    child: const Text('CANCEL', style: TextStyle(fontWeight: FontWeight.w600)),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: (selectedReasons.isEmpty || selectedItems.isEmpty)
-                        ? null
-                        : () => Navigator.pop(ctx, true),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.forest,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    child: const Text('SUBMIT', style: TextStyle(fontWeight: FontWeight.w600)),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
+      builder: (_) => _RefundRequestDialog(order: order),
     );
 
-    if (res == true && context.mounted) {
-      final fullReason =
-          '${selectedReasons.join(", ")}: ${descCtrl.text.trim()}';
+    if (result != null && context.mounted) {
       try {
-        await context.read<OrderProvider>().requestRefund(order.id, fullReason, selectedItems);
+        await context.read<OrderProvider>().requestRefund(
+              order.id,
+              result.reason,
+              result.items,
+            );
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
               content: Text('Refund request submitted successfully.')));
@@ -570,7 +428,29 @@ class _RefundButton extends StatelessWidget {
       }
     }
   }
-  Widget _buildCustomCheckbox(String title, bool isSelected, Function(bool) onChanged) {
+}
+
+class _RefundRequestDialog extends StatefulWidget {
+  final PreOrder order;
+  const _RefundRequestDialog({required this.order});
+
+  @override
+  State<_RefundRequestDialog> createState() => _RefundRequestDialogState();
+}
+
+class _RefundRequestDialogState extends State<_RefundRequestDialog> {
+  final _descCtrl = TextEditingController();
+  final List<String> _selectedReasons = [];
+  final List<CartItem> _selectedItems = [];
+
+  @override
+  void dispose() {
+    _descCtrl.dispose();
+    super.dispose();
+  }
+
+  Widget _buildCustomCheckbox(
+      String title, bool isSelected, ValueChanged<bool> onChanged) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: InkWell(
@@ -578,7 +458,9 @@ class _RefundButton extends StatelessWidget {
         child: Row(
           children: [
             Icon(
-              isSelected ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
+              isSelected
+                  ? Icons.check_box_rounded
+                  : Icons.check_box_outline_blank_rounded,
               color: isSelected ? AppColors.forest : Colors.grey,
             ),
             const SizedBox(width: 12),
@@ -586,6 +468,197 @@ class _RefundButton extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final dialogBg = isDark ? theme.cardColor : const Color(0xFFF1F4EB);
+    final tileBg = isDark ? theme.colorScheme.surface : Colors.white;
+
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      backgroundColor: dialogBg,
+      title: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Text('Request Refund',
+              style: TextStyle(fontWeight: FontWeight.w600)),
+          IconButton(
+            icon: const Icon(Icons.close),
+            onPressed: () => Navigator.pop(context),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
+        ],
+      ),
+      contentPadding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Select items to refund:',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 12),
+            ...widget.order.items.map((item) {
+              final isSelected = _selectedItems.contains(item);
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: InkWell(
+                  onTap: () {
+                    setState(() {
+                      if (isSelected) {
+                        _selectedItems.remove(item);
+                      } else {
+                        _selectedItems.add(item);
+                      }
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: isSelected ? tileBg : Colors.transparent,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color:
+                            isSelected ? AppColors.forest : theme.dividerColor,
+                        width: isSelected ? 1.5 : 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          isSelected
+                              ? Icons.check_box_rounded
+                              : Icons.check_box_outline_blank_rounded,
+                          color: isSelected ? AppColors.forest : Colors.grey,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('${item.qty}x ${item.name}',
+                                  style: const TextStyle(fontSize: 14)),
+                              Text(
+                                formatPeso(item.price * item.qty),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: theme.textTheme.bodySmall?.color,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }),
+            const SizedBox(height: 16),
+            const Text('What is the issue with your items?',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 12),
+            _buildCustomCheckbox(
+              'Damaged Item',
+              _selectedReasons.contains('Damaged'),
+              (v) => setState(() => v
+                  ? _selectedReasons.add('Damaged')
+                  : _selectedReasons.remove('Damaged')),
+            ),
+            _buildCustomCheckbox(
+              'Expired Item',
+              _selectedReasons.contains('Expired'),
+              (v) => setState(() => v
+                  ? _selectedReasons.add('Expired')
+                  : _selectedReasons.remove('Expired')),
+            ),
+            _buildCustomCheckbox(
+              'Wrong Item Received',
+              _selectedReasons.contains('Wrong Item'),
+              (v) => setState(() => v
+                  ? _selectedReasons.add('Wrong Item')
+                  : _selectedReasons.remove('Wrong Item')),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _descCtrl,
+              maxLines: 1,
+              decoration: InputDecoration(
+                hintText: 'Provide more details...',
+                hintStyle: const TextStyle(fontSize: 14, color: Colors.grey),
+                prefixIcon: const Icon(Icons.chat_bubble_outline_rounded,
+                    size: 20, color: Colors.grey),
+                filled: true,
+                fillColor: tileBg,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: theme.dividerColor),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: theme.dividerColor),
+                ),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+      actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+      actions: [
+        Row(
+          children: [
+            Expanded(
+              child: TextButton(
+                onPressed: () => Navigator.pop(context),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.forest,
+                ),
+                child: const Text('CANCEL',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: (_selectedReasons.isEmpty || _selectedItems.isEmpty)
+                    ? null
+                    : () {
+                        final details = _descCtrl.text.trim();
+                        final reason = details.isEmpty
+                            ? _selectedReasons.join(', ')
+                            : '${_selectedReasons.join(', ')}: $details';
+                        Navigator.pop(
+                          context,
+                          (
+                            reason: reason,
+                            items: List<CartItem>.from(_selectedItems),
+                          ),
+                        );
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.forest,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(100)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                child: const Text('SUBMIT',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -596,19 +669,26 @@ class _CancelRefundButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final dialogBg = theme.brightness == Brightness.dark
+        ? theme.cardColor
+        : const Color(0xFFF1F4EB);
+
     return TextButton.icon(
       onPressed: () async {
         final confirm = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
-            backgroundColor: const Color(0xFFF1F4EB),
+            backgroundColor: dialogBg,
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
             title: const Column(
               children: [
-                Icon(Icons.error_outline_rounded, color: GdcColors.terracotta, size: 28),
+                Icon(Icons.error_outline_rounded,
+                    color: GdcColors.terracotta, size: 28),
                 SizedBox(height: 8),
-                Text('Cancel Refund?', style: TextStyle(fontWeight: FontWeight.w600)),
+                Text('Cancel Refund?',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
               ],
             ),
             content: const Text(
@@ -625,21 +705,26 @@ class _CancelRefundButton extends StatelessWidget {
                       onPressed: () => Navigator.pop(ctx, false),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.forest,
-                        side: const BorderSide(color: AppColors.forest, width: 1.5),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                        side: const BorderSide(
+                            color: AppColors.forest, width: 1.5),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(100)),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
-                      child: const Text('No, Keep It', style: TextStyle(fontWeight: FontWeight.bold))),
+                      child: const Text('No, Keep It',
+                          style: TextStyle(fontWeight: FontWeight.bold))),
                   const SizedBox(height: 12),
                   ElevatedButton(
                     onPressed: () => Navigator.pop(ctx, true),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: GdcColors.error,
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(100)),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
-                    child: const Text('Yes, Cancel Refund', style: TextStyle(fontWeight: FontWeight.bold)),
+                    child: const Text('Yes, Cancel Refund',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),

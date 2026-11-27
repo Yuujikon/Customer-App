@@ -1,13 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'order.dart';
 
 enum RefundStatus { pending, approved, rejected }
 
-enum RefundCondition { good, expired, damaged }
+enum RefundCondition { restockable, good, expired, damaged }
 
 class RefundRequest {
   final String id;
   final String transactionId;
+  final String? customerId;
   final String customerEmail;
   final String customerName;
   final List<CartItem> items;
@@ -23,6 +25,7 @@ class RefundRequest {
   const RefundRequest({
     required this.id,
     required this.transactionId,
+    this.customerId,
     required this.customerEmail,
     required this.customerName,
     required this.items,
@@ -46,9 +49,14 @@ class RefundRequest {
 
     RefundCondition? condition;
     if (d['condition'] != null) {
-      try {
-        condition = RefundCondition.values.byName(d['condition']);
-      } catch (_) {}
+      final cStr = d['condition'].toString();
+      if (cStr == 'good' || cStr == 'restockable') {
+        condition = RefundCondition.restockable;
+      } else {
+        try {
+          condition = RefundCondition.values.byName(cStr);
+        } catch (_) {}
+      }
     }
 
     final txId =
@@ -57,6 +65,7 @@ class RefundRequest {
     return RefundRequest(
       id: doc.id,
       transactionId: txId,
+      customerId: d['customerId']?.toString(),
       customerEmail: d['customerEmail']?.toString() ?? '',
       customerName: d['customerName']?.toString() ?? '',
       items:
@@ -75,6 +84,7 @@ class RefundRequest {
   Map<String, dynamic> toFirestore() => {
         'orderId': transactionId,
         'transactionId': transactionId,
+        'customerId': customerId ?? FirebaseAuth.instance.currentUser?.uid,
         'customerEmail': customerEmail,
         'customerName': customerName,
         'items': items.map((i) => i.toMap()).toList(),

@@ -51,6 +51,10 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     });
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
       if (_secondsRemaining > 0) {
         setState(() => _secondsRemaining--);
       } else {
@@ -73,6 +77,8 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       isEmail: widget.isEmail,
     );
 
+    if (!mounted) return;
+
     setState(() {
       _isLoading = false;
     });
@@ -90,6 +96,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   }
 
   Future<void> _verifyCode(String code) async {
+    if (_isLoading) return;
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -186,7 +193,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  
+
                   const Text(
                     'Verify your account',
                     style: TextStyle(
@@ -197,7 +204,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  
+
                   const Text(
                     'We sent a 6-digit code to',
                     style: TextStyle(
@@ -277,7 +284,9 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                           child: Text(
                             'Resend Code',
                             style: TextStyle(
-                              fontWeight: _canResend ? FontWeight.w800 : FontWeight.w600,
+                              fontWeight: _canResend
+                                  ? FontWeight.w800
+                                  : FontWeight.w600,
                             ),
                           ),
                         ),

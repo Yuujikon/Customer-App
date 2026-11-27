@@ -14,14 +14,15 @@ final Map<String, Uint8List> _base64BytesCache = {};
 
 Uint8List? _getDecodedImageBytes(String? base64Str, String productId) {
   if (base64Str == null || base64Str.isEmpty) return null;
-  if (_base64BytesCache.containsKey(productId)) {
-    return _base64BytesCache[productId];
+  final cacheKey = '${productId}_${base64Str.length}_${base64Str.hashCode}';
+  if (_base64BytesCache.containsKey(cacheKey)) {
+    return _base64BytesCache[cacheKey];
   }
   try {
     final cleanBase64 =
         base64Str.contains(',') ? base64Str.split(',').last : base64Str;
     final decoded = base64Decode(cleanBase64.trim());
-    _base64BytesCache[productId] = decoded;
+    _base64BytesCache[cacheKey] = decoded;
     return decoded;
   } catch (_) {
     return null;
@@ -70,8 +71,8 @@ class _SavedItemsScreenState extends State<SavedItemsScreen> {
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded,
-              color: AppColors.primaryText),
+          icon: Icon(Icons.arrow_back_rounded,
+              color: Theme.of(context).colorScheme.onSurface),
           onPressed: () => Navigator.pop(context),
         ),
         title: Column(
@@ -97,25 +98,29 @@ class _SavedItemsScreenState extends State<SavedItemsScreen> {
         ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(48),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              children: [
-                _buildFilterChip(
-                  label: 'All (${allSavedProducts.length})',
-                  index: 0,
-                ),
-                const SizedBox(width: 8),
-                _buildFilterChip(
-                  label: 'In Stock (${inStockSaved.length})',
-                  index: 1,
-                ),
-                const SizedBox(width: 8),
-                _buildFilterChip(
-                  label: 'Sold Out (${oosSaved.length})',
-                  index: 2,
-                ),
-              ],
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  _buildFilterChip(
+                    label: 'All (${allSavedProducts.length})',
+                    index: 0,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildFilterChip(
+                    label: 'In Stock (${inStockSaved.length})',
+                    index: 1,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildFilterChip(
+                    label: 'Sold Out (${oosSaved.length})',
+                    index: 2,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -179,8 +184,8 @@ class _SavedItemsScreenState extends State<SavedItemsScreen> {
                   children: [
                     Container(
                       padding: const EdgeInsets.all(20),
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).cardColor,
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
@@ -242,10 +247,11 @@ class _SavedItemsScreenState extends State<SavedItemsScreen> {
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.forest : Colors.white,
+          color: isSelected ? AppColors.forest : Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(100),
           border: Border.all(
-            color: isSelected ? AppColors.forest : AppColors.border,
+            color:
+                isSelected ? AppColors.forest : Theme.of(context).dividerColor,
           ),
         ),
         child: Text(
@@ -253,7 +259,9 @@ class _SavedItemsScreenState extends State<SavedItemsScreen> {
           style: TextStyle(
             fontSize: 11.5,
             fontWeight: FontWeight.w800,
-            color: isSelected ? Colors.white : AppColors.primaryText,
+            color: isSelected
+                ? Colors.white
+                : Theme.of(context).colorScheme.onSurface,
           ),
         ),
       ),
@@ -286,10 +294,10 @@ class _SavedProductCard extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: inCart ? AppColors.orangeCTA : AppColors.border,
+          color: inCart ? AppColors.orangeCTA : Theme.of(context).dividerColor,
           width: inCart ? 1.5 : 1.0,
         ),
         boxShadow: [
@@ -318,7 +326,7 @@ class _SavedProductCard extends StatelessWidget {
                     height: double.infinity,
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF7F9F5),
+                      color: Theme.of(context).colorScheme.surfaceContainerLow,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: imageBytes != null
@@ -455,10 +463,10 @@ class _SavedProductCard extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             product.name,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w800,
-              color: AppColors.primaryText,
+              color: Theme.of(context).colorScheme.onSurface,
               height: 1.15,
             ),
             maxLines: 2,
@@ -480,7 +488,9 @@ class _SavedProductCard extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w900,
-                      color: isOos ? AppColors.mutedText : AppColors.forest,
+                      color: isOos
+                          ? AppColors.mutedText
+                          : Theme.of(context).colorScheme.primary,
                     ),
                   ),
                 ),
@@ -488,9 +498,9 @@ class _SavedProductCard extends StatelessWidget {
               const SizedBox(width: 4),
               Text(
                 product.unit,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 10,
-                  color: AppColors.mutedText,
+                  color: Theme.of(context).textTheme.bodySmall?.color,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -499,7 +509,7 @@ class _SavedProductCard extends StatelessWidget {
 
           const SizedBox(height: 6),
 
-          // Action Button: Add to Basket OR Restock Notify
+          // Action Button: Add to Basket OR Out of Stock
           if (!isOos)
             ElevatedButton.icon(
               onPressed: onAddToCart,
@@ -534,7 +544,7 @@ class _SavedProductCard extends StatelessWidget {
               height: 32,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: Colors.grey.shade200,
+                color: Theme.of(context).colorScheme.surfaceContainerLow,
                 borderRadius: BorderRadius.circular(100),
               ),
               child: const Text(

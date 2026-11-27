@@ -9,6 +9,8 @@ import '../../shop/providers/inventory_provider.dart';
 import '../../orders/providers/order_provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../shared/widgets/common/status_badge.dart';
+import '../../../shared/models/customer_appeal.dart';
+import '../../../shared/services/firestore_service.dart';
 
 class EnterpriseOperationsConsole extends StatefulWidget {
   const EnterpriseOperationsConsole({super.key});
@@ -929,6 +931,12 @@ class _InventoryAutomationTabState extends State<_InventoryAutomationTab> {
                         style: const TextStyle(
                             fontSize: 12, color: GdcColors.textSecondary)),
                     Text(
+                        'POS: ${p.totalStock} · Online: ${p.isOnlineOutOfStock ? 'OOS' : p.onlineAvailableStock} · Reserve: ${p.effectivePhysicalReserve}',
+                        style: const TextStyle(
+                            fontSize: 11,
+                            color: GdcColors.terracotta,
+                            fontWeight: FontWeight.w700)),
+                    Text(
                         'ROP: ${p.effectiveReorderPoint} · Reorder Qty: +${p.effectiveReorderQuantity} · Margin: ${p.unitGrossMargin.toStringAsFixed(0)}%',
                         style: const TextStyle(
                             fontSize: 11, color: GdcColors.textMuted)),
@@ -1138,10 +1146,12 @@ class _OrderLogisticsTab extends StatelessWidget {
     return StreamBuilder<List<PreOrder>>(
       stream: orderProvider.ordersStream,
       builder: (context, snap) {
-        if (snap.hasError)
+        if (snap.hasError) {
           return Center(child: Text('Logistics Error: ${snap.error}'));
-        if (!snap.hasData)
+        }
+        if (!snap.hasData) {
           return const Center(child: CircularProgressIndicator());
+        }
 
         final allOrders = snap.data!;
         final activeOrders = allOrders
@@ -1305,8 +1315,9 @@ class _DisputeGovernanceTabState extends State<_DisputeGovernanceTab> {
     return StreamBuilder<List<PreOrder>>(
       stream: widget.orderProvider.ordersStream,
       builder: (context, snap) {
-        if (!snap.hasData)
+        if (!snap.hasData) {
           return const Center(child: CircularProgressIndicator());
+        }
 
         final refundRequestedOrders = snap.data!
             .where((o) => o.status == OrderStatus.refundRequested)
@@ -1370,7 +1381,7 @@ class _DisputeGovernanceTabState extends State<_DisputeGovernanceTab> {
                         Expanded(
                           child: ElevatedButton(
                             onPressed: () async {
-                              await orderProvider.refundOrder(order.id);
+                              await widget.orderProvider.refundOrder(order.id);
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
@@ -1401,8 +1412,9 @@ class _DisputeGovernanceTabState extends State<_DisputeGovernanceTab> {
     return StreamBuilder<List<CustomerAppeal>>(
       stream: FirestoreService().allPendingAppealsStream(),
       builder: (context, snap) {
-        if (!snap.hasData)
+        if (!snap.hasData) {
           return const Center(child: CircularProgressIndicator());
+        }
 
         final appeals = snap.data!;
 

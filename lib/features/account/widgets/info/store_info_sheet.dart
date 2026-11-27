@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/launcher.dart';
 import '../../../shop/providers/inventory_provider.dart';
 
@@ -66,7 +65,8 @@ class StoreInfoSheet extends StatelessWidget {
             context,
             icon: Icons.access_time_filled_rounded,
             title: 'Store Hours',
-            subtitle: 'Open Daily: 11:00 AM - 3:00 PM',
+            subtitle:
+                '${inventory.settings.regularHoursSummary}\n${inventory.settings.todayHoursSummary()}',
           ),
           const SizedBox(height: 16),
           _buildInfoRow(

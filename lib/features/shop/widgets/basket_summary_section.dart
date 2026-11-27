@@ -122,7 +122,13 @@ class BasketSummarySection extends StatelessWidget {
 
                 final imageBytes =
                     _getBasketDecodedImage(p?.photoBase64, item.productId);
-                final double itemSubtotal = item.price * item.qty;
+                final bool hasItemVariant =
+                    item.variantId != null && item.variantId!.isNotEmpty;
+                final double resolvedUnitPrice =
+                    (hasItemVariant && p?.variants != null)
+                        ? (p!.variants![item.variantId]?.price ?? item.price)
+                        : (p?.price ?? item.price);
+                final double itemSubtotal = resolvedUnitPrice * item.qty;
 
                 return Container(
                   width: 175,

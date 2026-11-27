@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../shared/models/product.dart';
 import '../../orders/providers/order_provider.dart';
+import '../providers/inventory_provider.dart';
 import '../../../core/utils/format.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/common/qty_control.dart';
@@ -18,26 +19,42 @@ class _VariantSelectionSheetState extends State<VariantSelectionSheet> {
   String? _selectedVariantId;
   int _quantity = 1;
 
-  void _syncQuantityWithCart() {
+  Product _liveProduct(InventoryProvider inventory) {
+    for (final p in inventory.products) {
+      if (p.id == widget.product.id) return p;
+    }
+    return widget.product;
+  }
+
+  void _syncQuantityWithCart(int maxStock) {
     if (!mounted) return;
     final op = context.read<OrderProvider>();
     final idx = op.preCart.indexWhere((i) =>
         i.productId == widget.product.id && i.variantId == _selectedVariantId);
     if (idx >= 0) {
       setState(() {
-        _quantity = op.preCart[idx].qty;
+        final cartQty = op.preCart[idx].qty;
+        _quantity = maxStock > 0 ? cartQty.clamp(1, maxStock) : 1;
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final variants = widget.product.variants?.values.toList() ?? [];
+    final inventory = context.watch<InventoryProvider>();
+    final product = _liveProduct(inventory);
+    final variants = product.variants?.values.toList() ?? [];
     variants.sort((a, b) => a.name.compareTo(b.name));
 
     final selectedVariant = _selectedVariantId != null
-        ? widget.product.variants![_selectedVariantId]
+        ? (product.variants?[_selectedVariantId])
         : null;
+    final int selectedMaxStock = selectedVariant?.maxPurchasableStock ?? 0;
+    final bool canAddSelected = selectedVariant != null &&
+        !selectedVariant.isOutOfStockForCustomer &&
+        selectedMaxStock > 0;
+    final int effectiveQty =
+        selectedMaxStock > 0 ? _quantity.clamp(1, selectedMaxStock) : 1;
 
     return Container(
       padding: EdgeInsets.only(
@@ -45,7 +62,7 @@ class _VariantSelectionSheetState extends State<VariantSelectionSheet> {
       ),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
       ),
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
@@ -63,7 +80,7 @@ class _VariantSelectionSheetState extends State<VariantSelectionSheet> {
               ),
             ),
             const SizedBox(height: 24),
-            Text(capitalize(widget.product.name),
+            Text(capitalize(product.name),
                 style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w900,
@@ -86,10 +103,11 @@ class _VariantSelectionSheetState extends State<VariantSelectionSheet> {
                       : () {
                           setState(() {
                             _selectedVariantId = v.id;
-                            if (_quantity > v.maxPurchasableStock)
+                            if (_quantity > v.maxPurchasableStock) {
                               _quantity = v.maxPurchasableStock;
+                            }
                             if (_quantity < 1) _quantity = 1;
-                            _syncQuantityWithCart();
+                            _syncQuantityWithCart(v.maxPurchasableStock);
                           });
                         },
                   borderRadius: BorderRadius.circular(16),
@@ -152,28 +170,27 @@ class _VariantSelectionSheetState extends State<VariantSelectionSheet> {
                 ),
               );
             }),
-            if (_selectedVariantId != null) ...[
+            if (canAddSelected) ...[
               const SizedBox(height: 24),
               const Text('Quantity',
                   style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
               const SizedBox(height: 12),
               QtyControl(
-                qty: _quantity,
-                max: selectedVariant?.maxPurchasableStock ?? 0,
+                qty: effectiveQty,
+                max: selectedMaxStock,
                 onChanged: (v) => setState(() => _quantity = v),
               ),
             ],
             const SizedBox(height: 32),
             ElevatedButton(
-              onPressed: _selectedVariantId == null
+              onPressed: !canAddSelected
                   ? null
                   : () {
-                      final v = widget.product.variants?[_selectedVariantId!];
-                      if (v == null) return;
+                      final v = selectedVariant;
 
                       context.read<OrderProvider>().addToPreCart(
-                            widget.product,
-                            quantity: _quantity,
+                            product,
+                            quantity: effectiveQty,
                             variantId: v.id,
                             variantName: v.name,
                             replace: true,
@@ -181,7 +198,7 @@ class _VariantSelectionSheetState extends State<VariantSelectionSheet> {
 
                       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                         content: Text(
-                            'Added $_quantity x ${widget.product.name} (${v.name}) to basket.'),
+                            'Added $effectiveQty x ${product.name} (${v.name}) to basket.'),
                         backgroundColor: GdcColors.success,
                         duration: const Duration(seconds: 1),
                       ));

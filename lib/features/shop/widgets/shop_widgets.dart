@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -19,14 +20,15 @@ final Map<String, Uint8List> _base64BytesCache = {};
 
 Uint8List? _getDecodedImageBytes(String? base64Str, String productId) {
   if (base64Str == null || base64Str.isEmpty) return null;
-  if (_base64BytesCache.containsKey(productId)) {
-    return _base64BytesCache[productId];
+  final cacheKey = '${productId}_${base64Str.length}_${base64Str.hashCode}';
+  if (_base64BytesCache.containsKey(cacheKey)) {
+    return _base64BytesCache[cacheKey];
   }
   try {
     final cleanBase64 =
         base64Str.contains(',') ? base64Str.split(',').last : base64Str;
     final decoded = base64Decode(cleanBase64.trim());
-    _base64BytesCache[productId] = decoded;
+    _base64BytesCache[cacheKey] = decoded;
     return decoded;
   } catch (_) {
     return null;
@@ -60,10 +62,12 @@ class ProductTile extends StatelessWidget {
 
   IconData _getCategoryIcon(String category) {
     final cat = category.toLowerCase();
-    if (cat.contains('beverage') || cat.contains('drink'))
+    if (cat.contains('beverage') || cat.contains('drink')) {
       return Icons.local_drink_rounded;
-    if (cat.contains('grain') || cat.contains('rice'))
+    }
+    if (cat.contains('grain') || cat.contains('rice')) {
       return Icons.grass_rounded;
+    }
     if (cat.contains('snack')) return Icons.fastfood_rounded;
     if (cat.contains('household')) return Icons.home_repair_service_rounded;
     if (cat.contains('can')) return Icons.inventory_2_rounded;
@@ -79,88 +83,13 @@ class ProductTile extends StatelessWidget {
     int maxStock,
     OrderProvider orderProvider,
   ) {
-    final ctrl = TextEditingController(text: '$currentQty');
-
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Modify Quantity',
-            style: TextStyle(fontWeight: FontWeight.w900)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              product.name,
-              style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primaryText),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Available Stock: $maxStock ${product.unit}',
-              style: const TextStyle(fontSize: 12, color: AppColors.mutedText),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: ctrl,
-              autofocus: true,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: InputDecoration(
-                labelText: 'Quantity',
-                hintText: 'Enter quantity',
-                border:
-                    OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final val = int.tryParse(ctrl.text.trim());
-              if (val == null || val <= 0) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Quantity must be at least 1.')),
-                );
-                return;
-              }
-
-              final clamped = val.clamp(1, maxStock);
-              orderProvider.setPreCartQty(
-                product.id,
-                clamped,
-                maxStock,
-              );
-
-              Navigator.pop(ctx);
-
-              if (val > maxStock) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                        'Quantity capped at maximum available stock ($maxStock).'),
-                    backgroundColor: AppColors.orangeCTA,
-                  ),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.orangeCTA,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(100)),
-            ),
-            child: const Text('Save'),
-          ),
-        ],
+      builder: (_) => _EditProductQuantityDialog(
+        product: product,
+        currentQty: currentQty,
+        maxStock: maxStock,
+        orderProvider: orderProvider,
       ),
     );
   }
@@ -232,8 +161,14 @@ class ProductTile extends StatelessWidget {
                                 .colorScheme
                                 .surfaceContainerLow,
                           ),
-                          child: product.photoBase64 != null
-                              ? ColorFiltered(
+                          child: Builder(
+                            builder: (context) {
+                              final imageBytes = _getDecodedImageBytes(
+                                product.photoBase64,
+                                product.id,
+                              );
+                              if (imageBytes != null) {
+                                return ColorFiltered(
                                   colorFilter: isOutOfStock
                                       ? const ColorFilter.mode(
                                           Colors.grey, BlendMode.saturation)
@@ -241,19 +176,23 @@ class ProductTile extends StatelessWidget {
                                           Colors.transparent,
                                           BlendMode.multiply),
                                   child: Image.memory(
-                                    base64Decode(product.photoBase64!),
+                                    imageBytes,
                                     fit: BoxFit.cover,
                                     alignment: Alignment.center,
+                                    gaplessPlayback: true,
                                   ),
-                                )
-                              : Center(
-                                  child: Icon(
-                                    _getCategoryIcon(product.category),
-                                    color: GdcColors.terracotta
-                                        .withValues(alpha: 0.25),
-                                    size: 40,
-                                  ),
+                                );
+                              }
+                              return Center(
+                                child: Icon(
+                                  _getCategoryIcon(product.category),
+                                  color: GdcColors.terracotta
+                                      .withValues(alpha: 0.25),
+                                  size: 40,
                                 ),
+                              );
+                            },
+                          ),
                         ),
                       ),
 
@@ -642,13 +581,138 @@ class ProductTile extends StatelessWidget {
             ),
             if (isOutOfStock)
               Positioned.fill(
-                child: Container(
-                  color: Colors.white.withValues(alpha: 0.55),
+                child: IgnorePointer(
+                  child: Container(
+                    color: Theme.of(context).cardColor.withValues(alpha: 0.55),
+                  ),
                 ),
               ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _EditProductQuantityDialog extends StatefulWidget {
+  final Product product;
+  final int currentQty;
+  final int maxStock;
+  final OrderProvider orderProvider;
+
+  const _EditProductQuantityDialog({
+    required this.product,
+    required this.currentQty,
+    required this.maxStock,
+    required this.orderProvider,
+  });
+
+  @override
+  State<_EditProductQuantityDialog> createState() =>
+      _EditProductQuantityDialogState();
+}
+
+class _EditProductQuantityDialogState
+    extends State<_EditProductQuantityDialog> {
+  late final TextEditingController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(text: '${widget.currentQty}');
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: const Text('Modify Quantity',
+          style: TextStyle(fontWeight: FontWeight.w900)),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            widget.product.name,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Available Stock: ${widget.maxStock} ${widget.product.unit}',
+            style: TextStyle(
+              fontSize: 12,
+              color: Theme.of(context).textTheme.bodySmall?.color,
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _ctrl,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            decoration: InputDecoration(
+              labelText: 'Quantity',
+              hintText: 'Enter quantity',
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            final val = int.tryParse(_ctrl.text.trim());
+            if (val == null || val <= 0) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Quantity must be at least 1.')),
+              );
+              return;
+            }
+
+            final clamped = val.clamp(1, widget.maxStock);
+            widget.orderProvider.setPreCartQty(
+              widget.product.id,
+              clamped,
+              widget.maxStock,
+            );
+
+            final messenger = ScaffoldMessenger.of(context);
+            Navigator.pop(context);
+
+            if (val > widget.maxStock) {
+              messenger.showSnackBar(
+                SnackBar(
+                  content: Text(
+                      'Quantity capped at maximum available stock (${widget.maxStock}).'),
+                  backgroundColor: AppColors.orangeCTA,
+                ),
+              );
+            }
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.orangeCTA,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(100)),
+          ),
+          child: const Text('Save'),
+        ),
+      ],
     );
   }
 }
@@ -708,21 +772,29 @@ class _AnnouncementTickerState extends State<AnnouncementTicker>
   }
 
   void _startScrolling() async {
-    while (_scrollController.hasClients) {
+    while (mounted && _scrollController.hasClients) {
       await Future.delayed(const Duration(seconds: 1));
-      if (!_scrollController.hasClients) return;
+      if (!mounted || !_scrollController.hasClients) return;
 
-      double maxScroll = _scrollController.position.maxScrollExtent;
-      await _scrollController.animateTo(maxScroll,
-          duration: Duration(milliseconds: (maxScroll * 30).toInt()),
-          curve: Curves.linear);
+      final double maxScroll = _scrollController.position.maxScrollExtent;
+      if (maxScroll <= 0) return;
 
-      if (!_scrollController.hasClients) return;
+      await _scrollController.animateTo(
+        maxScroll,
+        duration:
+            Duration(milliseconds: (maxScroll * 30).toInt().clamp(300, 60000)),
+        curve: Curves.linear,
+      );
+
+      if (!mounted || !_scrollController.hasClients) return;
       await Future.delayed(const Duration(seconds: 2));
 
-      if (!_scrollController.hasClients) return;
-      await _scrollController.animateTo(0,
-          duration: const Duration(milliseconds: 1000), curve: Curves.easeOut);
+      if (!mounted || !_scrollController.hasClients) return;
+      await _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 1000),
+        curve: Curves.easeOut,
+      );
     }
   }
 
@@ -807,10 +879,12 @@ class BundlesSection extends StatelessWidget {
 
     final sortedBundles = List<ProductBundle>.from(bundles)
       ..sort((a, b) {
-        if (a.category == currentCategory && b.category != currentCategory)
+        if (a.category == currentCategory && b.category != currentCategory) {
           return -1;
-        if (a.category != currentCategory && b.category == currentCategory)
+        }
+        if (a.category != currentCategory && b.category == currentCategory) {
           return 1;
+        }
         return 0;
       });
 
@@ -819,27 +893,15 @@ class BundlesSection extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Expanded(
-                child: Text('Sulit Bundles',
-                    style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        color: GdcColors.textPrimary),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis),
-              ),
-              TextButton(
-                onPressed: () {},
-                child: const Text('See all →',
-                    style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: GdcColors.terracotta)),
-              ),
-            ],
+          child: Text(
+            'Sulit Bundles',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
         SizedBox(
@@ -851,13 +913,18 @@ class BundlesSection extends StatelessWidget {
             separatorBuilder: (_, __) => const SizedBox(width: 16),
             itemBuilder: (_, i) {
               final bundle = sortedBundles[i];
+              final bundleBytes = _getDecodedImageBytes(
+                bundle.photoBase64,
+                'bundle_${bundle.id}',
+              );
               return GestureDetector(
                 onTap: () => _showBundleDetails(context, bundle),
                 child: Container(
                   width: itemWidth,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context).cardColor,
                     borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Theme.of(context).dividerColor),
                     boxShadow: [
                       BoxShadow(
                           color: Colors.black.withValues(alpha: 0.03),
@@ -870,10 +937,14 @@ class BundlesSection extends StatelessWidget {
                     children: [
                       Container(
                         width: 100,
-                        color: GdcColors.cream.withValues(alpha: 0.3),
-                        child: bundle.photoBase64 != null
-                            ? Image.memory(base64Decode(bundle.photoBase64!),
-                                fit: BoxFit.cover)
+                        color:
+                            Theme.of(context).colorScheme.surfaceContainerLow,
+                        child: bundleBytes != null
+                            ? Image.memory(
+                                bundleBytes,
+                                fit: BoxFit.cover,
+                                gaplessPlayback: true,
+                              )
                             : const Icon(Icons.auto_awesome_motion_rounded,
                                 color: GdcColors.terracotta, size: 32),
                       ),
@@ -884,16 +955,22 @@ class BundlesSection extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(bundle.name,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                       fontSize: 14,
-                                      fontWeight: FontWeight.w800),
+                                      fontWeight: FontWeight.w800,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurface),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis),
                               const SizedBox(height: 2),
                               Text(bundle.description,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                       fontSize: 11,
-                                      color: GdcColors.textMuted,
+                                      color: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.color,
                                       height: 1.2),
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis),
@@ -932,121 +1009,134 @@ class BundlesSection extends StatelessWidget {
   }
 
   void _showBundleDetails(BuildContext context, ProductBundle bundle) {
+    final bundleBytes = _getDecodedImageBytes(
+      bundle.photoBase64,
+      'bundle_${bundle.id}',
+    );
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
         padding: const EdgeInsets.all(24),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        decoration: BoxDecoration(
+          color: Theme.of(ctx).cardColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-                child: Container(
-                    width: 40,
-                    height: 4,
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                  child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                          color: Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(2)))),
+              const SizedBox(height: 24),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 80,
+                    height: 80,
                     decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
-                        borderRadius: BorderRadius.circular(2)))),
-            const SizedBox(height: 24),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                      color: GdcColors.cream,
-                      borderRadius: BorderRadius.circular(16)),
-                  clipBehavior: Clip.antiAlias,
-                  child: bundle.photoBase64 != null
-                      ? Image.memory(base64Decode(bundle.photoBase64!),
-                          fit: BoxFit.cover)
-                      : const Icon(Icons.auto_awesome_motion_rounded,
-                          color: GdcColors.terracotta, size: 32),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(bundle.name,
-                          style: const TextStyle(
-                              fontSize: 22, fontWeight: FontWeight.w900)),
-                      Text(bundle.category,
-                          style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: GdcColors.terracotta)),
-                      const SizedBox(height: 4),
-                      Text(bundle.description,
-                          style: const TextStyle(
-                              fontSize: 14, color: GdcColors.textSecondary)),
-                    ],
+                        color: Theme.of(ctx).colorScheme.surfaceContainerLow,
+                        borderRadius: BorderRadius.circular(16)),
+                    clipBehavior: Clip.antiAlias,
+                    child: bundleBytes != null
+                        ? Image.memory(
+                            bundleBytes,
+                            fit: BoxFit.cover,
+                            gaplessPlayback: true,
+                          )
+                        : const Icon(Icons.auto_awesome_motion_rounded,
+                            color: GdcColors.terracotta, size: 32),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 32),
-            const Text('Items in this bundle:',
-                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-            const SizedBox(height: 12),
-            ...bundle.productIds.map((id) {
-              Product? p;
-              try {
-                p = allProducts.firstWhere((prod) => prod.id == id);
-              } catch (_) {}
-              if (p == null) return const SizedBox.shrink();
-              return ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: CircleAvatar(
-                  backgroundColor: GdcColors.cream,
-                  backgroundImage: p.photoBase64 != null
-                      ? MemoryImage(base64Decode(p.photoBase64!))
-                      : null,
-                  child: p.photoBase64 == null
-                      ? const Icon(Icons.inventory_2_outlined, size: 16)
-                      : null,
-                ),
-                title: Text(p.name,
-                    style: const TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.w700)),
-                subtitle: Text(formatPeso(p.price),
-                    style: const TextStyle(
-                        fontSize: 13,
-                        color: GdcColors.terracotta,
-                        fontWeight: FontWeight.bold)),
-                trailing: p.stock <= 0
-                    ? const Text('Out of Stock',
-                        style: TextStyle(
-                            color: Colors.red,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold))
-                    : const Icon(Icons.check_circle_rounded,
-                        color: Colors.green, size: 20),
-              );
-            }),
-            const SizedBox(height: 32),
-            ElevatedButton(
-              onPressed: () {
-                onAdd(bundle);
-                Navigator.pop(ctx);
-              },
-              style: ElevatedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(60),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20))),
-              child: const Text('ADD BUNDLE TO BASKET',
-                  style: TextStyle(
-                      fontWeight: FontWeight.w900, letterSpacing: 0.5)),
-            ),
-            const SizedBox(height: 12),
-          ],
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(bundle.name,
+                            style: const TextStyle(
+                                fontSize: 22, fontWeight: FontWeight.w900)),
+                        Text(bundle.category,
+                            style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: GdcColors.terracotta)),
+                        const SizedBox(height: 4),
+                        Text(bundle.description,
+                            style: TextStyle(
+                                fontSize: 14,
+                                color:
+                                    Theme.of(ctx).textTheme.bodySmall?.color)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 32),
+              const Text('Items in this bundle:',
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+              const SizedBox(height: 12),
+              ...bundle.productIds.map((id) {
+                Product? p;
+                try {
+                  p = allProducts.firstWhere((prod) => prod.id == id);
+                } catch (_) {}
+                if (p == null) return const SizedBox.shrink();
+                final itemBytes = _getDecodedImageBytes(p.photoBase64, p.id);
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: CircleAvatar(
+                    backgroundColor:
+                        Theme.of(ctx).colorScheme.surfaceContainerLow,
+                    backgroundImage:
+                        itemBytes != null ? MemoryImage(itemBytes) : null,
+                    child: itemBytes == null
+                        ? const Icon(Icons.inventory_2_outlined, size: 16)
+                        : null,
+                  ),
+                  title: Text(p.name,
+                      style: const TextStyle(
+                          fontSize: 15, fontWeight: FontWeight.w700)),
+                  subtitle: Text(formatPeso(p.price),
+                      style: const TextStyle(
+                          fontSize: 13,
+                          color: GdcColors.terracotta,
+                          fontWeight: FontWeight.bold)),
+                  trailing: p.isOutOfStockForCustomer
+                      ? const Text('Out of Stock',
+                          style: TextStyle(
+                              color: Colors.red,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold))
+                      : const Icon(Icons.check_circle_rounded,
+                          color: Colors.green, size: 20),
+                );
+              }),
+              const SizedBox(height: 32),
+              ElevatedButton(
+                onPressed: () {
+                  onAdd(bundle);
+                  Navigator.pop(ctx);
+                },
+                style: ElevatedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(60),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20))),
+                child: const Text('ADD BUNDLE TO BASKET',
+                    style: TextStyle(
+                        fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
         ),
       ),
     );
@@ -1273,8 +1363,17 @@ class UsualBasketSection extends StatelessWidget {
                                 behavior: SnackBarBehavior.floating,
                               ),
                             );
+                          } else if (p!.hasVariants) {
+                            final product = p;
+                            showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              backgroundColor: Colors.transparent,
+                              builder: (_) =>
+                                  VariantSelectionSheet(product: product),
+                            );
                           } else {
-                            op.addToPreCart(p!);
+                            op.addToPreCart(p);
                             ScaffoldMessenger.of(context).hideCurrentSnackBar();
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
@@ -1469,12 +1568,6 @@ class _RecentOrderSectionState extends State<RecentOrderSection> {
 
               // Item rows
               ...order.items.map((item) {
-                Product? p;
-                try {
-                  p = inventory.products
-                      .firstWhere((prod) => prod.id == item.productId);
-                } catch (_) {}
-
                 final String variantNameStr =
                     item.variantName != null ? ' (${item.variantName})' : '';
 
@@ -1574,14 +1667,14 @@ class _RecentOrderSectionState extends State<RecentOrderSection> {
                   StatusBadge(order.status),
                   OutlinedButton.icon(
                     onPressed: () async {
-                      HapticFeedback.lightImpact();
+                      unawaited(HapticFeedback.lightImpact());
                       final previews = orderProvider.previewReorder(
                           order.items, inventory.products);
                       final bool hasIssues =
                           previews.any((p) => p.isUnavailable || p.isAdjusted);
 
                       if (hasIssues) {
-                        showDialog(
+                        unawaited(showDialog(
                           context: context,
                           builder: (ctx) => ReorderSummaryDialog(
                             previews: previews,
@@ -1601,7 +1694,7 @@ class _RecentOrderSectionState extends State<RecentOrderSection> {
                               // We could trigger a search or category filter. For now, pop to dashboard maybe.
                             },
                           ),
-                        );
+                        ));
                       } else {
                         orderProvider.applyReorder(previews);
                         ScaffoldMessenger.of(context).showSnackBar(

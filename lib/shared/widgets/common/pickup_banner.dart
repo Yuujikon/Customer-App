@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/store_hours.dart';
+import '../../../features/shop/providers/inventory_provider.dart';
 
 class PickupBanner extends StatelessWidget {
   final VoidCallback onStartOrder;
@@ -11,6 +14,35 @@ class PickupBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final settings = context.watch<InventoryProvider>().settings;
+    final bool isOpen = !settings.effectivelyClosed;
+    final String? nextOpen = StoreHours.formatNextOpeningLabel(
+      settings: settings,
+    );
+
+    final String eyebrowText;
+    final String headlineText;
+    final String subtitleText;
+
+    if (settings.isEmergencyClosed) {
+      eyebrowText = 'TEMPORARILY CLOSED';
+      headlineText = 'Store under maintenance';
+      subtitleText = settings.closureReason;
+    } else if (isOpen) {
+      eyebrowText =
+          'OPEN TODAY · ${settings.formattedDailyHours.toUpperCase()}';
+      headlineText = 'Pick up today, skip the queue';
+      subtitleText =
+          'Your order will be packed and waiting at our counter during open hours.';
+    } else {
+      eyebrowText = nextOpen != null
+          ? 'REOPENS ${nextOpen.toUpperCase()}'
+          : 'OPERATING HOURS: ${settings.formattedDailyHours.toUpperCase()}';
+      headlineText = 'Reserve your pickup ahead';
+      subtitleText =
+          'Store is closed right now — you can still pre-order for our next open pickup slots.';
+    }
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final bool isTablet = constraints.maxWidth >= 550;
@@ -71,30 +103,30 @@ class PickupBanner extends StatelessWidget {
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
-                              children: const [
+                              children: [
                                 Text(
-                                  'ORDER BEFORE 4:00 PM',
-                                  style: TextStyle(
+                                  eyebrowText,
+                                  style: const TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w800,
                                     color: AppColors.sage,
                                     letterSpacing: 0.8,
                                   ),
                                 ),
-                                SizedBox(height: 2),
+                                const SizedBox(height: 2),
                                 Text(
-                                  'Pick up today, skip the queue',
-                                  style: TextStyle(
+                                  headlineText,
+                                  style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w800,
                                     color: AppColors.primaryText,
                                     letterSpacing: -0.3,
                                   ),
                                 ),
-                                SizedBox(height: 2),
+                                const SizedBox(height: 2),
                                 Text(
-                                  'Your order will be packed and waiting at our counter.',
-                                  style: TextStyle(
+                                  subtitleText,
+                                  style: const TextStyle(
                                     fontSize: 12,
                                     color: AppColors.mutedText,
                                     fontWeight: FontWeight.w500,
@@ -151,30 +183,30 @@ class PickupBanner extends StatelessWidget {
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: const [
+                                  children: [
                                     Text(
-                                      'ORDER BEFORE 4:00 PM',
-                                      style: TextStyle(
+                                      eyebrowText,
+                                      style: const TextStyle(
                                         fontSize: 10,
                                         fontWeight: FontWeight.w800,
                                         color: AppColors.sage,
                                         letterSpacing: 0.8,
                                       ),
                                     ),
-                                    SizedBox(height: 3),
+                                    const SizedBox(height: 3),
                                     Text(
-                                      'Pick up today, skip the queue',
-                                      style: TextStyle(
+                                      headlineText,
+                                      style: const TextStyle(
                                         fontSize: 15,
                                         fontWeight: FontWeight.w800,
                                         color: AppColors.primaryText,
                                         letterSpacing: -0.3,
                                       ),
                                     ),
-                                    SizedBox(height: 3),
+                                    const SizedBox(height: 3),
                                     Text(
-                                      'Your order will be packed and waiting at our counter.',
-                                      style: TextStyle(
+                                      subtitleText,
+                                      style: const TextStyle(
                                         fontSize: 12,
                                         color: AppColors.mutedText,
                                         fontWeight: FontWeight.w500,

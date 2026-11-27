@@ -27,7 +27,18 @@ class GdcCustomerApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AppAuthProvider()..initialize()),
         ChangeNotifierProvider(
             create: (_) => InventoryProvider()..initialize()),
-        ChangeNotifierProvider(create: (_) => OrderProvider()..initialize()),
+        ChangeNotifierProxyProvider<InventoryProvider, OrderProvider>(
+          create: (_) => OrderProvider()..initialize(),
+          update: (_, inventory, orderProvider) {
+            final provider = orderProvider ?? (OrderProvider()..initialize());
+            provider.syncSettings(inventory.settings);
+            provider.reconcileCartWithLiveStock(
+              inventory.products,
+              deferNotify: true,
+            );
+            return provider;
+          },
+        ),
         ChangeNotifierProvider(create: (_) => RefundProvider()),
         ChangeNotifierProxyProvider<AppAuthProvider, NotificationProvider?>(
           create: (_) => null,

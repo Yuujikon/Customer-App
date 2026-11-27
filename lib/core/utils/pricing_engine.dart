@@ -2,19 +2,26 @@ import '../../shared/models/order.dart';
 import '../../shared/models/product.dart';
 
 class PricingBreakdown {
+  final double subtotal;
+  final double vAtAmount;
   final double total; // Final amount to pay
 
   const PricingBreakdown({
+    required this.subtotal,
+    required this.vAtAmount,
     required this.total,
   });
 }
 
 class PricingEngine {
+  static const double vatRate = 0.12;
+
   static PricingBreakdown calculate({
     required List<CartItem> items,
     required List<Product> allProducts,
   }) {
-    double total = 0;
+    double subtotal = 0;
+    double taxableSubtotal = 0;
 
     for (final item in items) {
       Product? product;
@@ -31,12 +38,21 @@ class PricingEngine {
         price = product?.price ?? item.price;
       }
 
-      final double itemTotal = price * item.qty;
-      total += itemTotal;
+      final double itemSubtotal = price * item.qty;
+      subtotal += itemSubtotal;
+
+      if (product?.isTaxable ?? true) {
+        taxableSubtotal += itemSubtotal;
+      }
     }
 
+    final finalVat = taxableSubtotal - (taxableSubtotal / (1 + vatRate));
+    final total = subtotal.clamp(0.0, double.infinity);
+
     return PricingBreakdown(
-      total: total.clamp(0.0, double.infinity),
+      subtotal: subtotal,
+      vAtAmount: finalVat,
+      total: total,
     );
   }
 }

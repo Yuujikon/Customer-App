@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -5,6 +6,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/format.dart';
+import '../../../core/utils/pricing_engine.dart';
 import '../../../shared/models/order.dart';
 import '../../../shared/models/product.dart';
 import '../../../shared/widgets/common/pickup_banner.dart';
@@ -138,6 +140,7 @@ class CustomerDashboardScreen extends StatelessWidget {
         .where((o) =>
             o.status != OrderStatus.collected &&
             o.status != OrderStatus.cancelled &&
+            o.status != OrderStatus.refundRequested &&
             o.status != OrderStatus.refunded &&
             o.status != OrderStatus.refundRejected &&
             !o.isExpired)
@@ -154,20 +157,20 @@ class CustomerDashboardScreen extends StatelessWidget {
         allOrders.where((o) => o.status == OrderStatus.collected).toList();
     final totalSpent = collectedOrders.fold(0.0, (sum, o) => sum + o.total);
 
-    final cartTotal = preCart.fold(0.0, (s, i) => s + i.price * i.qty);
+    final cartTotal = PricingEngine.calculate(
+      items: preCart,
+      allProducts: inventory.products,
+    ).total;
     final cartItemCount = preCart.fold(0, (s, i) => s + i.qty);
 
     final allFavorites =
         inventory.products.where((p) => auth.favorites.contains(p.id)).toList();
 
-    final featuredProducts = inventory.products.isNotEmpty
-        ? inventory.products
-            .where((p) =>
-                p.status == ProductStatus.published &&
-                !p.isOutOfStockForCustomer)
-            .take(6)
-            .toList()
-        : _sampleFreshPicks;
+    final featuredProducts = inventory.products
+        .where((p) =>
+            p.status == ProductStatus.published && !p.isOutOfStockForCustomer)
+        .take(6)
+        .toList();
 
     final allOosCount = inventory.outOfStockProducts.length;
 
@@ -279,7 +282,7 @@ class CustomerDashboardScreen extends StatelessWidget {
                 cartTotal: cartTotal,
                 cartItemCount: cartItemCount,
                 userEmail:
-                    auth.email.isNotEmpty ? auth.email : 'andrea.m@email.com',
+                    auth.email.isNotEmpty ? auth.email : 'No email linked',
                 onViewCart: onViewCart,
               ),
 
@@ -311,35 +314,42 @@ class CustomerDashboardScreen extends StatelessWidget {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 7, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: AppColors.sageTint,
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: const Text(
-                                  'Fresh Picks',
-                                  style: TextStyle(
-                                    fontSize: 9.5,
-                                    fontWeight: FontWeight.w900,
-                                    color: AppColors.forest,
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 7, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.sageTint,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Text(
+                                    'Fresh Picks',
+                                    style: TextStyle(
+                                      fontSize: 9.5,
+                                      fontWeight: FontWeight.w900,
+                                      color: AppColors.forest,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Fresh Essentials Today',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w800,
-                                  color:
-                                      Theme.of(context).colorScheme.onSurface,
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Text(
+                                    'Fresh Essentials Today',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w800,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurface,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                           TextButton(
                             onPressed: onBrowseCatalog,
@@ -542,34 +552,40 @@ class CustomerDashboardScreen extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: AppColors.sageTint,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Text(
-                      'Discover',
-                      style: TextStyle(
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w900,
-                        color: AppColors.forest,
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppColors.sageTint,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text(
+                        'Discover',
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.forest,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Explore Categories',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
-                      color: Theme.of(context).colorScheme.onSurface,
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        'Explore Categories',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               TextButton(
                 onPressed: onBrowseCatalog,
@@ -699,34 +715,40 @@ class CustomerDashboardScreen extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: AppColors.forest.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Text(
-                      'Live Tracking',
-                      style: TextStyle(
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w900,
-                        color: AppColors.forest,
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppColors.forest.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text(
+                        'Live Tracking',
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.forest,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Active Order Status',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: Theme.of(context).colorScheme.onSurface,
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        'Active Order Status',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               TextButton(
                 onPressed: onViewOrders,
@@ -779,34 +801,40 @@ class CustomerDashboardScreen extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: AppColors.sageTint,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Text(
-                      'Reorder Quickly',
-                      style: TextStyle(
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w900,
-                        color: AppColors.forest,
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppColors.sageTint,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text(
+                        'Reorder Quickly',
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.forest,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Recent Purchase',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: Theme.of(context).colorScheme.onSurface,
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        'Recent Purchase',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               TextButton(
                 onPressed: onViewOrders,
@@ -829,118 +857,6 @@ class CustomerDashboardScreen extends StatelessWidget {
       ),
     );
   }
-
-  Widget _buildCategoryTile(BuildContext context, Map<String, dynamic> cat) {
-    final String label = cat['label'] as String;
-    return InkWell(
-      onTap: () {
-        if (onSelectCategory != null) {
-          onSelectCategory!(label);
-        } else {
-          onBrowseCatalog();
-        }
-      },
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Theme.of(context).dividerColor),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 22,
-              height: 22,
-              decoration: BoxDecoration(
-                color: cat['bgColor'] as Color,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                cat['icon'] as IconData,
-                color: cat['iconColor'] as Color,
-                size: 12,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    cat['label'] as String,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w800,
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                  ),
-                  Text(
-                    cat['subtitle'] as String,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 8.5,
-                      fontWeight: FontWeight.w500,
-                      color: Theme.of(context).textTheme.bodySmall?.color,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.chevron_right_rounded,
-              size: 14,
-              color: Theme.of(context).textTheme.bodySmall?.color,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  static const List<Product> _sampleFreshPicks = [
-    Product(
-      id: 'p1',
-      name: 'Fresh Red Tomatoes',
-      unit: '500g',
-      price: 68.00,
-      stock: 25,
-      category: 'Fresh Produce',
-      shelfDays: 5,
-    ),
-    Product(
-      id: 'p2',
-      name: 'Creamy Avocados',
-      unit: '2 pieces',
-      price: 95.00,
-      stock: 18,
-      category: 'Fresh Produce',
-      shelfDays: 4,
-    ),
-    Product(
-      id: 'p3',
-      name: 'Garden Veggie Box',
-      unit: '1 basket',
-      price: 249.00,
-      stock: 10,
-      category: 'Best Value',
-      shelfDays: 7,
-    ),
-    Product(
-      id: 'p4',
-      name: 'Farm Fresh Mix',
-      unit: '1 bundle',
-      price: 189.00,
-      stock: 12,
-      category: 'Perishable',
-      shelfDays: 3,
-    ),
-  ];
 }
 
 class _DashboardHeroCard extends StatelessWidget {
@@ -1278,9 +1194,12 @@ class _ActiveOrderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final settings = context.watch<OrderProvider>().settings;
     final int availableMins = OrderProvider.getAvailableExtensionMinutes(
-        order.expiresAt,
-        isExtended: order.isExtended);
+      order.expiresAt,
+      isExtended: order.isExtended,
+      settings: settings,
+    );
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -1308,54 +1227,69 @@ class _ActiveOrderCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.forest.withValues(alpha: 0.1),
-                      shape: BoxShape.circle,
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.forest.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.receipt_long_rounded,
+                          color: AppColors.forest, size: 20),
                     ),
-                    child: const Icon(Icons.receipt_long_rounded,
-                        color: AppColors.forest, size: 20),
-                  ),
-                  const SizedBox(width: 10),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        order.orderId,
-                        style: TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 16,
-                            color: Theme.of(context).colorScheme.onSurface),
-                      ),
-                      Text(
-                        '${order.items.length} item${order.items.length > 1 ? 's' : ''} · ₱${order.total.toStringAsFixed(2)}',
-                        style: TextStyle(
-                            fontSize: 12,
-                            color: Theme.of(context).textTheme.bodySmall?.color,
-                            fontWeight: FontWeight.w600),
-                      ),
-                      if (order.notes != null &&
-                          order.notes!.trim().isNotEmpty) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          'Note: "${order.notes!.trim()}"',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontStyle: FontStyle.italic,
-                            color: Theme.of(context).textTheme.bodySmall?.color,
-                            fontWeight: FontWeight.w500,
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            order.orderId,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 16,
+                                color: Theme.of(context).colorScheme.onSurface),
                           ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ],
+                          Text(
+                            '${order.items.length} item${order.items.length > 1 ? 's' : ''} · ₱${order.total.toStringAsFixed(2)}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.color,
+                                fontWeight: FontWeight.w600),
+                          ),
+                          if (order.notes != null &&
+                              order.notes!.trim().isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              'Note: "${order.notes!.trim()}"',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontStyle: FontStyle.italic,
+                                color: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.color,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               StatusBadge(order.status),
             ],
           ),
@@ -1442,16 +1376,27 @@ class _ActiveOrderCard extends StatelessWidget {
               width: double.infinity,
               child: OutlinedButton.icon(
                 onPressed: () async {
-                  HapticFeedback.lightImpact();
+                  unawaited(HapticFeedback.lightImpact());
                   final messenger = ScaffoldMessenger.of(context);
                   final op = context.read<OrderProvider>();
                   final ext = await op.extendOrderPickupTime(order.id);
                   if (ext > 0) {
+                    final cutoffLabel =
+                        op.getExtensionCutoffLabel(order.expiresAt);
                     messenger.showSnackBar(
                       SnackBar(
                         content: Text(
-                            '⏱ Pickup time extended by $ext mins! Extended up to 3:00 PM cutoff.'),
+                            '⏱ Pickup time extended by $ext mins! Extended up to $cutoffLabel cutoff.'),
                         backgroundColor: AppColors.forest,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  } else {
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                            'Unable to extend pickup time. Please try again.'),
+                        backgroundColor: AppColors.error,
                         behavior: SnackBarBehavior.floating,
                       ),
                     );
@@ -1685,60 +1630,6 @@ class _ShopperTile extends StatelessWidget {
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CategoryAvatarItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color bgColor;
-  final Color iconColor;
-  final VoidCallback onTap;
-
-  const _CategoryAvatarItem({
-    required this.icon,
-    required this.label,
-    required this.bgColor,
-    required this.iconColor,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.only(right: 16),
-        child: Column(
-          children: [
-            Container(
-              width: 58,
-              height: 58,
-              decoration: BoxDecoration(
-                color: bgColor,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: bgColor.withValues(alpha: 0.4),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Icon(icon, color: iconColor, size: 28),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: Theme.of(context).colorScheme.onSurface),
             ),
           ],
         ),

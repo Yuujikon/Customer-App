@@ -17,7 +17,7 @@ class NotificationPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<NotificationProvider?>();
-    final notifications = provider?.notifications ?? _sampleNotifications;
+    final notifications = provider?.notifications ?? const <AppNotification>[];
 
     return Container(
       width: double.infinity,
@@ -47,7 +47,7 @@ class NotificationPanel extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       'UPDATES',
                       style: TextStyle(
                         fontSize: 10,
@@ -56,7 +56,7 @@ class NotificationPanel extends StatelessWidget {
                         letterSpacing: 0.8,
                       ),
                     ),
-                    SizedBox(height: 2),
+                    const SizedBox(height: 2),
                     Text(
                       'Notifications',
                       style: TextStyle(
@@ -89,78 +89,84 @@ class NotificationPanel extends StatelessWidget {
                           size: 20,
                           color: Theme.of(context).textTheme.bodySmall?.color),
                       onPressed: onClose,
-                      tooltip: '',
+                      tooltip: 'Close notifications',
                     ),
                   ],
                 ),
               ],
             ),
           ),
-          const Divider(height: 1, color: AppColors.border),
+          Divider(height: 1, color: Theme.of(context).dividerColor),
 
-          // List
-          Flexible(
-            child: ListView.separated(
-              shrinkWrap: true,
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: notifications.length,
-              separatorBuilder: (_, __) =>
-                  const Divider(height: 1, color: AppColors.border),
-              itemBuilder: (context, i) {
-                final n = notifications[i];
-                return _NotificationRow(
-                  notification: n,
-                  onTap: () {
-                    if (!n.isRead && provider != null) {
-                      provider.markAsRead(n.id);
-                    }
-                    onClose();
-                    if (n.title.contains('prepared') ||
-                        n.title.contains('Pickup completed') ||
-                        n.type == NotificationType.order) {
-                      onNavigateToTab(3); // Orders tab
-                    } else if (n.title.contains('produce') ||
-                        n.type == NotificationType.stock) {
-                      onNavigateToTab(1); // Catalog tab
-                    }
-                  },
-                );
-              },
+          // List or Empty State
+          if (notifications.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.notifications_none_rounded,
+                      size: 36,
+                      color: Theme.of(context).textTheme.bodySmall?.color,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'No notifications yet',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Order and stock updates will appear here.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).textTheme.bodySmall?.color,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            Flexible(
+              child: ListView.separated(
+                shrinkWrap: true,
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                itemCount: notifications.length,
+                separatorBuilder: (_, __) =>
+                    Divider(height: 1, color: Theme.of(context).dividerColor),
+                itemBuilder: (context, i) {
+                  final n = notifications[i];
+                  return _NotificationRow(
+                    notification: n,
+                    onTap: () {
+                      if (!n.isRead && provider != null) {
+                        provider.markAsRead(n.id);
+                      }
+                      onClose();
+                      if (n.title.contains('prepared') ||
+                          n.title.contains('Pickup completed') ||
+                          n.type == NotificationType.order) {
+                        onNavigateToTab(3); // Orders tab
+                      } else if (n.title.contains('produce') ||
+                          n.type == NotificationType.stock) {
+                        onNavigateToTab(1); // Catalog tab
+                      }
+                    },
+                  );
+                },
+              ),
             ),
-          ),
         ],
       ),
     );
   }
-
-  static final List<AppNotification> _sampleNotifications = [
-    AppNotification(
-      id: 'n1',
-      title: 'Your order is being prepared',
-      body: 'Order #GDC-2841 is now being packed for pickup.',
-      timestamp: DateTime.now(),
-      type: NotificationType.order,
-      isRead: false,
-      relatedId: 'GDC-2841',
-    ),
-    AppNotification(
-      id: 'n2',
-      title: 'Fresh produce just arrived',
-      body: "Shop today's new farm-fresh picks before 4 PM.",
-      timestamp: DateTime.now().subtract(const Duration(minutes: 24)),
-      type: NotificationType.stock,
-      isRead: false,
-    ),
-    AppNotification(
-      id: 'n3',
-      title: 'Pickup completed',
-      body: 'Thanks for collecting order #GDC-2795.',
-      timestamp: DateTime.now().subtract(const Duration(days: 2)),
-      type: NotificationType.order,
-      isRead: true,
-      relatedId: 'GDC-2795',
-    ),
-  ];
 }
 
 class _NotificationRow extends StatelessWidget {
@@ -174,22 +180,28 @@ class _NotificationRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final unreadBg = isDark
+        ? AppColors.forest.withValues(alpha: 0.18)
+        : AppColors.sageTint.withValues(alpha: 0.35);
+    final readIconBg = isDark
+        ? Theme.of(context).colorScheme.surfaceContainerLow
+        : AppColors.warmSurface;
+    final unreadIconBg =
+        isDark ? AppColors.forest.withValues(alpha: 0.28) : AppColors.sageTint;
+
     return InkWell(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-        color: notification.isRead
-            ? AppColors.surface
-            : AppColors.sageTint.withValues(alpha: 0.35),
+        color: notification.isRead ? Colors.transparent : unreadBg,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
               padding: const EdgeInsets.all(9),
               decoration: BoxDecoration(
-                color: notification.isRead
-                    ? AppColors.warmSurface
-                    : AppColors.sageTint,
+                color: notification.isRead ? readIconBg : unreadIconBg,
                 shape: BoxShape.circle,
               ),
               child: Icon(

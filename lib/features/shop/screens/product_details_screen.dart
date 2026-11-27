@@ -1,14 +1,15 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'dart:convert';
 import '../../../shared/models/product.dart';
 import '../../orders/providers/order_provider.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../providers/inventory_provider.dart';
 import '../../../shared/widgets/common/qty_control.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/utils/format.dart';
 import '../../../core/theme/app_theme.dart';
-import '../widgets/shop_widgets.dart';
 
 class ProductDetailsScreen extends StatefulWidget {
   final Product product;
@@ -23,6 +24,8 @@ class ProductDetailsScreen extends StatefulWidget {
 class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   int _quantity = 1;
   String? _selectedVariantId;
+  String? _cachedPhotoRaw;
+  Uint8List? _cachedPhotoBytes;
 
   @override
   void initState() {
@@ -40,32 +43,68 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         .addPostFrameCallback((_) => _syncQuantityWithCart());
   }
 
+  Uint8List? _decodePhoto(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    if (_cachedPhotoRaw == raw) return _cachedPhotoBytes;
+    _cachedPhotoRaw = raw;
+    try {
+      final clean = raw.contains(',') ? raw.split(',').last : raw;
+      _cachedPhotoBytes = base64Decode(clean.trim());
+    } catch (_) {
+      _cachedPhotoBytes = null;
+    }
+    return _cachedPhotoBytes;
+  }
+
+  int? _cartQtyForVariant(String? variantId) {
+    final op = context.read<OrderProvider>();
+    final idx = op.preCart.indexWhere(
+      (i) => i.productId == widget.product.id && i.variantId == variantId,
+    );
+    return idx >= 0 ? op.preCart[idx].qty : null;
+  }
+
   void _syncQuantityWithCart() {
     if (!mounted) return;
-    final op = context.read<OrderProvider>();
-    final idx = op.preCart.indexWhere((i) =>
-        i.productId == widget.product.id && i.variantId == _selectedVariantId);
-    if (idx >= 0) {
+    final cartQty = _cartQtyForVariant(_selectedVariantId);
+    if (cartQty != null) {
       setState(() {
-        _quantity = op.preCart[idx].qty;
+        _quantity = cartQty;
       });
     }
+  }
+
+  Product _liveProduct(InventoryProvider inventory) {
+    for (final p in inventory.products) {
+      if (p.id == widget.product.id) return p;
+    }
+    return widget.product;
+  }
+
+  ProductVariant? _resolveSelectedVariant(Product product) {
+    if (!product.hasVariants || product.variants == null) return null;
+    if (_selectedVariantId != null) {
+      final current = product.variants![_selectedVariantId];
+      if (current != null && !current.isOutOfStockForCustomer) {
+        return current;
+      }
+    }
+    for (final v in product.variants!.values) {
+      if (!v.isOutOfStockForCustomer) return v;
+    }
+    return _selectedVariantId != null
+        ? product.variants![_selectedVariantId]
+        : null;
   }
 
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AppAuthProvider>();
-    final isFavorite = auth.favorites.contains(widget.product.id);
-
-    final bool isOutOfStock = widget.product.isOutOfStockForCustomer;
-
-    final imageBytes = widget.product.photoBase64 != null
-        ? base64Decode(
-            widget.product.photoBase64!.contains(',')
-                ? widget.product.photoBase64!.split(',').last
-                : widget.product.photoBase64!.trim(),
-          )
-        : null;
+    final inventory = context.watch<InventoryProvider>();
+    final product = _liveProduct(inventory);
+    final isFavorite = auth.favorites.contains(product.id);
+    final bool isOutOfStock = product.isOutOfStockForCustomer;
+    final imageBytes = _decodePhoto(product.photoBase64);
 
     return Scaffold(
       backgroundColor: Theme.of(context).cardColor,
@@ -87,7 +126,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               ),
               actions: [
                 GestureDetector(
-                  onTap: () => auth.toggleFavorite(widget.product.id),
+                  onTap: () => auth.toggleFavorite(product.id),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     padding: const EdgeInsets.all(10),
@@ -123,7 +162,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               ],
               flexibleSpace: FlexibleSpaceBar(
                 background: Hero(
-                  tag: widget.heroTag ?? widget.product.id,
+                  tag: widget.heroTag ?? product.id,
                   child: Container(
                     color: Theme.of(context).brightness == Brightness.dark
                         ? Theme.of(context).colorScheme.surfaceContainerLow
@@ -145,29 +184,34 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: _buildDetailsContent(context),
+                child: _buildDetailsContent(context, product),
               ),
             ),
           ],
         ),
-        tablet: _buildSplitView(context, isFavorite, isOutOfStock, auth),
-        desktop: _buildSplitView(context, isFavorite, isOutOfStock, auth),
+        tablet: _buildSplitView(
+            context, product, imageBytes, isFavorite, isOutOfStock, auth),
+        desktop: _buildSplitView(
+            context, product, imageBytes, isFavorite, isOutOfStock, auth),
       ),
       bottomSheet: Responsive.isMobile(context)
-          ? _buildBottomActions(context, isOutOfStock)
+          ? SafeArea(
+              top: false,
+              child: _buildBottomActions(context, product, isOutOfStock),
+            )
           : null,
     );
   }
 
-  Widget _buildSplitView(BuildContext context, bool isFavorite,
-      bool isOutOfStock, AppAuthProvider auth) {
-    final imageBytes = widget.product.photoBase64 != null
-        ? base64Decode(
-            widget.product.photoBase64!.contains(',')
-                ? widget.product.photoBase64!.split(',').last
-                : widget.product.photoBase64!.trim(),
-          )
-        : null;
+  Widget _buildSplitView(
+    BuildContext context,
+    Product product,
+    Uint8List? imageBytes,
+    bool isFavorite,
+    bool isOutOfStock,
+    AppAuthProvider auth,
+  ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Row(
       children: [
@@ -178,10 +222,12 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
             children: [
               Positioned.fill(
                 child: Container(
-                  color: const Color(0xFFF7F9F5),
+                  color: isDark
+                      ? Theme.of(context).colorScheme.surfaceContainerLow
+                      : const Color(0xFFF7F9F5),
                   padding: const EdgeInsets.all(16),
                   child: Hero(
-                    tag: widget.heroTag ?? widget.product.id,
+                    tag: widget.heroTag ?? product.id,
                     child: imageBytes != null
                         ? Image.memory(
                             imageBytes,
@@ -197,10 +243,12 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 top: 16,
                 left: 16,
                 child: CircleAvatar(
-                  backgroundColor: Colors.white.withValues(alpha: 0.8),
+                  backgroundColor: isDark
+                      ? Theme.of(context).cardColor.withValues(alpha: 0.9)
+                      : Colors.white.withValues(alpha: 0.8),
                   child: IconButton(
-                    icon: const Icon(Icons.arrow_back,
-                        color: GdcColors.textPrimary),
+                    icon: Icon(Icons.arrow_back,
+                        color: Theme.of(context).colorScheme.onSurface),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ),
@@ -213,7 +261,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           flex: 5,
           child: Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).cardColor,
               boxShadow: [
                 BoxShadow(
                     color: Colors.black.withValues(alpha: 0.05),
@@ -231,14 +279,18 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   Padding(
                     padding: const EdgeInsets.only(right: 16),
                     child: GestureDetector(
-                      onTap: () => auth.toggleFavorite(widget.product.id),
+                      onTap: () => auth.toggleFavorite(product.id),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color: isFavorite
                               ? Colors.amber.shade700
-                              : GdcColors.cream,
+                              : (isDark
+                                  ? Theme.of(context)
+                                      .colorScheme
+                                      .surfaceContainerLow
+                                  : GdcColors.cream),
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
@@ -252,8 +304,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                           isFavorite
                               ? Icons.bookmark_rounded
                               : Icons.bookmark_border_rounded,
-                          color:
-                              isFavorite ? Colors.white : GdcColors.textPrimary,
+                          color: isFavorite
+                              ? Colors.white
+                              : Theme.of(context).colorScheme.onSurface,
                           size: 20,
                         ),
                       ),
@@ -263,9 +316,12 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               ),
               body: SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
-                child: _buildDetailsContent(context),
+                child: _buildDetailsContent(context, product),
               ),
-              bottomNavigationBar: _buildBottomActions(context, isOutOfStock),
+              bottomNavigationBar: SafeArea(
+                top: false,
+                child: _buildBottomActions(context, product, isOutOfStock),
+              ),
             ),
           ),
         ),
@@ -273,15 +329,16 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     );
   }
 
-  Widget _buildDetailsContent(BuildContext context) {
-    final bool hasVariants = widget.product.hasVariants;
-    final selectedVariant = _selectedVariantId != null
-        ? widget.product.variants![_selectedVariantId]
-        : null;
-    final bool isOutOfStock = widget.product.isOutOfStockForCustomer;
+  Widget _buildDetailsContent(BuildContext context, Product product) {
+    final bool hasVariants = product.hasVariants;
+    final selectedVariant = _resolveSelectedVariant(product);
+    final bool isOutOfStock = product.isOutOfStockForCustomer;
     final int purchasableStock = hasVariants
         ? (selectedVariant?.maxPurchasableStock ?? 0)
-        : widget.product.maxPurchasableStock;
+        : product.maxPurchasableStock;
+    final int effectiveQty =
+        purchasableStock > 0 ? _quantity.clamp(1, purchasableStock) : 1;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -295,7 +352,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                widget.product.category.toUpperCase(),
+                product.category.toUpperCase(),
                 style: const TextStyle(
                   color: GdcColors.terracotta,
                   fontWeight: FontWeight.w900,
@@ -305,7 +362,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               ),
             ),
             const Spacer(),
-            if (widget.product.isPerishable)
+            if (product.isPerishable)
               Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -326,7 +383,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         ),
         const SizedBox(height: 12),
         Text(
-          capitalize(widget.product.name),
+          capitalize(product.name),
           style: TextStyle(
               fontSize: 26,
               fontWeight: FontWeight.w900,
@@ -356,7 +413,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                     fontWeight: FontWeight.w800,
                     color: selectedVariant.maxPurchasableStock <= 5
                         ? GdcColors.error
-                        : (Theme.of(context).brightness == Brightness.dark
+                        : (isDark
                             ? Theme.of(context).colorScheme.primary
                             : GdcColors.textSecondary),
                   ),
@@ -377,7 +434,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                formatPeso(widget.product.price),
+                formatPeso(product.price),
                 style: TextStyle(
                     fontSize: 26,
                     fontWeight: FontWeight.w900,
@@ -385,13 +442,13 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               ),
               const Spacer(),
               Text(
-                '${widget.product.maxPurchasableStock} ${widget.product.unit} left',
+                '${product.maxPurchasableStock} ${product.unit} left',
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w800,
-                  color: widget.product.maxPurchasableStock <= 5
+                  color: product.maxPurchasableStock <= 5
                       ? GdcColors.error
-                      : (Theme.of(context).brightness == Brightness.dark
+                      : (isDark
                           ? Theme.of(context).colorScheme.primary
                           : GdcColors.textSecondary),
                 ),
@@ -402,25 +459,27 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
         const SizedBox(height: 24),
 
-        // ── Item Specification Cards (Inspired by Reference Images 1 & 2) ──
+        // ── Item Specification Cards ──
         Row(
           children: [
             _SpecCard(
               label: 'Unit',
-              value: widget.product.unit.toUpperCase(),
+              value: product.unit.toUpperCase(),
               icon: Icons.scale_rounded,
             ),
             const SizedBox(width: 8),
             _SpecCard(
-              label: 'In Stock',
-              value: '$purchasableStock items',
+              label: 'Stock',
+              value: purchasableStock > 0
+                  ? '$purchasableStock ${product.unit}'
+                  : 'Out of Stock',
               icon: Icons.inventory_rounded,
             ),
             const SizedBox(width: 8),
             _SpecCard(
               label: 'Pickup Slot',
-              value: widget.product.pickupWindowHours != null
-                  ? '${widget.product.pickupWindowHours} Hours'
+              value: product.pickupWindowHours != null
+                  ? '${product.pickupWindowHours} Hours'
                   : 'Standard',
               icon: Icons.schedule_rounded,
             ),
@@ -441,8 +500,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           Wrap(
             spacing: 10,
             runSpacing: 10,
-            children: widget.product.variants!.values.map((v) {
-              final isSelected = _selectedVariantId == v.id;
+            children: product.variants!.values.map((v) {
+              final isSelected = selectedVariant?.id == v.id;
               final isSoldOut = v.isOutOfStockForCustomer;
               return ChoiceChip(
                 label: Text(capitalize(v.name)),
@@ -450,12 +509,15 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 onSelected: isSoldOut
                     ? null
                     : (selected) {
+                        final cartQty = _cartQtyForVariant(v.id);
                         setState(() {
                           _selectedVariantId = v.id;
-                          if (_quantity > v.maxPurchasableStock)
-                            _quantity = v.maxPurchasableStock;
-                          if (_quantity < 1) _quantity = 1;
-                          _syncQuantityWithCart();
+                          final maxStock = v.maxPurchasableStock;
+                          if (cartQty != null && maxStock > 0) {
+                            _quantity = cartQty.clamp(1, maxStock);
+                          } else {
+                            _quantity = 1;
+                          }
                         });
                       },
                 selectedColor: GdcColors.terracotta,
@@ -468,7 +530,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   fontWeight: FontWeight.bold,
                 ),
                 backgroundColor: isSoldOut
-                    ? Colors.grey.shade900
+                    ? (isDark ? Colors.grey.shade800 : Colors.grey.shade200)
                     : Theme.of(context).cardColor,
               );
             }).toList(),
@@ -488,10 +550,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                     color: Theme.of(context).colorScheme.onSurface),
               ),
               QtyControl(
-                qty: _quantity,
-                max: hasVariants
-                    ? selectedVariant?.maxPurchasableStock
-                    : widget.product.maxPurchasableStock,
+                qty: effectiveQty,
+                max: purchasableStock,
                 onChanged: (v) => setState(() => _quantity = v),
               ),
             ],
@@ -536,13 +596,19 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     );
   }
 
-  bool get isOutOfStock => widget.product.isOutOfStockForCustomer;
-
-  Widget _buildBottomActions(BuildContext context, bool isOutOfStock) {
+  Widget _buildBottomActions(
+      BuildContext context, Product product, bool isOutOfStock) {
     if (isOutOfStock) return const SizedBox.shrink();
 
-    final bool hasVariants = widget.product.hasVariants;
-    final bool canAdd = (!hasVariants || _selectedVariantId != null);
+    final bool hasVariants = product.hasVariants;
+    final ProductVariant? selectedVariant = _resolveSelectedVariant(product);
+    final int purchasableStock = hasVariants
+        ? (selectedVariant?.maxPurchasableStock ?? 0)
+        : product.maxPurchasableStock;
+    final int effectiveQty =
+        purchasableStock > 0 ? _quantity.clamp(1, purchasableStock) : 1;
+    final bool canAdd =
+        (!hasVariants || selectedVariant != null) && purchasableStock > 0;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
@@ -565,15 +631,11 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
             ? null
             : () {
                 final op = context.read<OrderProvider>();
-
-                ProductVariant? v;
-                if (hasVariants && _selectedVariantId != null) {
-                  v = widget.product.variants![_selectedVariantId!];
-                }
+                final ProductVariant? v = hasVariants ? selectedVariant : null;
 
                 op.addToPreCart(
-                  widget.product,
-                  quantity: _quantity,
+                  product,
+                  quantity: effectiveQty,
                   variantId: v?.id,
                   variantName: v?.name,
                   replace: true,
@@ -581,7 +643,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                   content: Text(
-                      'Added $_quantity x ${widget.product.name} ${v != null ? '(${v.name})' : ''} to basket.'),
+                      'Added $effectiveQty x ${product.name} ${v != null ? '(${v.name})' : ''} to basket.'),
                   backgroundColor: GdcColors.success,
                   duration: const Duration(seconds: 1),
                 ));
@@ -596,7 +658,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
         ),
         child: Text(
-          hasVariants && _selectedVariantId == null
+          hasVariants && selectedVariant == null
               ? 'SELECT A FLAVOR'
               : 'ADD TO BASKET',
           style: const TextStyle(

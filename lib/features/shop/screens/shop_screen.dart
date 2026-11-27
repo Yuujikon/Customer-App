@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/format.dart';
+import '../../../core/utils/pricing_engine.dart';
 import '../../../shared/models/product.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../orders/providers/order_provider.dart';
@@ -77,9 +79,7 @@ class _ShopScreenState extends State<ShopScreen> {
   @override
   Widget build(BuildContext context) {
     final inventory = context.watch<InventoryProvider>();
-    final products = inventory.sortedProducts.isNotEmpty
-        ? inventory.sortedProducts
-        : _defaultCatalog;
+    final products = inventory.sortedProducts;
     final orderProvider = context.watch<OrderProvider>();
     final auth = context.watch<AppAuthProvider>();
 
@@ -98,7 +98,7 @@ class _ShopScreenState extends State<ShopScreen> {
     }).toList();
 
     final bundles = inventory.bundles.where((b) => b.isActive).toList();
-    final effectivelyClosed = inventory.settings.effectivelyClosed;
+    final isEmergencyClosed = inventory.settings.isEmergencyClosed;
 
     final rawCats = inventory.products
         .map((p) => p.category.trim())
@@ -135,7 +135,10 @@ class _ShopScreenState extends State<ShopScreen> {
             p.name.toLowerCase().contains(_search.toLowerCase()))
         .toList();
 
-    final cartTotal = preCart.fold(0.0, (s, i) => s + i.price * i.qty);
+    final cartTotal = PricingEngine.calculate(
+      items: preCart,
+      allProducts: inventory.products,
+    ).total;
     final cartCount = preCart.fold(0, (s, i) => s + i.qty);
     final savedCount =
         inventory.products.where((p) => auth.favorites.contains(p.id)).length;
@@ -161,46 +164,50 @@ class _ShopScreenState extends State<ShopScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'GDC MARKET',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.sage,
-                              letterSpacing: 1.2,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'GDC MARKET',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.sage,
+                                letterSpacing: 1.2,
+                              ),
                             ),
-                          ),
-                          SizedBox(height: 2),
-                          Text(
-                            'Browse Catalog',
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
-                              color: Theme.of(context).colorScheme.onSurface,
-                              letterSpacing: -0.4,
+                            const SizedBox(height: 2),
+                            Text(
+                              'Browse Catalog',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                                color: Theme.of(context).colorScheme.onSurface,
+                                letterSpacing: -0.4,
+                              ),
                             ),
-                          ),
-                          SizedBox(height: 2),
-                          Text(
-                            'Fresh essentials, ready for express pickup.',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color:
-                                  Theme.of(context).textTheme.bodySmall?.color,
-                              fontWeight: FontWeight.w500,
+                            const SizedBox(height: 2),
+                            Text(
+                              'Fresh essentials, ready for express pickup.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.color,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           // 1. 3-Dot Filter Options Menu (Swapped Position)
                           PopupMenuButton<String>(
-                            tooltip: '',
+                            tooltip: 'Filter options',
                             icon: Container(
                               width: 40,
                               height: 40,
@@ -282,10 +289,10 @@ class _ShopScreenState extends State<ShopScreen> {
                                 ),
                               ),
                               if (_showOutOfStock || _savedOnly)
-                                PopupMenuItem(
+                                const PopupMenuItem(
                                   value: 'reset',
                                   child: Row(
-                                    children: const [
+                                    children: [
                                       Icon(Icons.refresh_rounded,
                                           size: 18, color: AppColors.mutedText),
                                       SizedBox(width: 8),
@@ -329,12 +336,14 @@ class _ShopScreenState extends State<ShopScreen> {
                           Icon(Icons.wifi_off_rounded,
                               color: Colors.white, size: 16),
                           SizedBox(width: 8),
-                          Text(
-                            'You are offline. Inventory data might be stale.',
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold),
+                          Flexible(
+                            child: Text(
+                              'You are offline. Inventory data might be stale.',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold),
+                            ),
                           ),
                         ],
                       ),
@@ -440,8 +449,9 @@ class _ShopScreenState extends State<ShopScreen> {
                                       MaterialTapTargetSize.shrinkWrap,
                                   visualDensity: VisualDensity.compact,
                                   onSelected: (selected) {
-                                    if (selected)
+                                    if (selected) {
                                       setState(() => _cat = catName);
+                                    }
                                   },
                                   selectedColor: AppColors.forest,
                                   labelStyle: TextStyle(
@@ -495,8 +505,12 @@ class _ShopScreenState extends State<ShopScreen> {
                           child: BasketSummarySection(
                             items: preCart,
                             allProducts: inventory.products,
-                            onRemove: (id, variantId) => orderProvider
-                                .removeFromPreCart(id, variantId: variantId),
+                            onRemove: (id, variantId) =>
+                                orderProvider.removeFromPreCart(
+                              id,
+                              variantId: variantId,
+                              exactVariantMatch: true,
+                            ),
                             onClearAll: () => orderProvider.clearPreCart(),
                           ),
                         ),
@@ -539,7 +553,7 @@ class _ShopScreenState extends State<ShopScreen> {
                                   .any((p) => p.isUnavailable || p.isAdjusted);
 
                               if (hasIssues) {
-                                showDialog(
+                                unawaited(showDialog(
                                   context: context,
                                   builder: (ctx) => ReorderSummaryDialog(
                                     previews: previews,
@@ -559,7 +573,7 @@ class _ShopScreenState extends State<ShopScreen> {
                                       // Ignore for dashboard
                                     },
                                   ),
-                                );
+                                ));
                               } else {
                                 orderProvider.applyReorder(previews);
                                 ScaffoldMessenger.of(context).showSnackBar(
@@ -605,18 +619,51 @@ class _ShopScreenState extends State<ShopScreen> {
                             currentCategory: _cat,
                             onAdd: (bundle) {
                               final messenger = ScaffoldMessenger.of(context);
+                              int addedCount = 0;
+                              int skippedCount = 0;
                               for (final productId in bundle.productIds) {
-                                try {
-                                  final p = inventory.products.firstWhere(
-                                      (prod) => prod.id == productId);
+                                final matches = inventory.products
+                                    .where((prod) => prod.id == productId);
+                                if (matches.isEmpty) {
+                                  skippedCount++;
+                                  continue;
+                                }
+                                final p = matches.first;
+                                if (p.isOutOfStockForCustomer ||
+                                    p.isQuarantined) {
+                                  skippedCount++;
+                                  continue;
+                                }
+                                if (p.hasVariants) {
+                                  final firstAvail = p.variants!.values
+                                      .where((v) => !v.isOutOfStockForCustomer)
+                                      .firstOrNull;
+                                  if (firstAvail == null) {
+                                    skippedCount++;
+                                    continue;
+                                  }
+                                  orderProvider.addToPreCart(
+                                    p,
+                                    variantId: firstAvail.id,
+                                    variantName: firstAvail.name,
+                                  );
+                                } else {
                                   orderProvider.addToPreCart(p);
-                                } catch (_) {}
+                                }
+                                addedCount++;
                               }
                               messenger.showSnackBar(
                                 SnackBar(
                                   content: Text(
-                                      'Added "${bundle.name}" to pre-cart.'),
-                                  backgroundColor: AppColors.forest,
+                                    addedCount == 0
+                                        ? 'All items in "${bundle.name}" are currently out of stock.'
+                                        : skippedCount > 0
+                                            ? 'Added $addedCount item(s) from "${bundle.name}" ($skippedCount out of stock).'
+                                            : 'Added "${bundle.name}" to pre-cart.',
+                                  ),
+                                  backgroundColor: addedCount == 0
+                                      ? AppColors.error
+                                      : AppColors.forest,
                                   behavior: SnackBarBehavior.floating,
                                 ),
                               );
@@ -721,9 +768,9 @@ class _ShopScreenState extends State<ShopScreen> {
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: AnimatedOpacity(
         duration: const Duration(milliseconds: 250),
-        opacity: (preCart.isNotEmpty && !effectivelyClosed) ? 1.0 : 0.0,
+        opacity: (preCart.isNotEmpty && !isEmergencyClosed) ? 1.0 : 0.0,
         child: IgnorePointer(
-          ignoring: preCart.isEmpty || effectivelyClosed,
+          ignoring: preCart.isEmpty || isEmergencyClosed,
           child: SafeArea(
             bottom: true,
             child: Container(
@@ -780,25 +827,4 @@ class _ShopScreenState extends State<ShopScreen> {
       ),
     );
   }
-
-  static const List<Product> _defaultCatalog = [
-    Product(
-      id: 'p1',
-      name: 'Fresh Red Tomatoes',
-      unit: '500g',
-      price: 68.00,
-      stock: 25,
-      category: 'Fresh Produce',
-      shelfDays: 5,
-    ),
-    Product(
-      id: 'p2',
-      name: 'Creamy Avocados',
-      unit: '2 pieces',
-      price: 95.00,
-      stock: 18,
-      category: 'Fresh Produce',
-      shelfDays: 4,
-    ),
-  ];
 }

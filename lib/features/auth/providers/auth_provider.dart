@@ -5,6 +5,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/material.dart';
 import '../../../shared/services/notification_service.dart';
+import '../../../shared/services/time_service.dart';
 import '../../../core/utils/name_validator.dart';
 import 'dart:typed_data';
 import 'dart:convert';
@@ -16,6 +17,7 @@ class AppAuthProvider extends ChangeNotifier {
 
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
       _profileSubscription;
+  StreamSubscription<User?>? _authStateSubscription;
 
   String? _phoneNumber;
   String? _base64Photo;
@@ -37,7 +39,8 @@ class AppAuthProvider extends ChangeNotifier {
 
   bool get isOrderRestricted {
     if (_isPermanentlyLocked) return true;
-    if (_restrictionUntil != null && _restrictionUntil!.isAfter(DateTime.now())) {
+    if (_restrictionUntil != null &&
+        _restrictionUntil!.isAfter(TimeService.now)) {
       return true;
     }
     return false;
@@ -45,13 +48,14 @@ class AppAuthProvider extends ChangeNotifier {
 
   Duration? get remainingRestrictionDuration {
     if (_isPermanentlyLocked || _restrictionUntil == null) return null;
-    final diff = _restrictionUntil!.difference(DateTime.now());
+    final diff = _restrictionUntil!.difference(TimeService.now);
     return diff.isNegative ? null : diff;
   }
 
   String get restrictionStatusText {
     if (_isPermanentlyLocked) return 'Permanent Account Lock (4th Offense)';
-    if (_restrictionUntil != null && _restrictionUntil!.isAfter(DateTime.now())) {
+    if (_restrictionUntil != null &&
+        _restrictionUntil!.isAfter(TimeService.now)) {
       if (_offenseCount == 1) return '2-Hour Restriction (1st Offense)';
       if (_offenseCount == 2) return '24-Hour Restriction (2nd Offense)';
       if (_offenseCount == 3) return '72-Hour Restriction (3rd Offense)';
@@ -87,11 +91,13 @@ class AppAuthProvider extends ChangeNotifier {
   bool get initialized => _auth.currentUser != null;
 
   void initialize() {
+    TimeService.instance.addListener(notifyListeners);
     if (currentUser != null) {
       _saveFcmToken();
       _listenToProfile();
     }
-    _auth.authStateChanges().listen((user) {
+    _authStateSubscription?.cancel();
+    _authStateSubscription = _auth.authStateChanges().listen((user) {
       if (user != null) {
         _listenToProfile();
       } else {
@@ -190,12 +196,13 @@ class AppAuthProvider extends ChangeNotifier {
   }
 
   /// Intercepts Google Sign-In and checks if Google name passes sanitization.
-  /// If valid, saves user to Firestore with full name and proceeds.
-  /// If invalid/weird, sets fullName: null, requiresNameSetup: true, and returns true for ProfileSetupScreen.
-  Future<bool> signInWithGoogle() async {
+  /// Returns `null` if the user cancelled Google Sign-In.
+  /// Returns `false` if sign-in succeeded and profile is complete.
+  /// Returns `true` if sign-in succeeded and ProfileSetupScreen is required.
+  Future<bool?> signInWithGoogle() async {
     try {
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) return false;
+      if (googleUser == null) return null;
 
       final GoogleSignInAuthentication googleAuth =
           await googleUser.authentication;
@@ -324,12 +331,12 @@ class AppAuthProvider extends ChangeNotifier {
 
   Future<void> signUp(String email, String password, String name,
       {String? phone}) async {
-    final cred = await _auth.createUserWithEmailAndPassword(
-        email: email, password: password);
     final formattedName = capitalizeName(name);
     if (!isValidRealName(formattedName)) {
-      throw FormatException('Please enter a valid First and Last name.');
+      throw const FormatException('Please enter a valid First and Last name.');
     }
+    final cred = await _auth.createUserWithEmailAndPassword(
+        email: email, password: password);
     await cred.user?.updateDisplayName(formattedName);
 
     await _db.collection('users').doc(cred.user!.uid).set({
@@ -376,11 +383,10 @@ class AppAuthProvider extends ChangeNotifier {
     final user = currentUser;
     if (user == null) return;
 
-    final formattedName = (name != null && name.trim().isNotEmpty)
-        ? capitalizeName(name)
-        : null;
-    final bool isNameProvided = formattedName != null &&
-        isValidRealName(formattedName);
+    final formattedName =
+        (name != null && name.trim().isNotEmpty) ? capitalizeName(name) : null;
+    final bool isNameProvided =
+        formattedName != null && isValidRealName(formattedName);
 
     if (isNameProvided) {
       await user.updateDisplayName(formattedName);
@@ -448,12 +454,17 @@ class AppAuthProvider extends ChangeNotifier {
     _favorites = [];
     _hasEnteredFullName = false;
     _requiresNameSetup = false;
+    _offenseCount = 0;
+    _restrictionUntil = null;
+    _isPermanentlyLocked = false;
 
     notifyListeners();
   }
 
   @override
   void dispose() {
+    TimeService.instance.removeListener(notifyListeners);
+    _authStateSubscription?.cancel();
     _profileSubscription?.cancel();
     super.dispose();
   }

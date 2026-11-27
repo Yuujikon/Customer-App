@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/time_service.dart';
 
 enum AppealStatus { pending, approved, rejected }
 
@@ -46,7 +47,7 @@ class CustomerAppeal {
       reason: d['reason']?.toString() ?? '',
       status: status,
       adminNotes: d['adminNotes']?.toString(),
-      createdAt: (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      createdAt: (d['createdAt'] as Timestamp?)?.toDate() ?? TimeService.now,
       reviewedAt: (d['reviewedAt'] as Timestamp?)?.toDate(),
       reviewedByEmail: d['reviewedByEmail']?.toString(),
     );

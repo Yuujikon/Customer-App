@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -49,7 +50,19 @@ class _ActiveOrdersScreenState extends State<ActiveOrdersScreen>
     final email = auth.email;
 
     if (email.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.receipt_long_outlined, size: 64, color: Colors.grey),
+            SizedBox(height: 16),
+            Text(
+              'Sign in to view your active orders.',
+              style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+      );
     }
 
     return RefreshIndicator(
@@ -75,6 +88,7 @@ class _ActiveOrdersScreenState extends State<ActiveOrdersScreen>
               .where((o) =>
                   o.status != OrderStatus.collected &&
                   o.status != OrderStatus.cancelled &&
+                  o.status != OrderStatus.refundRequested &&
                   o.status != OrderStatus.refunded &&
                   o.status != OrderStatus.refundRejected &&
                   !o.isExpired)
@@ -200,62 +214,70 @@ class _OrderCard extends StatelessWidget {
                             order.status == OrderStatus.ready))
                       Padding(
                         padding: const EdgeInsets.only(top: 6),
-                        child: Row(children: [
-                          const Icon(Icons.timer_outlined,
-                              size: 14, color: GdcColors.error),
-                          const SizedBox(width: 4),
-                          Text(
-                              'Exp: ${_formatExpiryLabel(order.expiresAt!)}',
-                              style: const TextStyle(
-                                  color: GdcColors.error,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w800)),
-                          if (order.isExtended) ...[
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: GdcColors.forest.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                    color: GdcColors.forest, width: 1),
-                              ),
-                              child: const Text(
-                                'Extended (1-time limit reached)',
-                                style: TextStyle(
-                                  color: GdcColors.forest,
-                                  fontSize: 9.5,
-                                  fontWeight: FontWeight.w900,
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.timer_outlined,
+                                    size: 14, color: GdcColors.error),
+                                const SizedBox(width: 4),
+                                Text(
+                                    'Exp: ${_formatExpiryLabel(order.expiresAt!)}',
+                                    style: const TextStyle(
+                                        color: GdcColors.error,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w800)),
+                              ],
+                            ),
+                            if (order.isExtended)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color:
+                                      GdcColors.forest.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                      color: GdcColors.forest, width: 1),
+                                ),
+                                child: const Text(
+                                  'Extended (1-time limit reached)',
+                                  style: TextStyle(
+                                    color: GdcColors.forest,
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              )
+                            else if (OrderProvider.getAvailableExtensionMinutes(
+                                    order.expiresAt,
+                                    isExtended: order.isExtended) >
+                                0)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: GdcColors.orangeCTA
+                                      .withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                      color: GdcColors.orangeCTA, width: 1),
+                                ),
+                                child: Text(
+                                  '+ Extend (+${OrderProvider.getAvailableExtensionMinutes(order.expiresAt, isExtended: order.isExtended)} min)',
+                                  style: const TextStyle(
+                                    color: GdcColors.orangeCTA,
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w900,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ] else if (OrderProvider.getAvailableExtensionMinutes(
-                                  order.expiresAt,
-                                  isExtended: order.isExtended) >
-                              0) ...[
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color:
-                                    GdcColors.orangeCTA.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                    color: GdcColors.orangeCTA, width: 1),
-                              ),
-                              child: Text(
-                                '+ Extend (+${OrderProvider.getAvailableExtensionMinutes(order.expiresAt, isExtended: order.isExtended)} min)',
-                                style: const TextStyle(
-                                  color: GdcColors.orangeCTA,
-                                  fontSize: 9.5,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                            ),
                           ],
-                        ]),
+                        ),
                       ),
                   ],
                 ),
@@ -480,9 +502,9 @@ class _OrderDetail extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.info_outline_rounded,
+              const Icon(Icons.info_outline_rounded,
                   size: 16, color: GdcColors.terracotta),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   'Return & Exchange Policy: Present this QR receipt at the store. Opened, unsealed, or tampered items cannot be refunded or swapped.',
@@ -526,7 +548,8 @@ class _OrderDetail extends StatelessWidget {
           _InfoBox(
               icon: Icons.timer_outlined,
               label: 'Store Hold Until',
-              value: DateFormat('EEE, MMM d • h:mm a').format(order.expiresAt!)),
+              value:
+                  DateFormat('EEE, MMM d • h:mm a').format(order.expiresAt!)),
         ],
         const SizedBox(height: 8),
         _InfoBox(
@@ -568,24 +591,38 @@ class _OrderDetail extends StatelessWidget {
               ],
             ),
           ),
-        ] else if (OrderProvider.getAvailableExtensionMinutes(order.expiresAt,
-                isExtended: order.isExtended) >
+        ] else if (OrderProvider.getAvailableExtensionMinutes(
+              order.expiresAt,
+              isExtended: order.isExtended,
+              settings: context.watch<OrderProvider>().settings,
+            ) >
             0) ...[
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: () async {
-                HapticFeedback.lightImpact();
+                unawaited(HapticFeedback.lightImpact());
                 final messenger = ScaffoldMessenger.of(context);
                 final op = context.read<OrderProvider>();
                 final ext = await op.extendOrderPickupTime(order.id);
                 if (ext > 0) {
+                  final cutoffLabel =
+                      op.getExtensionCutoffLabel(order.expiresAt);
                   messenger.showSnackBar(
                     SnackBar(
                       content: Text(
-                          '⏱ Pickup time extended by $ext mins! Extended up to 3:00 PM cutoff.'),
+                          '⏱ Pickup time extended by $ext mins! Extended up to $cutoffLabel cutoff.'),
                       backgroundColor: GdcColors.forest,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                } else {
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                          'Unable to extend pickup time. Please try again.'),
+                      backgroundColor: GdcColors.error,
                       behavior: SnackBarBehavior.floating,
                     ),
                   );
@@ -593,7 +630,7 @@ class _OrderDetail extends StatelessWidget {
               },
               icon: const Icon(Icons.timer_outlined, size: 16),
               label: Text(
-                'EXTEND PICKUP (+ ${OrderProvider.getAvailableExtensionMinutes(order.expiresAt, isExtended: order.isExtended)} MIN)',
+                'EXTEND PICKUP (+ ${OrderProvider.getAvailableExtensionMinutes(order.expiresAt, isExtended: order.isExtended, settings: context.watch<OrderProvider>().settings)} MIN)',
                 style:
                     const TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
               ),
@@ -614,7 +651,7 @@ class _OrderDetail extends StatelessWidget {
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: () async {
-                HapticFeedback.lightImpact();
+                unawaited(HapticFeedback.lightImpact());
                 final confirm = await showDialog<bool>(
                   context: context,
                   builder: (ctx) => CancelOrderDialog(orderId: order.orderId),

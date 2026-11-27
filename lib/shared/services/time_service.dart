@@ -7,7 +7,7 @@ import 'package:flutter/foundation.dart';
 class TimeService with ChangeNotifier {
   static final TimeService instance = TimeService._internal();
   factory TimeService() => instance;
-  
+
   TimeService._internal() {
     _initRealtimeSync();
   }
@@ -29,23 +29,34 @@ class TimeService with ChangeNotifier {
         .collection('system_config')
         .doc('time_simulation')
         .snapshots()
-        .listen((doc) {
-      if (doc.exists && doc.data() != null) {
-        final mins = (doc.data()!['offsetMinutes'] as num? ?? 0).toInt();
-        if (_offset.inMinutes != mins) {
-          _offset = Duration(minutes: mins);
-          notifyListeners();
+        .listen(
+      (doc) {
+        if (doc.exists && doc.data() != null) {
+          final mins = (doc.data()!['offsetMinutes'] as num? ?? 0).toInt();
+          if (_offset.inMinutes != mins) {
+            _offset = Duration(minutes: mins);
+            notifyListeners();
+          }
         }
-      }
-    });
+      },
+      onError: (e) {
+        debugPrint('TimeService sync stream error: $e');
+      },
+    );
   }
 
   /// Pushes the new time offset to Firestore to sync all devices globally.
   Future<void> _syncToFirestore(Duration newOffset) async {
-    await FirebaseFirestore.instance
-        .collection('system_config')
-        .doc('time_simulation')
-        .set({'offsetMinutes': newOffset.inMinutes}, SetOptions(merge: true));
+    try {
+      await FirebaseFirestore.instance
+          .collection('system_config')
+          .doc('time_simulation')
+          .set({'offsetMinutes': newOffset.inMinutes}, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('TimeService Firestore sync error: $e');
+      _offset = newOffset;
+      notifyListeners();
+    }
   }
 
   /// Fast forwards time by minutes

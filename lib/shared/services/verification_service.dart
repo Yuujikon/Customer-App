@@ -4,8 +4,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:mailer/mailer.dart';
-import 'package:mailer/smtp_server.dart';
 
 class VerificationService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -94,7 +92,8 @@ class VerificationService {
 
       if (enteredCode != storedCode) {
         // Increment attempts
-        await docRef.update({'attempts': FieldValue.increment(1)}).timeout(const Duration(seconds: 5));
+        await docRef.update({'attempts': FieldValue.increment(1)}).timeout(
+            const Duration(seconds: 5));
         return 'Incorrect OTP code. Please try again.';
       }
 
@@ -110,24 +109,29 @@ class VerificationService {
   /// Internal: Sends email via Brevo API
   static Future<bool> _sendEmail(String toEmail, String otpCode) async {
     try {
-      final response = await http.post(
-        Uri.parse(_emailEndpoint),
-        headers: {
-          'accept': 'application/json',
-          'api-key': _brevoApiKey,
-          'content-type': 'application/json',
-        },
-        body: jsonEncode({
-          "sender": {"name": "GDC Store", "email": _senderEmail},
-          "to": [{"email": toEmail}],
-          "subject": "Your GDC Store Verification Code",
-          "htmlContent": "<h2>GDC Store</h2><p>Your verification code is: <strong>$otpCode</strong></p><p>This code is valid for 5 minutes. Please do not share this with anyone.</p>"
-        }),
-      );
-      
+      final response = await http
+          .post(
+            Uri.parse(_emailEndpoint),
+            headers: {
+              'accept': 'application/json',
+              'api-key': _brevoApiKey,
+              'content-type': 'application/json',
+            },
+            body: jsonEncode({
+              "sender": {"name": "GDC Store", "email": _senderEmail},
+              "to": [
+                {"email": toEmail}
+              ],
+              "subject": "Your GDC Store Verification Code",
+              "htmlContent":
+                  "<h2>GDC Store</h2><p>Your verification code is: <strong>$otpCode</strong></p><p>This code is valid for 5 minutes. Please do not share this with anyone.</p>"
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+
       // 201 Created is the success code for Brevo
       if (response.statusCode == 201) return true;
-      
+
       debugPrint('Brevo Error: ${response.body}');
       return false;
     } catch (e) {
@@ -140,20 +144,24 @@ class VerificationService {
   /// Internal: Sends SMS via Traccar SMS Gateway (Android)
   static Future<bool> _sendSms(String phoneNumber, String otpCode) async {
     try {
-      // Ensure phone number starts with +63 for PH numbers if needed, 
+      // Ensure phone number starts with +63 for PH numbers if needed,
       // though Traccar usually handles local formats fine depending on your telco.
-      final response = await http.post(
-        Uri.parse(_traccarGatewayUrl),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': _traccarToken, 
-          'ngrok-skip-browser-warning': 'true', // Bypasses ngrok free tier browser splash page
-        },
-        body: jsonEncode({
-          "to": phoneNumber,
-          "message": "GDC Store: Your verification code is $otpCode. Do not share this with anyone."
-        }),
-      );
+      final response = await http
+          .post(
+            Uri.parse(_traccarGatewayUrl),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': _traccarToken,
+              'ngrok-skip-browser-warning':
+                  'true', // Bypasses ngrok free tier browser splash page
+            },
+            body: jsonEncode({
+              "to": phoneNumber,
+              "message":
+                  "GDC Store: Your verification code is $otpCode. Do not share this with anyone."
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
 
       // Traccar returns 200 OK on success
       if (response.statusCode == 200) {

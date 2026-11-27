@@ -62,14 +62,18 @@ class _CustomerAuthScreenState extends State<CustomerAuthScreen> {
     return !blockedDomains.contains(domain);
   }
 
-  Future<void> _processRegistration(String contactMethod, bool isEmail) async {
+  Future<void> _processRegistration(
+    String contactMethod,
+    bool isEmail,
+    BuildContext sheetContext,
+  ) async {
     if (_loading) return; // Prevent double-clicks immediately
     setState(() {
       _loading = true;
       _error = '';
     });
 
-    Navigator.pop(context); // Close the choice bottom sheet after state is locked
+    Navigator.pop(sheetContext); // Close the choice bottom sheet safely
 
     final otpSent = await VerificationService.sendOtp(
       contactMethod: contactMethod,
@@ -92,14 +96,16 @@ class _CustomerAuthScreenState extends State<CustomerAuthScreen> {
             contactMethod: contactMethod,
             isEmail: isEmail,
             onSuccess: () async {
-              if (mounted) setState(() => _loading = true);
-              Navigator.pop(context); // close OTP screen
+              if (!mounted) return;
+              final navigator = Navigator.of(context);
+              final authProvider = context.read<AppAuthProvider>();
+              setState(() => _loading = true);
+              navigator.pop(); // close OTP screen
 
               try {
-                final authProvider = context.read<AppAuthProvider>();
                 await authProvider.signUp(email, password, name, phone: phone);
                 if (!mounted) return;
-                Navigator.pop(context); // close Auth screen
+                navigator.pop(); // close Auth screen
               } on FirebaseAuthException catch (e) {
                 if (!mounted) return;
                 setState(() {
@@ -131,7 +137,7 @@ class _CustomerAuthScreenState extends State<CustomerAuthScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
+      builder: (sheetContext) => Container(
         padding: const EdgeInsets.all(24),
         decoration: const BoxDecoration(
           color: Colors.white,
@@ -162,7 +168,8 @@ class _CustomerAuthScreenState extends State<CustomerAuthScreen> {
               ),
               const SizedBox(height: 24),
               OutlinedButton.icon(
-                onPressed: () => _processRegistration(email, true),
+                onPressed: () =>
+                    _processRegistration(email, true, sheetContext),
                 icon: const Icon(Icons.email_rounded, color: AppColors.forest),
                 label: Text(
                   'Email ($email)',
@@ -171,7 +178,8 @@ class _CustomerAuthScreenState extends State<CustomerAuthScreen> {
                 ),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.primaryText,
-                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
                   side: const BorderSide(color: AppColors.border, width: 1.5),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
@@ -180,7 +188,8 @@ class _CustomerAuthScreenState extends State<CustomerAuthScreen> {
               ),
               const SizedBox(height: 12),
               OutlinedButton.icon(
-                onPressed: () => _processRegistration(phone, false),
+                onPressed: () =>
+                    _processRegistration(phone, false, sheetContext),
                 icon: const Icon(Icons.sms_rounded, color: AppColors.forest),
                 label: Text(
                   'SMS ($phone)',
@@ -189,7 +198,8 @@ class _CustomerAuthScreenState extends State<CustomerAuthScreen> {
                 ),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.primaryText,
-                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
                   side: const BorderSide(color: AppColors.border, width: 1.5),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
@@ -348,7 +358,8 @@ class _CustomerAuthScreenState extends State<CustomerAuthScreen> {
                           } else {
                             // Standard Login Flow
                             final navigator = Navigator.of(context);
-                            final authProvider = context.read<AppAuthProvider>();
+                            final authProvider =
+                                context.read<AppAuthProvider>();
                             setState(() {
                               _loading = true;
                               _error = '';
@@ -398,9 +409,12 @@ class _CustomerAuthScreenState extends State<CustomerAuthScreen> {
                             final requiresSetup =
                                 await authProvider.signInWithGoogle();
                             if (!mounted) return;
+                            if (requiresSetup == null) {
+                              setState(() => _loading = false);
+                              return;
+                            }
                             if (requiresSetup) {
-                              Navigator.pushReplacement(
-                                context,
+                              navigator.pushReplacement(
                                 MaterialPageRoute(
                                   builder: (_) => const ProfileSetupScreen(),
                                 ),

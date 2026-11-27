@@ -4,20 +4,19 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/launcher.dart';
 import '../../../core/utils/name_validator.dart';
 import '../../../core/utils/responsive.dart';
-import '../../../core/utils/store_hours.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/screens/otp_verification_screen.dart';
+import '../../shop/providers/inventory_provider.dart';
 import '../../../shared/services/verification_service.dart';
 import '../../../shared/services/firestore_service.dart';
+import '../../../shared/services/time_service.dart';
 import '../../../shared/models/customer_appeal.dart';
 import '../widgets/info/store_info_sheet.dart';
-import '../../../shared/widgets/common/logout_confirm_dialog.dart';
 
 class AccountScreen extends StatefulWidget {
   final VoidCallback onLogout;
@@ -29,8 +28,29 @@ class AccountScreen extends StatefulWidget {
 }
 
 class _AccountScreenState extends State<AccountScreen> {
+  final FirestoreService _firestoreService = FirestoreService();
   bool _uploading = false;
   Uint8List? _localPhotoBytes;
+  String? _appealsStreamUserId;
+  Stream<List<CustomerAppeal>>? _appealsStream;
+
+  Stream<List<CustomerAppeal>> _getAppealsStream(String userId) {
+    if (_appealsStreamUserId != userId || _appealsStream == null) {
+      _appealsStreamUserId = userId;
+      _appealsStream = _firestoreService.appealsStreamForUser(userId);
+    }
+    return _appealsStream!;
+  }
+
+  Uint8List? _decodeAvatar(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final clean = raw.contains(',') ? raw.split(',').last : raw;
+      return base64Decode(clean.trim());
+    } catch (_) {
+      return null;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -152,11 +172,11 @@ class _AccountScreenState extends State<AccountScreen> {
                 border: Border.all(
                     color: AppColors.orangeCTA.withValues(alpha: 0.5)),
               ),
-              child: Row(
+              child: const Row(
                 children: [
-                  const Icon(Icons.error_outline_rounded,
+                  Icon(Icons.error_outline_rounded,
                       color: AppColors.orangeCTA, size: 22),
-                  const SizedBox(width: 10),
+                  SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -189,24 +209,28 @@ class _AccountScreenState extends State<AccountScreen> {
             children: [
               Stack(
                 children: [
-                  CircleAvatar(
-                    radius: 28,
-                    backgroundColor: AppColors.forest,
-                    backgroundImage: _localPhotoBytes != null
-                        ? MemoryImage(_localPhotoBytes!)
-                        : (auth.photoUrl != null
-                            ? MemoryImage(base64Decode(auth.photoUrl!))
-                            : null) as ImageProvider?,
-                    child: (_localPhotoBytes == null && auth.photoUrl == null)
-                        ? Text(
-                            name.isNotEmpty ? name[0].toUpperCase() : 'A',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          )
-                        : null,
+                  Builder(
+                    builder: (context) {
+                      final avatarBytes =
+                          _localPhotoBytes ?? _decodeAvatar(auth.photoUrl);
+                      return CircleAvatar(
+                        radius: 28,
+                        backgroundColor: AppColors.forest,
+                        backgroundImage: avatarBytes != null
+                            ? MemoryImage(avatarBytes)
+                            : null,
+                        child: avatarBytes == null
+                            ? Text(
+                                name.isNotEmpty ? name[0].toUpperCase() : 'A',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              )
+                            : null,
+                      );
+                    },
                   ),
                   if (_uploading)
                     Positioned.fill(
@@ -475,7 +499,7 @@ class _AccountScreenState extends State<AccountScreen> {
           ),
           if (userId.isNotEmpty)
             StreamBuilder<List<CustomerAppeal>>(
-              stream: FirestoreService().appealsStreamForUser(userId),
+              stream: _getAppealsStream(userId),
               builder: (context, snapshot) {
                 final appeals = snapshot.data ?? [];
                 appeals.sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -630,7 +654,7 @@ class _AccountScreenState extends State<AccountScreen> {
     if (d.inHours > 0) {
       final hours = d.inHours;
       final mins = d.inMinutes % 60;
-      return '$hours hr${hours > 1 ? "s" : ""} ${mins} min${mins > 1 ? "s" : ""}';
+      return '$hours hr${hours > 1 ? "s" : ""} $mins min${mins > 1 ? "s" : ""}';
     } else {
       final mins = d.inMinutes;
       return '$mins min${mins > 1 ? "s" : ""}';
@@ -711,140 +735,19 @@ class _AccountScreenState extends State<AccountScreen> {
   }
 
   void _showAppealDialog(BuildContext context, AppAuthProvider auth) {
-    final reasonCtrl = TextEditingController();
-    bool submitting = false;
-
     showDialog(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          return AlertDialog(
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: const Row(
-              children: [
-                Icon(Icons.gavel_rounded, color: AppColors.orangeCTA),
-                SizedBox(width: 10),
-                Expanded(
-                  child: Text('Submit Restriction Appeal',
-                      style:
-                          TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-                ),
-              ],
-            ),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Explain why you missed or ghosted your pre-order pick up. Your appeal will be reviewed by store management.',
-                    style: TextStyle(fontSize: 12.5, color: Colors.grey[700]),
-                  ),
-                  const SizedBox(height: 14),
-                  TextField(
-                    controller: reasonCtrl,
-                    maxLines: 4,
-                    decoration: InputDecoration(
-                      hintText:
-                          'Enter your explanation for missing the order (e.g. medical emergency, technical issue)...',
-                      hintStyle: const TextStyle(fontSize: 12),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide:
-                            const BorderSide(color: AppColors.forest, width: 2),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: submitting ? null : () => Navigator.pop(ctx),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: submitting
-                    ? null
-                    : () async {
-                        final reason = reasonCtrl.text.trim();
-                        if (reason.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                  'Please enter an explanation for your appeal.'),
-                              backgroundColor: AppColors.error,
-                            ),
-                          );
-                          return;
-                        }
-
-                        setDialogState(() => submitting = true);
-
-                        try {
-                          final appeal = CustomerAppeal(
-                            id: '',
-                            userId: auth.currentUser?.uid ?? '',
-                            customerEmail: auth.email,
-                            customerName: auth.displayName,
-                            offenseCount: auth.offenseCount,
-                            reason: reason,
-                            status: AppealStatus.pending,
-                            createdAt: DateTime.now(),
-                          );
-
-                          await FirestoreService().submitAppeal(appeal);
-
-                          if (ctx.mounted) Navigator.pop(ctx);
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                    '🎉 Your appeal has been submitted to store admins for review.'),
-                                backgroundColor: AppColors.success,
-                              ),
-                            );
-                          }
-                        } catch (e) {
-                          setDialogState(() => submitting = false);
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Failed to submit appeal: $e'),
-                                backgroundColor: AppColors.error,
-                              ),
-                            );
-                          }
-                        }
-                      },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.forest,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                ),
-                child: submitting
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white),
-                      )
-                    : const Text('Submit Appeal',
-                        style: TextStyle(
-                            color: Colors.white, fontWeight: FontWeight.bold)),
-              ),
-            ],
-          );
-        },
+      builder: (_) => _AccountAppealDialog(
+        auth: auth,
+        firestoreService: _firestoreService,
       ),
     );
   }
 
   Widget _buildStoreCard(BuildContext context) {
+    final settings = context.watch<InventoryProvider>().settings;
+    final String statusPrimary = settings.todayHoursSummary();
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -917,10 +820,8 @@ class _AccountScreenState extends State<AccountScreen> {
           // Operating Hours
           _buildInfoRow(
             icon: Icons.access_time_filled_rounded,
-            primary: StoreHours.isOpen()
-                ? 'Open today until 3:00 PM'
-                : 'Closed · Opens at 11:00 AM',
-            secondary: 'Open Daily, 11:00 AM–3:00 PM',
+            primary: statusPrimary,
+            secondary: settings.regularHoursSummary,
           ),
 
           const SizedBox(height: 14),
@@ -1005,51 +906,41 @@ class _AccountScreenState extends State<AccountScreen> {
     );
   }
 
-  void _showLogoutConfirm(BuildContext context) async {
-    final auth = context.read<AppAuthProvider>();
-    final confirm = await LogoutConfirmDialog.show(context);
-    if (confirm == true) {
-      await auth.signOut();
-      widget.onLogout();
-    }
-  }
-
   Future<void> _pickImage(AppAuthProvider auth) async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 400,
-      maxHeight: 400,
-      imageQuality: 50,
-    );
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 400,
+        maxHeight: 400,
+        imageQuality: 50,
+      );
 
-    if (picked != null) {
+      if (picked == null) return;
       final bytes = await picked.readAsBytes();
+      if (!mounted) return;
       setState(() {
         _localPhotoBytes = bytes;
         _uploading = true;
       });
 
-      try {
-        await auth.uploadProfilePicture(bytes);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text('Profile picture updated successfully!')),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text('Upload failed: $e'),
-                backgroundColor: Colors.red),
-          );
-          setState(() => _localPhotoBytes = null);
-        }
-      } finally {
-        if (mounted) setState(() => _uploading = false);
+      await auth.uploadProfilePicture(bytes);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Profile picture updated successfully!')),
+        );
       }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('Upload failed: $e'), backgroundColor: Colors.red),
+        );
+        setState(() => _localPhotoBytes = null);
+      }
+    } finally {
+      if (mounted) setState(() => _uploading = false);
     }
   }
 
@@ -1060,30 +951,39 @@ class _AccountScreenState extends State<AccountScreen> {
       builder: (ctx) => _EditPersonalInformationDialog(auth: auth),
     );
 
-    if (result == null || !mounted) return;
+    if (result == null || !context.mounted) return;
 
     final String? updatedName = result['updatedName'];
     final String? newPhoneToVerify = result['newPhoneToVerify'];
 
     if (newPhoneToVerify != null) {
-      Navigator.push(
-        context,
+      final navigator = Navigator.of(context);
+      final messenger = ScaffoldMessenger.of(context);
+      navigator.push(
         MaterialPageRoute(
           builder: (_) => OtpVerificationScreen(
             contactMethod: newPhoneToVerify,
             isEmail: false,
             onSuccess: () async {
-              Navigator.pop(context); // Close OTP screen
-              await auth.updateProfile(
-                name: updatedName,
-                phone: newPhoneToVerify,
-              );
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
+              if (!navigator.mounted) return;
+              navigator.pop(); // Close OTP screen
+              try {
+                await auth.updateProfile(
+                  name: updatedName,
+                  phone: newPhoneToVerify,
+                );
+                messenger.showSnackBar(
                   const SnackBar(
                     content:
                         Text('Phone number verified and updated successfully!'),
                     backgroundColor: AppColors.forest,
+                  ),
+                );
+              } catch (e) {
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text('Failed to update profile: $e'),
+                    backgroundColor: AppColors.error,
                   ),
                 );
               }
@@ -1410,20 +1310,32 @@ class __EditPersonalInformationDialogState
           'newPhoneToVerify': newPhoneToVerify,
         });
       } else {
-        // Name-only change
+        // Name change and/or clearing phone number
+        final String? phonePayload =
+            _hasPhoneChanged && _currentPhoneDigits.isEmpty ? '' : null;
         await widget.auth.updateProfile(
           name: updatedName,
-          phone: null,
+          phone: phonePayload,
         );
-        if (mounted) Navigator.pop(context);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          final messenger = ScaffoldMessenger.of(context);
+          Navigator.pop(context);
+          messenger.showSnackBar(
             const SnackBar(
-              content: Text('Profile name updated successfully!'),
+              content: Text('Profile updated successfully!'),
               backgroundColor: AppColors.forest,
             ),
           );
         }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save profile changes: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -1824,6 +1736,155 @@ class _TierItem extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _AccountAppealDialog extends StatefulWidget {
+  final AppAuthProvider auth;
+  final FirestoreService firestoreService;
+
+  const _AccountAppealDialog({
+    required this.auth,
+    required this.firestoreService,
+  });
+
+  @override
+  State<_AccountAppealDialog> createState() => _AccountAppealDialogState();
+}
+
+class _AccountAppealDialogState extends State<_AccountAppealDialog> {
+  final _reasonCtrl = TextEditingController();
+  bool _submitting = false;
+
+  @override
+  void dispose() {
+    _reasonCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: const Row(
+        children: [
+          Icon(Icons.gavel_rounded, color: AppColors.orangeCTA),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text('Submit Restriction Appeal',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Explain why you missed or ghosted your pre-order pick up. Your appeal will be reviewed by store management.',
+              style: TextStyle(
+                fontSize: 12.5,
+                color: Theme.of(context).textTheme.bodySmall?.color,
+              ),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _reasonCtrl,
+              maxLines: 4,
+              decoration: InputDecoration(
+                hintText:
+                    'Enter your explanation for missing the order (e.g. medical emergency, technical issue)...',
+                hintStyle: const TextStyle(fontSize: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide:
+                      const BorderSide(color: AppColors.forest, width: 2),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _submitting ? null : () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _submitting
+              ? null
+              : () async {
+                  final reason = _reasonCtrl.text.trim();
+                  if (reason.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                            'Please enter an explanation for your appeal.'),
+                        backgroundColor: AppColors.error,
+                      ),
+                    );
+                    return;
+                  }
+
+                  setState(() => _submitting = true);
+
+                  try {
+                    final appeal = CustomerAppeal(
+                      id: '',
+                      userId: widget.auth.currentUser?.uid ?? '',
+                      customerEmail: widget.auth.email,
+                      customerName: widget.auth.displayName,
+                      offenseCount: widget.auth.offenseCount,
+                      reason: reason,
+                      status: AppealStatus.pending,
+                      createdAt: TimeService.now,
+                    );
+
+                    await widget.firestoreService.submitAppeal(appeal);
+
+                    if (!context.mounted) return;
+                    final messenger = ScaffoldMessenger.of(context);
+                    Navigator.pop(context);
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                            '🎉 Your appeal has been submitted to store admins for review.'),
+                        backgroundColor: AppColors.success,
+                      ),
+                    );
+                  } catch (e) {
+                    if (!mounted) return;
+                    setState(() => _submitting = false);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Failed to submit appeal: $e'),
+                        backgroundColor: AppColors.error,
+                      ),
+                    );
+                  }
+                },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.forest,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          child: _submitting
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Colors.white),
+                )
+              : const Text('Submit Appeal',
+                  style: TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.bold)),
+        ),
+      ],
     );
   }
 }

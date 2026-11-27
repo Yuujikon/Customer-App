@@ -13,6 +13,7 @@ import '../notifications/widgets/notification_panel.dart';
 import '../orders/providers/order_provider.dart';
 import '../orders/screens/my_orders_screen.dart';
 import '../orders/screens/pre_order_screen.dart';
+import '../shop/providers/inventory_provider.dart';
 import '../shop/screens/shop_screen.dart';
 import 'screens/customer_dashboard_screen.dart';
 
@@ -58,11 +59,25 @@ class _CustomerAppState extends State<CustomerApp> {
     }
   }
 
+  String _computeInitials(String fullName) {
+    final parts = fullName
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((p) => p.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) return 'C';
+    if (parts.length == 1) return parts.first[0].toUpperCase();
+    return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AppAuthProvider>();
+    final inventory = context.watch<InventoryProvider>();
     final notificationProvider = context.watch<NotificationProvider?>();
-    final unreadCount = notificationProvider?.unreadCount ?? 2;
+    final unreadCount = notificationProvider?.unreadCount ?? 0;
+    final isStoreOpen = !inventory.settings.effectivelyClosed;
+    final userInitials = _computeInitials(auth.displayName);
 
     final List<Widget> screens = [
       CustomerDashboardScreen(
@@ -128,79 +143,392 @@ class _CustomerAppState extends State<CustomerApp> {
         await SystemNavigator.pop();
       },
       child: AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
-        systemNavigationBarColor: Theme.of(context).cardColor,
-        systemNavigationBarIconBrightness:
-            isDark ? Brightness.light : Brightness.dark,
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final bool isMobile = constraints.maxWidth < 600;
-          final bool isLargeTablet = constraints.maxWidth >= 1024;
+        value: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+          systemNavigationBarColor: Theme.of(context).cardColor,
+          systemNavigationBarIconBrightness:
+              isDark ? Brightness.light : Brightness.dark,
+        ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final bool isMobile = constraints.maxWidth < 600;
+            final bool isLargeTablet = constraints.maxWidth >= 1024;
 
-          if (isMobile) {
-            // PHONE SHELL
+            if (isMobile) {
+              // PHONE SHELL
+              return Scaffold(
+                backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+                body: Stack(
+                  children: [
+                    Column(
+                      children: [
+                        // Top Bar Container with SafeArea top padding for Edge-to-Edge
+                        Container(
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? Theme.of(context).cardColor
+                                : AppColors.warmSurface,
+                            border: Border(
+                              bottom: BorderSide(
+                                color: isDark
+                                    ? Theme.of(context).dividerColor
+                                    : AppColors.border,
+                                width: 1.0,
+                              ),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black
+                                    .withValues(alpha: isDark ? 0.2 : 0.015),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: SafeArea(
+                            top: true,
+                            bottom: false,
+                            child: GlobalTopBar(
+                              userName: auth.displayName.split(' ').first,
+                              userInitials: userInitials,
+                              isStoreOpen: isStoreOpen,
+                              unreadNotifications: unreadCount,
+                              onOpenNotifications: () {
+                                setState(() =>
+                                    _showNotifications = !_showNotifications);
+                              },
+                              onSignOut: () =>
+                                  _showLogoutConfirmDialog(context),
+                            ),
+                          ),
+                        ),
+                        // Main Content Area
+                        Expanded(
+                          child: IndexedStack(
+                            index: _tab,
+                            children: screens,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    // Floating Notification Panel Overlay for Phone
+                    if (_showNotifications)
+                      Positioned(
+                        top: statusBarHeight + 76,
+                        left: 12,
+                        right: 12,
+                        child: SafeArea(
+                          bottom: false,
+                          child: NotificationPanel(
+                            onClose: () =>
+                                setState(() => _showNotifications = false),
+                            onNavigateToTab: _navigateToTab,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                bottomNavigationBar: SafeArea(
+                  bottom: true,
+                  child: NavigationBar(
+                    selectedIndex: _tab,
+                    onDestinationSelected: (i) {
+                      setState(() {
+                        _tab = i;
+                        _showNotifications = false;
+                      });
+                    },
+                    backgroundColor: Theme.of(context).cardColor,
+                    indicatorColor:
+                        Theme.of(context).colorScheme.surfaceContainerHighest,
+                    elevation: 8,
+                    shadowColor:
+                        Colors.black.withValues(alpha: isDark ? 0.3 : 0.08),
+                    destinations: [
+                      NavigationDestination(
+                        icon: const Icon(Icons.home_outlined),
+                        selectedIcon: Icon(Icons.home_rounded,
+                            color: Theme.of(context).colorScheme.primary),
+                        label: 'Home',
+                      ),
+                      NavigationDestination(
+                        icon: const Icon(Icons.storefront_outlined),
+                        selectedIcon: Icon(Icons.storefront_rounded,
+                            color: Theme.of(context).colorScheme.primary),
+                        label: 'Catalog',
+                      ),
+                      const NavigationDestination(
+                        icon: _CartBadgeIcon(isSelected: false),
+                        selectedIcon: _CartBadgeIcon(isSelected: true),
+                        label: 'Basket',
+                      ),
+                      NavigationDestination(
+                        icon: const Icon(Icons.receipt_long_outlined),
+                        selectedIcon: Icon(Icons.receipt_long_rounded,
+                            color: Theme.of(context).colorScheme.primary),
+                        label: 'Orders',
+                      ),
+                      NavigationDestination(
+                        icon: const Icon(Icons.person_outline_rounded),
+                        selectedIcon: Icon(Icons.person_rounded,
+                            color: Theme.of(context).colorScheme.primary),
+                        label: 'Account',
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+
+            // TABLET SHELL (Medium: 600-1023, Large: >=1024)
+            final double sidebarWidth = isLargeTablet ? 210 : 86;
+
             return Scaffold(
               backgroundColor: Theme.of(context).scaffoldBackgroundColor,
               body: Stack(
                 children: [
-                  Column(
+                  Row(
                     children: [
-                      // Top Bar Container with SafeArea top padding for Edge-to-Edge
+                      // Tablet Navigation Sidebar / Rail wrapped in SafeArea
                       Container(
+                        width: sidebarWidth,
                         decoration: BoxDecoration(
                           color: isDark
                               ? Theme.of(context).cardColor
-                              : AppColors.warmSurface,
+                              : Colors.white,
                           border: Border(
-                            bottom: BorderSide(
+                            right: BorderSide(
                               color: isDark
                                   ? Theme.of(context).dividerColor
                                   : AppColors.border,
                               width: 1.0,
                             ),
                           ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black
-                                  .withValues(alpha: isDark ? 0.2 : 0.015),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
                         ),
                         child: SafeArea(
                           top: true,
-                          bottom: false,
-                          child: GlobalTopBar(
-                            userName: auth.displayName.split(' ').first,
-                            unreadNotifications: unreadCount,
-                            onOpenNotifications: () {
-                              setState(
-                                  () => _showNotifications = !_showNotifications);
-                            },
-                            onSignOut: () => _showLogoutConfirmDialog(context),
+                          bottom: true,
+                          child: Column(
+                            children: [
+                              const SizedBox(height: 12),
+                              // Top GDC Logo Tile
+                              const GdcLogo(size: 42),
+                              const SizedBox(height: 24),
+
+                              // Destinations
+                              Expanded(
+                                child: SingleChildScrollView(
+                                  child: Column(
+                                    children: [
+                                      _SidebarDestinationTile(
+                                        icon: Icons.home_outlined,
+                                        selectedIcon: Icons.home_rounded,
+                                        label: 'Home',
+                                        isSelected: _tab == 0,
+                                        isExpanded: isLargeTablet,
+                                        onTap: () => _navigateToTab(0),
+                                      ),
+                                      _SidebarDestinationTile(
+                                        icon: Icons.storefront_outlined,
+                                        selectedIcon: Icons.storefront_rounded,
+                                        label: 'Catalog',
+                                        isSelected: _tab == 1,
+                                        isExpanded: isLargeTablet,
+                                        onTap: () => _navigateToTab(1),
+                                      ),
+                                      _SidebarDestinationTile(
+                                        iconWidget: const _CartBadgeIcon(
+                                            isSelected: false),
+                                        selectedIconWidget:
+                                            const _CartBadgeIcon(
+                                                isSelected: true),
+                                        label: 'Basket',
+                                        isSelected: _tab == 2,
+                                        isExpanded: isLargeTablet,
+                                        onTap: () => _navigateToTab(2),
+                                      ),
+                                      _SidebarDestinationTile(
+                                        icon: Icons.receipt_long_outlined,
+                                        selectedIcon:
+                                            Icons.receipt_long_rounded,
+                                        label: 'Orders',
+                                        isSelected: _tab == 3,
+                                        isExpanded: isLargeTablet,
+                                        onTap: () => _navigateToTab(3),
+                                      ),
+                                      _SidebarDestinationTile(
+                                        icon: Icons.person_outline_rounded,
+                                        selectedIcon: Icons.person_rounded,
+                                        label: 'Account',
+                                        isSelected: _tab == 4,
+                                        isExpanded: isLargeTablet,
+                                        onTap: () => _navigateToTab(4),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+
+                              // Sign Out Button
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 8),
+                                child: InkWell(
+                                  onTap: () =>
+                                      _showLogoutConfirmDialog(context),
+                                  borderRadius: BorderRadius.circular(100),
+                                  child: Container(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: isLargeTablet ? 16 : 10,
+                                      vertical: 10,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFEF2F2),
+                                      borderRadius: BorderRadius.circular(100),
+                                      border: Border.all(
+                                        color: const Color(0xFFFECDD3),
+                                        width: 1.2,
+                                      ),
+                                    ),
+                                    child: isLargeTablet
+                                        ? const Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Icon(
+                                                Icons.logout_rounded,
+                                                color: AppColors.error,
+                                                size: 18,
+                                              ),
+                                              SizedBox(width: 8),
+                                              Text(
+                                                'Sign Out',
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w800,
+                                                  color: AppColors.error,
+                                                ),
+                                              ),
+                                            ],
+                                          )
+                                        : const Icon(
+                                            Icons.logout_rounded,
+                                            color: AppColors.error,
+                                            size: 20,
+                                          ),
+                                  ),
+                                ),
+                              ),
+
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 6),
+                                child: Divider(
+                                  height: 1,
+                                  color: isDark
+                                      ? Theme.of(context).dividerColor
+                                      : AppColors.border,
+                                ),
+                              ),
+
+                              // Bottom Pickup Store Pin Icon Control
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.sageTint,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.location_on_rounded,
+                                    color: AppColors.forest,
+                                    size: 22,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
-                      // Main Content Area
+
+                      // Main Right Content
                       Expanded(
-                        child: IndexedStack(
-                          index: _tab,
-                          children: screens,
+                        child: Column(
+                          children: [
+                            Container(
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? Theme.of(context).cardColor
+                                    : AppColors.warmSurface,
+                                border: Border(
+                                  bottom: BorderSide(
+                                    color: isDark
+                                        ? Theme.of(context).dividerColor
+                                        : AppColors.border,
+                                    width: 1.0,
+                                  ),
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(
+                                        alpha: isDark ? 0.2 : 0.015),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: SafeArea(
+                                top: true,
+                                bottom: false,
+                                child: Center(
+                                  child: ConstrainedBox(
+                                    constraints:
+                                        const BoxConstraints(maxWidth: 1200),
+                                    child: GlobalTopBar(
+                                      userName:
+                                          auth.displayName.split(' ').first,
+                                      userInitials: userInitials,
+                                      isStoreOpen: isStoreOpen,
+                                      unreadNotifications: unreadCount,
+                                      onOpenNotifications: () {
+                                        setState(() => _showNotifications =
+                                            !_showNotifications);
+                                      },
+                                      onSearchTap: () => _navigateToTab(1),
+                                      onProfileTap: () => _navigateToTab(4),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Center(
+                                child: ConstrainedBox(
+                                  constraints:
+                                      const BoxConstraints(maxWidth: 1200),
+                                  child: IndexedStack(
+                                    index: _tab,
+                                    children: screens,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
 
-                  // Floating Notification Panel Overlay for Phone
+                  // Tablet Anchored Notification Panel Dropdown
                   if (_showNotifications)
                     Positioned(
                       top: statusBarHeight + 76,
-                      left: 12,
-                      right: 12,
+                      right: 24,
+                      width: 360,
                       child: SafeArea(
                         bottom: false,
                         child: NotificationPanel(
@@ -212,314 +540,11 @@ class _CustomerAppState extends State<CustomerApp> {
                     ),
                 ],
               ),
-              bottomNavigationBar: SafeArea(
-                bottom: true,
-                child: NavigationBar(
-                  selectedIndex: _tab,
-                  onDestinationSelected: (i) {
-                    setState(() {
-                      _tab = i;
-                      _showNotifications = false;
-                    });
-                  },
-                  backgroundColor: Theme.of(context).cardColor,
-                  indicatorColor:
-                      Theme.of(context).colorScheme.surfaceContainerHighest,
-                  elevation: 8,
-                  shadowColor:
-                      Colors.black.withValues(alpha: isDark ? 0.3 : 0.08),
-                  destinations: [
-                    NavigationDestination(
-                      icon: const Icon(Icons.home_outlined),
-                      selectedIcon: Icon(Icons.home_rounded,
-                          color: Theme.of(context).colorScheme.primary),
-                      label: 'Home',
-                    ),
-                    NavigationDestination(
-                      icon: const Icon(Icons.storefront_outlined),
-                      selectedIcon: Icon(Icons.storefront_rounded,
-                          color: Theme.of(context).colorScheme.primary),
-                      label: 'Catalog',
-                    ),
-                    const NavigationDestination(
-                      icon: _CartBadgeIcon(isSelected: false),
-                      selectedIcon: _CartBadgeIcon(isSelected: true),
-                      label: 'Basket',
-                    ),
-                    NavigationDestination(
-                      icon: const Icon(Icons.receipt_long_outlined),
-                      selectedIcon: Icon(Icons.receipt_long_rounded,
-                          color: Theme.of(context).colorScheme.primary),
-                      label: 'Orders',
-                    ),
-                    NavigationDestination(
-                      icon: const Icon(Icons.person_outline_rounded),
-                      selectedIcon: Icon(Icons.person_rounded,
-                          color: Theme.of(context).colorScheme.primary),
-                      label: 'Account',
-                    ),
-                  ],
-                ),
-              ),
             );
-          }
-
-          // TABLET SHELL (Medium: 600-1023, Large: >=1024)
-          final double sidebarWidth = isLargeTablet ? 210 : 86;
-
-          return Scaffold(
-            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-            body: Stack(
-              children: [
-                Row(
-                  children: [
-                    // Tablet Navigation Sidebar / Rail wrapped in SafeArea
-                    Container(
-                      width: sidebarWidth,
-                      decoration: BoxDecoration(
-                        color:
-                            isDark ? Theme.of(context).cardColor : Colors.white,
-                        border: Border(
-                          right: BorderSide(
-                            color: isDark
-                                ? Theme.of(context).dividerColor
-                                : AppColors.border,
-                            width: 1.0,
-                          ),
-                        ),
-                      ),
-                      child: SafeArea(
-                        top: true,
-                        bottom: true,
-                        child: Column(
-                          children: [
-                            const SizedBox(height: 12),
-                            // Top GDC Logo Tile
-                            const GdcLogo(size: 42),
-                            const SizedBox(height: 24),
-
-                            // Destinations
-                            Expanded(
-                              child: SingleChildScrollView(
-                                child: Column(
-                                  children: [
-                                    _SidebarDestinationTile(
-                                      icon: Icons.home_outlined,
-                                      selectedIcon: Icons.home_rounded,
-                                      label: 'Home',
-                                      isSelected: _tab == 0,
-                                      isExpanded: isLargeTablet,
-                                      onTap: () => _navigateToTab(0),
-                                    ),
-                                    _SidebarDestinationTile(
-                                      icon: Icons.storefront_outlined,
-                                      selectedIcon: Icons.storefront_rounded,
-                                      label: 'Catalog',
-                                      isSelected: _tab == 1,
-                                      isExpanded: isLargeTablet,
-                                      onTap: () => _navigateToTab(1),
-                                    ),
-                                    _SidebarDestinationTile(
-                                      iconWidget:
-                                          const _CartBadgeIcon(isSelected: false),
-                                      selectedIconWidget:
-                                          const _CartBadgeIcon(isSelected: true),
-                                      label: 'Basket',
-                                      isSelected: _tab == 2,
-                                      isExpanded: isLargeTablet,
-                                      onTap: () => _navigateToTab(2),
-                                    ),
-                                    _SidebarDestinationTile(
-                                      icon: Icons.receipt_long_outlined,
-                                      selectedIcon: Icons.receipt_long_rounded,
-                                      label: 'Orders',
-                                      isSelected: _tab == 3,
-                                      isExpanded: isLargeTablet,
-                                      onTap: () => _navigateToTab(3),
-                                    ),
-                                    _SidebarDestinationTile(
-                                      icon: Icons.person_outline_rounded,
-                                      selectedIcon: Icons.person_rounded,
-                                      label: 'Account',
-                                      isSelected: _tab == 4,
-                                      isExpanded: isLargeTablet,
-                                      onTap: () => _navigateToTab(4),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-
-                            // Sign Out Button
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 8),
-                              child: InkWell(
-                                onTap: () => _showLogoutConfirmDialog(context),
-                                borderRadius: BorderRadius.circular(100),
-                                child: Container(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: isLargeTablet ? 16 : 10,
-                                    vertical: 10,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFFEF2F2),
-                                    borderRadius: BorderRadius.circular(100),
-                                    border: Border.all(
-                                      color: const Color(0xFFFECDD3),
-                                      width: 1.2,
-                                    ),
-                                  ),
-                                  child: isLargeTablet
-                                      ? Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: const [
-                                            Icon(
-                                              Icons.logout_rounded,
-                                              color: AppColors.error,
-                                              size: 18,
-                                            ),
-                                            SizedBox(width: 8),
-                                            Text(
-                                              'Sign Out',
-                                              style: TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w800,
-                                                color: AppColors.error,
-                                              ),
-                                            ),
-                                          ],
-                                        )
-                                      : const Icon(
-                                          Icons.logout_rounded,
-                                          color: AppColors.error,
-                                          size: 20,
-                                        ),
-                                ),
-                              ),
-                            ),
-
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 6),
-                              child: Divider(
-                                height: 1,
-                                color: isDark
-                                    ? Theme.of(context).dividerColor
-                                    : AppColors.border,
-                              ),
-                            ),
-
-                            // Bottom Pickup Store Pin Icon Control
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: const BoxDecoration(
-                                  color: AppColors.sageTint,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.location_on_rounded,
-                                  color: AppColors.forest,
-                                  size: 22,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    // Main Right Content
-                    Expanded(
-                      child: Column(
-                        children: [
-                          Container(
-                            width: double.infinity,
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? Theme.of(context).cardColor
-                                  : AppColors.warmSurface,
-                              border: Border(
-                                bottom: BorderSide(
-                                  color: isDark
-                                      ? Theme.of(context).dividerColor
-                                      : AppColors.border,
-                                  width: 1.0,
-                                ),
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black
-                                      .withValues(alpha: isDark ? 0.2 : 0.015),
-                                  blurRadius: 6,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: SafeArea(
-                              top: true,
-                              bottom: false,
-                              child: Center(
-                                child: ConstrainedBox(
-                                  constraints:
-                                      const BoxConstraints(maxWidth: 1200),
-                                  child: GlobalTopBar(
-                                    userName: auth.displayName.split(' ').first,
-                                    unreadNotifications: unreadCount,
-                                    onOpenNotifications: () {
-                                      setState(() => _showNotifications =
-                                          !_showNotifications);
-                                    },
-                                    onSearchTap: () => _navigateToTab(1),
-                                    onProfileTap: () => _navigateToTab(4),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: Center(
-                              child: ConstrainedBox(
-                                constraints:
-                                    const BoxConstraints(maxWidth: 1200),
-                                child: IndexedStack(
-                                  index: _tab,
-                                  children: screens,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-
-                // Tablet Anchored Notification Panel Dropdown
-                if (_showNotifications)
-                  Positioned(
-                    top: statusBarHeight + 76,
-                    right: 24,
-                    width: 360,
-                    child: SafeArea(
-                      bottom: false,
-                      child: NotificationPanel(
-                        onClose: () =>
-                            setState(() => _showNotifications = false),
-                        onNavigateToTab: _navigateToTab,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          );
-        },
+          },
+        ),
       ),
-    ),
-  );
+    );
   }
 }
 

@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/name_validator.dart';
 import '../providers/auth_provider.dart';
-import '../../home/customer_app.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
   const ProfileSetupScreen({super.key});
@@ -68,12 +67,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
       if (!mounted) return;
 
-      // Navigate straight to Customer Dashboard / Customer App
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const CustomerApp()),
-        (route) => false,
-      );
+      // Return to root so _Root switches cleanly to CustomerApp without
+      // discarding the auth stream wrapper.
+      Navigator.of(context).popUntil((route) => route.isFirst);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -102,8 +98,14 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.logout_rounded, color: GdcColors.mutedText),
-            tooltip: '',
-            onPressed: () => context.read<AppAuthProvider>().signOut(),
+            tooltip: 'Sign Out',
+            onPressed: () async {
+              final navigator = Navigator.of(context);
+              await context.read<AppAuthProvider>().signOut();
+              if (navigator.mounted) {
+                navigator.popUntil((route) => route.isFirst);
+              }
+            },
           ),
         ],
       ),

@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import '../../core/utils/inventory_allocation.dart';
 import '../models/product.dart';
 import '../models/order.dart';
 import '../models/transaction.dart';
@@ -74,13 +76,32 @@ class FirestoreService {
       .snapshots()
       .map((s) => s.docs.map(Product.fromFirestore).toList());
 
+  Future<List<Product>> fetchProductsFromServer() async {
+    try {
+      final snap = await _products
+          .orderBy('name')
+          .get(const GetOptions(source: Source.server));
+      return snap.docs.map(Product.fromFirestore).toList();
+    } catch (_) {
+      final snap = await _products.orderBy('name').get();
+      return snap.docs.map(Product.fromFirestore).toList();
+    }
+  }
+
   Future<void> addProduct(Product p) => _products.add(p.toFirestore());
 
   Future<void> updateProduct(Product p) =>
       _products.doc(p.id).update(p.toFirestore());
 
-  Future<void> updateStock(String productId, int newStock) =>
-      _products.doc(productId).update({'stock': newStock});
+  Future<void> updateStock(
+    String productId,
+    int newStock, {
+    int? physicalReserve,
+  }) =>
+      _products.doc(productId).update({
+        'stock': newStock,
+        if (physicalReserve != null) 'physicalReserve': physicalReserve,
+      });
 
   // Atomic batch: decrement stock for all cart items at once
   Future<void> decrementStockBatch(List<CartItem> items) {
@@ -116,15 +137,17 @@ class FirestoreService {
 
   /// Atomic checkout transaction:
   /// Verifies available stock (stock - reservedStock),
-  /// atomically decrements physical stock and increments reservedStock,
+  /// atomically increments reservedStock (aggregated per product doc),
   /// and saves the order.
   /// Note: Firestore transactions require ALL reads to be executed before ANY writes.
   Future<void> submitOrderTransactional(PreOrder order) {
     return _db.runTransaction((transaction) async {
-      // 1. ALL READS FIRST: Read product snapshots for all items in order
-      final List<Map<String, dynamic>> itemReadData = [];
+      // 1. ALL READS FIRST: Deduplicate product document reads by productId
+      final Map<String, DocumentReference> productRefs = {};
+      final Map<String, Map<String, dynamic>> productDataById = {};
 
       for (final item in order.items) {
+        if (productDataById.containsKey(item.productId)) continue;
         final productRef = _products.doc(item.productId);
         final productSnap = await transaction.get(productRef);
 
@@ -132,26 +155,42 @@ class FirestoreService {
           throw 'Product ${item.name} not found.';
         }
 
-        final data = productSnap.data() as Map<String, dynamic>;
-        itemReadData.add({
-          'ref': productRef,
-          'item': item,
-          'data': data,
-        });
+        productRefs[item.productId] = productRef;
+        productDataById[item.productId] =
+            productSnap.data() as Map<String, dynamic>;
       }
 
-      // 2. ALL VALIDATIONS & PREPARATIONS
-      final List<Map<String, dynamic>> pendingUpdates = [];
+      // 2. ALL VALIDATIONS & AGGREGATED PREPARATIONS
+      // Aggregate requested quantities per (productId, variantId) so duplicate
+      // items or multiple variants on the same product are validated accurately
+      // and written in a single transaction.update() per product document.
+      final Map<String, int> requestedByKey = {};
+      final Map<String, CartItem> representativeItemByKey = {};
 
-      for (final read in itemReadData) {
-        final DocumentReference productRef = read['ref'];
-        final CartItem item = read['item'];
-        final Map<String, dynamic> data = read['data'];
+      for (final item in order.items) {
+        final key = '${item.productId}::${item.variantId ?? ''}';
+        requestedByKey[key] = (requestedByKey[key] ?? 0) + item.qty;
+        representativeItemByKey[key] = item;
+      }
+
+      final Map<String, Map<String, dynamic>> updatesByProductId = {};
+
+      for (final entry in requestedByKey.entries) {
+        final totalQty = entry.value;
+        final item = representativeItemByKey[entry.key]!;
+        final data = productDataById[item.productId]!;
+
+        if (data['isQuarantined'] == true) {
+          throw '${item.name} is currently unavailable.';
+        }
 
         final hasVariantsOnServer =
             data['variants'] != null && (data['variants'] as Map).isNotEmpty;
 
-        if (item.variantId != null) {
+        final productUpdates =
+            updatesByProductId.putIfAbsent(item.productId, () => {});
+
+        if (item.variantId != null && item.variantId!.isNotEmpty) {
           final variants = data['variants'] as Map<String, dynamic>?;
           final variant = variants?[item.variantId] as Map<String, dynamic>?;
           if (variant == null) {
@@ -159,63 +198,153 @@ class FirestoreService {
           }
 
           final currentStock = (variant['stock'] as num? ?? 0).toInt();
-          final reservedStock = (variant['reservedStock'] as num? ?? 0).toInt();
-          final availableStock = currentStock - reservedStock;
+          final reservedStock =
+              ((variant['reservedStock'] as num? ?? 0).toInt())
+                  .clamp(0, currentStock > 0 ? currentStock : 0);
+          final int? storedReserve =
+              (variant['physicalReserve'] as num?)?.toInt();
+          final int physicalReserve =
+              InventoryAllocation.resolvePhysicalReserve(
+            totalStock: currentStock,
+            storedPhysicalReserve: storedReserve,
+          );
+          final int onlineAvailable =
+              InventoryAllocation.calculateOnlineAvailable(
+            totalStock: currentStock,
+            physicalReserve: physicalReserve,
+            reservedStock: reservedStock,
+          );
 
-          if (availableStock < item.qty) {
-            throw 'Insufficient stock for ${item.name} (${item.variantName}). Only ${availableStock < 0 ? 0 : availableStock} available.';
+          if (onlineAvailable <= 0) {
+            throw '${item.name} (${item.variantName}) is currently out of stock.';
           }
 
-          pendingUpdates.add({
-            'ref': productRef,
-            'update': {
-              'variants.${item.variantId}.reservedStock':
-                  FieldValue.increment(item.qty),
-            },
-          });
+          if (onlineAvailable < totalQty) {
+            throw 'Only $onlineAvailable left in stock for ${item.name} (${item.variantName}).';
+          }
+
+          productUpdates['variants.${item.variantId}.reservedStock'] =
+              FieldValue.increment(totalQty);
         } else {
           if (hasVariantsOnServer) {
             throw 'Please select a flavor for ${item.name}.';
           }
 
           final currentStock = (data['stock'] as num? ?? 0).toInt();
-          final reservedStock = (data['reservedStock'] as num? ?? 0).toInt();
-          final availableStock = currentStock - reservedStock;
+          final reservedStock = ((data['reservedStock'] as num? ?? 0).toInt())
+              .clamp(0, currentStock > 0 ? currentStock : 0);
+          final int? storedReserve = (data['physicalReserve'] as num?)?.toInt();
+          final int physicalReserve =
+              InventoryAllocation.resolvePhysicalReserve(
+            totalStock: currentStock,
+            storedPhysicalReserve: storedReserve,
+          );
+          final int onlineAvailable =
+              InventoryAllocation.calculateOnlineAvailable(
+            totalStock: currentStock,
+            physicalReserve: physicalReserve,
+            reservedStock: reservedStock,
+          );
 
-          if (availableStock < item.qty) {
-            throw 'Insufficient stock for ${item.name}. Only ${availableStock < 0 ? 0 : availableStock} available.';
+          if (onlineAvailable <= 0) {
+            throw '${item.name} is currently out of stock.';
           }
 
-          pendingUpdates.add({
-            'ref': productRef,
-            'update': {
-              'reservedStock': FieldValue.increment(item.qty),
-            },
-          });
+          if (onlineAvailable < totalQty) {
+            throw 'Only $onlineAvailable left in stock for ${item.name}.';
+          }
+
+          productUpdates['reservedStock'] = FieldValue.increment(totalQty);
         }
       }
 
-      // 3. ALL WRITES AT THE END: Apply product stock updates & create order document
-      for (final pUpdate in pendingUpdates) {
-        final ref = pUpdate['ref'] as DocumentReference;
-        final updateData = pUpdate['update'] as Map<String, dynamic>;
-        transaction.update(ref, updateData);
+      // 3. ALL WRITES AT THE END: One update per product document + order document
+      for (final entry in updatesByProductId.entries) {
+        transaction.update(productRefs[entry.key]!, entry.value);
       }
 
-      // Save the order
       final orderRef = _orders.doc(order.id);
       transaction.set(orderRef, order.toFirestore());
     });
   }
 
-  /// Cancels an active order without restoring or incrementing available stock.
+  /// Cancels an active order and releases reserved stock tracking safely (never going below 0).
   Future<void> cancelOrder(String orderId, List<CartItem> items) {
-    final batch = _db.batch();
+    return _db.runTransaction((transaction) async {
+      final orderRef = _orders.doc(orderId);
+      final orderSnap = await transaction.get(orderRef);
 
-    // Mark as cancelled (do not alter stock or reservedStock)
-    batch.update(_orders.doc(orderId), {'status': OrderStatus.cancelled.name});
+      // Deduplicate product document reads first (Firestore requires all reads before writes)
+      final Map<String, DocumentReference> productRefs = {};
+      final Map<String, Map<String, dynamic>> productDataById = {};
+      for (final item in items) {
+        if (productDataById.containsKey(item.productId)) continue;
+        final ref = _products.doc(item.productId);
+        final snap = await transaction.get(ref);
+        if (snap.exists) {
+          productRefs[item.productId] = ref;
+          productDataById[item.productId] =
+              snap.data() as Map<String, dynamic>? ?? {};
+        }
+      }
 
-    return batch.commit();
+      if (orderSnap.exists) {
+        final currentStatus =
+            (orderSnap.data() as Map<String, dynamic>?)?['status']?.toString();
+        if (currentStatus == OrderStatus.cancelled.name) {
+          return; // Already cancelled — avoid double-releasing reservedStock
+        }
+        transaction.update(orderRef, {'status': OrderStatus.cancelled.name});
+      }
+
+      // Aggregate quantities per (productId, variantId)
+      final Map<String, int> stdQtyByProduct = {};
+      final Map<String, Map<String, int>> varQtyByProduct = {};
+      for (final item in items) {
+        if (!productDataById.containsKey(item.productId)) continue;
+        if (item.variantId != null && item.variantId!.isNotEmpty) {
+          varQtyByProduct.putIfAbsent(item.productId, () => {}).update(
+              item.variantId!, (v) => v + item.qty,
+              ifAbsent: () => item.qty);
+        } else {
+          stdQtyByProduct.update(item.productId, (v) => v + item.qty,
+              ifAbsent: () => item.qty);
+        }
+      }
+
+      for (final entry in productDataById.entries) {
+        final productId = entry.key;
+        final data = entry.value;
+        final Map<String, dynamic> updates = {};
+
+        final stdRelease = stdQtyByProduct[productId] ?? 0;
+        if (stdRelease > 0) {
+          final currentReserved = (data['reservedStock'] as num? ?? 0).toInt();
+          final nextReserved = (currentReserved - stdRelease);
+          updates['reservedStock'] = nextReserved < 0 ? 0 : nextReserved;
+        }
+
+        final varReleases = varQtyByProduct[productId];
+        if (varReleases != null && varReleases.isNotEmpty) {
+          final variants = data['variants'] as Map<String, dynamic>?;
+          if (variants != null) {
+            for (final vEntry in varReleases.entries) {
+              final variantData = variants[vEntry.key] as Map<String, dynamic>?;
+              if (variantData == null) continue;
+              final currentVarReserved =
+                  (variantData['reservedStock'] as num? ?? 0).toInt();
+              final nextVarReserved = currentVarReserved - vEntry.value;
+              updates['variants.${vEntry.key}.reservedStock'] =
+                  nextVarReserved < 0 ? 0 : nextVarReserved;
+            }
+          }
+        }
+
+        if (updates.isNotEmpty) {
+          transaction.update(productRefs[productId]!, updates);
+        }
+      }
+    });
   }
 
   /// Fulfills/collects an order and clears reserved stock tracking.
@@ -315,8 +444,14 @@ class FirestoreService {
 
   Future<List<RefundRequest>> getRefundRequestsForTransaction(
       String txId) async {
-    final snap =
-        await _refundQueue.where('transactionId', isEqualTo: txId).get();
+    final user = FirebaseAuth.instance.currentUser;
+    Query query = _refundQueue.where('transactionId', isEqualTo: txId);
+    if (user?.email != null && user!.email!.isNotEmpty) {
+      query = query.where('customerEmail', isEqualTo: user.email);
+    } else if (user?.uid != null) {
+      query = query.where('customerId', isEqualTo: user!.uid);
+    }
+    final snap = await query.get();
     return snap.docs.map(RefundRequest.fromFirestore).toList();
   }
 
@@ -329,21 +464,32 @@ class FirestoreService {
   Future<void> cancelRefundRequest(
       {required String refundRequestId, required String transactionId}) async {
     final batch = _db.batch();
+    final user = FirebaseAuth.instance.currentUser;
 
     if (refundRequestId.isNotEmpty) {
       batch.delete(_refundQueue.doc(refundRequestId));
     } else {
-      final snap = await _refundQueue
+      Query refundQuery = _refundQueue
           .where('transactionId', isEqualTo: transactionId)
-          .where('status', isEqualTo: RefundStatus.pending.name)
-          .get();
+          .where('status', isEqualTo: RefundStatus.pending.name);
+      if (user?.email != null && user!.email!.isNotEmpty) {
+        refundQuery = refundQuery.where('customerEmail', isEqualTo: user.email);
+      } else if (user?.uid != null) {
+        refundQuery = refundQuery.where('customerId', isEqualTo: user!.uid);
+      }
+      final snap = await refundQuery.get();
       for (final doc in snap.docs) {
         batch.delete(doc.reference);
       }
     }
 
-    final orderSnap =
-        await _orders.where('orderId', isEqualTo: transactionId).get();
+    Query orderQuery = _orders.where('orderId', isEqualTo: transactionId);
+    if (user?.email != null && user!.email!.isNotEmpty) {
+      orderQuery = orderQuery.where('customerEmail', isEqualTo: user.email);
+    } else if (user?.uid != null) {
+      orderQuery = orderQuery.where('customerId', isEqualTo: user!.uid);
+    }
+    final orderSnap = await orderQuery.get();
     for (final doc in orderSnap.docs) {
       batch.update(doc.reference, {'status': OrderStatus.collected.name});
     }
@@ -374,9 +520,11 @@ class FirestoreService {
   Future<void> watchProduct(String productId, String email) {
     final id =
         '${productId}_${email.replaceAll('@', '_').replaceAll('.', '_')}';
+    final uid = FirebaseAuth.instance.currentUser?.uid;
     return _watches.doc(id).set({
       'productId': productId,
       'email': email,
+      if (uid != null) 'userId': uid,
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
@@ -515,7 +663,7 @@ class FirestoreService {
       relatedId: orderId,
     );
 
-    NotificationService.showSmsNotificationPopUp(
+    await NotificationService.showSmsNotificationPopUp(
       title: title,
       body: body,
     );

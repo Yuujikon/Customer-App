@@ -36,7 +36,9 @@ class StoreStatusPill extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           Text(
-            isOpen ? 'Store Open · Pickup Available' : 'Store Closed',
+            isOpen
+                ? 'Store Open · Pickup Available'
+                : 'Store Closed · Advance Pickup Open',
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w800,
@@ -62,10 +64,10 @@ class GlobalTopBar extends StatelessWidget implements PreferredSizeWidget {
 
   const GlobalTopBar({
     super.key,
-    this.userName = 'Andrea',
-    this.userInitials = 'AM',
+    this.userName = '',
+    this.userInitials = 'C',
     this.isStoreOpen = true,
-    this.unreadNotifications = 2,
+    this.unreadNotifications = 0,
     required this.onOpenNotifications,
     this.onSearchTap,
     this.onProfileTap,
@@ -114,8 +116,8 @@ class GlobalTopBar extends StatelessWidget implements PreferredSizeWidget {
                   isExpanded: true,
                   showSubtitle: true,
                 ),
-                const Spacer(),
-                Flexible(
+                const SizedBox(width: 8),
+                Expanded(
                   child: Text(
                     _getGreeting(),
                     maxLines: 1,
@@ -133,9 +135,8 @@ class GlobalTopBar extends StatelessWidget implements PreferredSizeWidget {
                   icon: timeService.isSimulated
                       ? Icons.fast_forward_rounded
                       : Icons.access_time_rounded,
-                  iconColor: timeService.isSimulated
-                      ? AppColors.orangeCTA
-                      : null,
+                  iconColor:
+                      timeService.isSimulated ? AppColors.orangeCTA : null,
                   badgeCount: timeService.isSimulated ? 1 : 0,
                   onTap: () => TimeTravelSheet.show(context),
                 ),
@@ -192,9 +193,8 @@ class GlobalTopBar extends StatelessWidget implements PreferredSizeWidget {
                   icon: timeService.isSimulated
                       ? Icons.fast_forward_rounded
                       : Icons.access_time_rounded,
-                  iconColor: timeService.isSimulated
-                      ? AppColors.orangeCTA
-                      : null,
+                  iconColor:
+                      timeService.isSimulated ? AppColors.orangeCTA : null,
                   badgeCount: timeService.isSimulated ? 1 : 0,
                   onTap: () => TimeTravelSheet.show(context),
                 ),

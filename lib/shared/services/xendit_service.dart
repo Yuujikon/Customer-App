@@ -53,15 +53,23 @@ class XenditService {
       'currency': 'PHP',
     });
 
-    final response = await http.post(url, headers: _headers, body: body);
+    final response = await http
+        .post(url, headers: _headers, body: body)
+        .timeout(const Duration(seconds: 20));
 
     if (response.statusCode == 200 || response.statusCode == 201) {
-      final data = jsonDecode(response.body);
-      final id = data['id'];
-      final invoiceUrl = data['invoice_url'];
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final id = data['id']?.toString();
+      final invoiceUrl = data['invoice_url']?.toString();
+      if (id == null ||
+          id.isEmpty ||
+          invoiceUrl == null ||
+          invoiceUrl.isEmpty) {
+        throw Exception('Invalid Xendit invoice response.');
+      }
       return {
-        'id': id.toString(),
-        'url': invoiceUrl.toString(),
+        'id': id,
+        'url': invoiceUrl,
       };
     } else {
       throw Exception('Failed to create Xendit Invoice: ${response.body}');
@@ -77,11 +85,13 @@ class XenditService {
 
     final url = Uri.parse('https://api.xendit.co/v2/invoices/$invoiceId');
 
-    final response = await http.get(url, headers: _headers);
+    final response = await http
+        .get(url, headers: _headers)
+        .timeout(const Duration(seconds: 15));
 
     if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      final status = data['status'];
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final status = data['status']?.toString();
       if (status == 'PAID' || status == 'SETTLED') {
         return invoiceId; // Return Xendit Invoice ID as reference
       }
